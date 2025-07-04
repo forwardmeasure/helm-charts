@@ -1,0 +1,44 @@
+replicaCount: 1
+
+image:
+  repository: opensearchproject/opensearch
+  tag: 3.1.0
+  pullPolicy: Always
+
+adminSecret:
+  name: opensearch-initial-admin-secret
+  key: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+  value: ChangeMe123!
+
+service:
+  type: ClusterIP
+  ports:
+    http: 9200
+    metrics: 9600
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 20Gi
+  storageClass: standard
+
+dashboards:
+  replicaCount: 1
+  image:
+    repository: opensearchproject/opensearch-dashboards
+    tag: 3.1.0
+    pullPolicy: Always
+  opensearchHosts: https://opensearch:9200
+  disableSecurityPlugin: "false"
+  service:
+    type: ClusterIP
+    port: 80
+  host: insights.datafabric.asvinau.com
+  pathPrefix: /
+
+opensearch:
+  host: insights.datafabric.asvinau.com
+  pathPrefix: /api
+
+gateway:
+  name: insights-gateway
+  namespace: istio-system
