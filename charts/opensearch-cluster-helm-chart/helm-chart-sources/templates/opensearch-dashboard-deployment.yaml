@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opensearch.fullname" . }}-dashboards
+  labels:
+    app: {{ include "opensearch.name" . }}-dashboards
+spec:
+  replicas: {{ .Values.dashboards.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "opensearch.name" . }}-dashboards
+  template:
+    metadata:
+      labels:
+        app: {{ include "opensearch.name" . }}-dashboards
+    spec:
+      containers:
+        - name: dashboards
+          image: {{ .Values.dashboards.image.repository }}:{{ .Values.dashboards.image.tag }}
+          imagePullPolicy: {{ .Values.dashboards.image.pullPolicy }}
+          ports:
+            - containerPort: 5601
+              name: http
+          env:
+            - name: OPENSEARCH_HOSTS
+              value: {{ .Values.dashboards.opensearchHosts | quote }}
+            - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+              value: {{ .Values.dashboards.disableSecurityPlugin | quote }}

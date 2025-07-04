@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opensearch.fullname" . }}
+  labels:
+    app: {{ include "opensearch.name" . }}
+spec:
+  selector:
+    app: {{ include "opensearch.name" . }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.service.ports.http }}
+      targetPort: 9200
+      name: http
+    - protocol: TCP
+      port: {{ .Values.service.ports.metrics }}
+      targetPort: 9600
+      name: metrics
+  type: {{ .Values.service.type }}
