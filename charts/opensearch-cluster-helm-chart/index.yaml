@@ -3,7 +3,16 @@ entries:
   opensearch:
   - apiVersion: v1
     appVersion: 3.1.0
-    created: "2025-07-04T19:37:32.873204192-04:00"
+    created: "2025-07-04T20:12:39.204689522-04:00"
+    description: A Helm chart for OpenSearch Cluster deployment
+    digest: 112ac7db3499c964ac52410f9b86c8cdb4de3e0ddf674165abfe761f34921ec9
+    name: opensearch
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-1.0.1.tgz
+    version: 1.0.1
+  - apiVersion: v1
+    appVersion: 3.1.0
+    created: "2025-07-04T20:12:39.20455329-04:00"
     description: A Helm chart for OpenSearch Cluster deployment
     digest: d9adad0b52fa4ec07373973fbde3cc820042d0fc4b95eef9b155ebf57e3c34ef
     name: opensearch
@@ -20,4 +29,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/spark-cluster-helm-chart/spark-cluster-1.0.0.tgz
     version: 1.0.0
-generated: "2025-07-04T19:37:32.872971857-04:00"
+generated: "2025-07-04T20:12:39.20435872-04:00"
