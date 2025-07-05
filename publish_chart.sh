@@ -99,7 +99,7 @@ helm repo index "charts/${CHART_NAME}" --url "${REPO_URL}" --merge "$TMP_INDEX"
 rm -f "$TMP_INDEX"
 
 echo "📂 Committing changes to Git..."
-git add "$CHART_PACKAGE_FILE" "charts/${CHART_NAME}/index.yaml" "$SCRIPT_DIR/publish_chart.sh"
+git add "$CHART_PACKAGE_FILE" index.yaml "$SCRIPT_DIR/publish_chart.sh" "$CHART_FILE"
 git commit -m "${COMMIT_MSG}"
 
 if $DO_BRANCH; then
