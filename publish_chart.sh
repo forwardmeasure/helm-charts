@@ -86,6 +86,7 @@ helm lint "${CHART_SOURCE_DIR}"
 echo "📦 Packaging Helm chart version ${NEW_VERSION}..."
 helm package "${CHART_SOURCE_DIR}"
 
+INDEX_FILE="${CHART_PARENT_DIR}/index.yaml"
 CHART_PACKAGE_FILE=$(ls "${CHART_PARENT_DIR}"/*.tgz | tail -n1)
 
 echo "⬇️ Fetching latest index.yaml from ${BASE_BRANCH}..."
@@ -99,7 +100,7 @@ helm repo index "charts/${CHART_NAME}" --url "${REPO_URL}" --merge "$TMP_INDEX"
 rm -f "$TMP_INDEX"
 
 echo "📂 Committing changes to Git..."
-git add "$CHART_PACKAGE_FILE" index.yaml "$SCRIPT_DIR/publish_chart.sh" "$CHART_FILE"
+git add "$CHART_PACKAGE_FILE" "$INDEX_FILE" "$SCRIPT_DIR/publish_chart.sh" "$CHART_FILE"
 git commit -m "${COMMIT_MSG}"
 
 if $DO_BRANCH; then
