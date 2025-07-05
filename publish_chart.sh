@@ -3,12 +3,14 @@ set -eo pipefail
 
 # === CONFIG ===
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CHART_NAME=""
-REPO_URL=${REPO_URL:-"https://forwardmeasure.github.io/helm-charts/charts"}
+
+# === DEFAULTS ===
 DO_TAG=true
 DO_PUSH=true
 DO_BRANCH=true
 BASE_BRANCH="develop"
+CHART_NAME=""
+REPO_URL=""
 
 # === PARSE ARGS ===
 while [[ "$#" -gt 0 ]]; do
@@ -17,6 +19,7 @@ while [[ "$#" -gt 0 ]]; do
     --version) VERSION_OVERRIDE="$2"; shift ;;
     --message) COMMIT_MSG="$2"; shift ;;
     --base-branch) BASE_BRANCH="$2"; shift ;;
+    --repo-url) REPO_URL="$2"; shift ;;
     --no-tag) DO_TAG=false ;;
     --no-push) DO_PUSH=false ;;
     --no-branch) DO_BRANCH=false ;;
@@ -25,6 +28,7 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
+# === Validate chart name ===
 if [[ -z "$CHART_NAME" ]]; then
   echo "❌ --chart-name is required"
   exit 1
@@ -32,21 +36,21 @@ fi
 
 CHART_PARENT_DIR="${SCRIPT_DIR}/charts/${CHART_NAME}"
 CHART_SOURCE_DIR="${CHART_PARENT_DIR}/helm-chart-sources"
+CHART_PACKAGE_DIR="${CHART_PARENT_DIR}"
 CHART_FILE="${CHART_SOURCE_DIR}/Chart.yaml"
 VALUES_FILE="${CHART_SOURCE_DIR}/values.yaml"
 
+REPO_URL=${REPO_URL:-"https://forwardmeasure.github.io/helm-charts/charts/${CHART_NAME}"}
+
 # === Extract image tag from values.yaml ===
 IMAGE_TAG=$(yq e '.image.tag' "${VALUES_FILE}")
-
 if [[ -z "$IMAGE_TAG" ]]; then
   echo "❌ Could not extract image tag from values.yaml"
   exit 1
 fi
 
-# === Determine new version ===
-CURRENT_VERSION=$(grep "^version:" "$CHART_FILE" | awk '{print $2}' | tr -d '
-' | xargs)
-
+# === Determine current and new version ===
+CURRENT_VERSION=$(grep "^version:" "$CHART_FILE" | awk '{print $2}' | tr -d '\r\n' | xargs)
 if [[ -z "$CURRENT_VERSION" ]]; then
   echo "❌ Could not extract version from Chart.yaml"
   exit 1
@@ -56,6 +60,10 @@ if [[ -n "$VERSION_OVERRIDE" ]]; then
   NEW_VERSION="$VERSION_OVERRIDE"
 else
   IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+  if [[ -z "$MAJOR" || -z "$MINOR" || -z "$PATCH" ]]; then
+    echo "❌ Failed to parse semantic version from $CURRENT_VERSION"
+    exit 1
+  fi
   PATCH=$((PATCH + 1))
   NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
 fi
@@ -73,7 +81,7 @@ else
   sed -i'' -E "s/^appVersion: .*/appVersion: \"$IMAGE_TAG\"/" "$CHART_FILE"
 fi
 
-# === Commit metadata ===
+# === Set commit message and release labels ===
 COMMIT_MSG=${COMMIT_MSG:-"Release chart version ${NEW_VERSION}"}
 RELEASE_BRANCH="release/${CHART_NAME}/v${NEW_VERSION}"
 RELEASE_TAG="${CHART_NAME}-v${NEW_VERSION}"
@@ -84,23 +92,28 @@ echo "🔍 Linting Helm chart..."
 helm lint "${CHART_SOURCE_DIR}"
 
 echo "📦 Packaging Helm chart version ${NEW_VERSION}..."
-helm package "${CHART_SOURCE_DIR}"
+helm package "${CHART_SOURCE_DIR}" --destination "${CHART_PACKAGE_DIR}"
 
-INDEX_FILE="${CHART_PARENT_DIR}/index.yaml"
-CHART_PACKAGE_FILE=$(ls "${CHART_PARENT_DIR}"/*.tgz | tail -n1)
-
+# === Update root-level index.yaml ===
 echo "⬇️ Fetching latest index.yaml from ${BASE_BRANCH}..."
-cd "$SCRIPT_DIR"
 git fetch origin "${BASE_BRANCH}"
 TMP_INDEX=$(mktemp)
-git show origin/${BASE_BRANCH}:charts/${CHART_NAME}/index.yaml > "$TMP_INDEX" || touch "$TMP_INDEX"
+git show origin/${BASE_BRANCH}:index.yaml > "$TMP_INDEX" || touch "$TMP_INDEX"
 
-echo "🧾 Merging new chart into index.yaml..."
-helm repo index "charts/${CHART_NAME}" --url "${REPO_URL}" --merge "$TMP_INDEX"
+echo "🧾 Merging chart into root-level index.yaml..."
+helm repo index "${CHART_PACKAGE_DIR}" \
+  --url "${REPO_URL}" \
+  --merge "$TMP_INDEX"
+
+# === Sync root index to top-level ===
+mv "${CHART_PACKAGE_DIR}/index.yaml" "${SCRIPT_DIR}/index.yaml"
 rm -f "$TMP_INDEX"
 
+# === Git commit and push ===
+cd "$SCRIPT_DIR"
 echo "📂 Committing changes to Git..."
-git add "$CHART_PACKAGE_FILE" "$INDEX_FILE" "$SCRIPT_DIR/publish_chart.sh" "$CHART_FILE"
+git add .
+
 git commit -m "${COMMIT_MSG}"
 
 if $DO_BRANCH; then
