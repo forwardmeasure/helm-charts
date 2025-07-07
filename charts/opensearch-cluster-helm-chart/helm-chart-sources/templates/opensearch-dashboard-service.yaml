@@ -3,10 +3,15 @@ kind: Service
 metadata:
   name: {{ include "opensearch.fullname" . }}-dashboards
   labels:
-    app: {{ include "opensearch.name" . }}-dashboards
+    app.kubernetes.io/name: {{ include "opensearch.name" . }}
+    app.kubernetes.io/component: dashboards
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
 spec:
   selector:
-    app: {{ include "opensearch.name" . }}-dashboards
+    app.kubernetes.io/name: {{ include "opensearch.name" . }}
+    app.kubernetes.io/component: dashboards
   ports:
     - name: http
       port: {{ .Values.dashboards.service.port }}

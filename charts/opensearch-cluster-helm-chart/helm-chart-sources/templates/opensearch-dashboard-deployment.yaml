@@ -3,16 +3,23 @@ kind: Deployment
 metadata:
   name: {{ include "opensearch.fullname" . }}-dashboards
   labels:
-    app: {{ include "opensearch.name" . }}-dashboards
+    app.kubernetes.io/name: {{ include "opensearch.name" . }}
+    app.kubernetes.io/component: dashboards
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
 spec:
   replicas: {{ .Values.dashboards.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "opensearch.name" . }}-dashboards
+      app.kubernetes.io/name: {{ include "opensearch.name" . }}
+      app.kubernetes.io/component: dashboards
   template:
     metadata:
       labels:
-        app: {{ include "opensearch.name" . }}-dashboards
+        app.kubernetes.io/name: {{ include "opensearch.name" . }}
+        app.kubernetes.io/component: dashboards
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       containers:
         - name: dashboards
