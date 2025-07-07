@@ -2,6 +2,12 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ include "opensearch.fullname" . }}-pvc
+  labels:
+    app.kubernetes.io/name: {{ include "opensearch.name" . }}
+    app.kubernetes.io/component: search
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
 spec:
   accessModes:
     - {{ .Values.persistence.accessMode }}
