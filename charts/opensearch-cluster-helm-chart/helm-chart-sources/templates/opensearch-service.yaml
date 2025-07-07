@@ -3,10 +3,14 @@ kind: Service
 metadata:
   name: {{ include "opensearch.fullname" . }}
   labels:
-    app: {{ include "opensearch.name" . }}
+    app.kubernetes.io/name: {{ include "opensearch.name" . }}
+    app.kubernetes.io/component: search
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
 spec:
   selector:
-    app: {{ include "opensearch.name" . }}
+    app.kubernetes.io/name: {{ include "opensearch.name" . }}
   ports:
     - protocol: TCP
       port: {{ .Values.service.ports.http }}
