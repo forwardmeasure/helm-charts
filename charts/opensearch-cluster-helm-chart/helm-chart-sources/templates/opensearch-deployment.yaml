@@ -3,16 +3,22 @@ kind: Deployment
 metadata:
   name: {{ include "opensearch.fullname" . }}
   labels:
-    app: {{ include "opensearch.name" . }}
+    app.kubernetes.io/name: {{ include "opensearch.name" . }}
+    app.kubernetes.io/component: search
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "opensearch.name" . }}
+      app.kubernetes.io/name: {{ include "opensearch.name" . }}
+      app.kubernetes.io/component: search
   template:
     metadata:
       labels:
-        app: {{ include "opensearch.name" . }}
+        app.kubernetes.io/name: {{ include "opensearch.name" . }}
+        app.kubernetes.io/component: search
     spec:
       containers:
         - name: opensearch
