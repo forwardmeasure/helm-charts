@@ -22,7 +22,7 @@ spec:
     spec:
       initContainers:
         - name: fix-perf-analyzer-perms
-          image: busybox:1.36
+          image: busybox:latest
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args:
