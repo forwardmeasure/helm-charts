@@ -1,77 +1,23 @@
 apiVersion: v1
 entries:
   opensearch:
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-08T12:02:12.550106679-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
-    version: 1.0.16
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-08T12:02:12.549876899-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 73cf26311dcfc32074e1eaab14947e10a4bf44d3f6708cc2bf6106332034e8cf
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.14.tgz
-    version: 1.0.14
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-08T12:02:12.549741728-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 14a6572025556cc399c7079be7207f2405b1c1b9480353e8ee1a1fb6003d11d2
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.13.tgz
-    version: 1.0.13
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-08T12:02:12.549608288-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 7f2f608089c53c8151fa5a2deab0639d7d174144e1007970ff54a097d44141ec
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.12.tgz
-    version: 1.0.12
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-08T12:02:12.549470541-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: e07d9e4bfa71e2f85ecc6bcbb30f5ba60b17d530dd96dcd7d9b7830e55210a7a
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.11.tgz
-    version: 1.0.11
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-08T12:02:12.550227787-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 6b515ed2b4c5dadb08f8da410709842b8cb39b54ee96df41dc2b4f0b895d84b9
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.8.tgz
-    version: 1.0.8
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-08T12:02:12.549339345-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: d9adad0b52fa4ec07373973fbde3cc820042d0fc4b95eef9b155ebf57e3c34ef
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.0.tgz
-    version: 1.0.0
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2025-07-08T12:02:12.550106679-04:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
+      version: 1.0.16
   spark-cluster:
-  - apiVersion: v2
-    appVersion: 4.0.0
-    created: "2025-03-25T15:01:48.430567672-04:00"
-    description: A Helm chart for Spark Cluster deployment
-    digest: 152ca802f469a5437325682afa35734a72b2dbd867cd3b550502c66cb392bf84
-    name: spark-cluster
-    urls:
-    - https://forwardmeasure.github.io/spark-cluster-helm-chart/spark-cluster-1.0.0.tgz
-    version: 1.0.0
+    - apiVersion: v2
+      appVersion: 4.0.0
+      created: "2025-03-25T15:01:48.430567672-04:00"
+      description: A Helm chart for Spark Cluster deployment
+      digest: 152ca802f469a5437325682afa35734a72b2dbd867cd3b550502c66cb392bf84
+      name: spark-cluster
+      urls:
+        - https://forwardmeasure.github.io/spark-cluster-helm-chart/spark-cluster-1.0.0.tgz
+      version: 1.0.0
 generated: "2025-07-08T12:02:12.549116717-04:00"
