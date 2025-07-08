@@ -1,5 +1,11 @@
 replicaCount: 1
 
+clusterName: "opensearch-cluster"
+nodeName: "opensearch-node-1"
+
+security:
+  disable: "false"
+
 image:
   repository: opensearchproject/opensearch
   tag: 3.1.0
@@ -14,6 +20,7 @@ service:
   type: ClusterIP
   ports:
     http: 9200
+    transport: 9300
     metrics: 9600
 
 persistence:
@@ -57,3 +64,45 @@ resources:
   requests:
     cpu: "500m"
     memory: "2Gi"
+
+certificates:
+  enabled: true
+
+  issuer:
+    name: letsencrypt-prod
+    kind: ClusterIssuer # or Issuer
+
+  node:
+    secretName: opensearch-node-secret
+    mountPath: /usr/share/opensearch/config/certs
+    certFile: tls.crt
+    keyFile: tls.key
+    caFile: ca.crt
+
+  admin:
+    enabled: true
+    secretName: opensearch-admin-secret
+    certFile: tls.crt
+    keyFile: tls.key
+    subjectDN: "CN=admin,OU=SSL,O=SSL,C=DE"
+
+# These will be rendered into opensearch.yml via ConfigMap template
+extraConfig:
+  plugins.security.ssl.transport.enabled: true
+  plugins.security.ssl.transport.pemcert_filepath: certs/{{ .Values.certificates.node.certFile }}
+  plugins.security.ssl.transport.pemkey_filepath: certs/{{ .Values.certificates.node.keyFile }}
+  plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ .Values.certificates.node.caFile }}
+  plugins.security.ssl.transport.enforce_hostname_verification: false
+
+  plugins.security.ssl.http.enabled: true
+  plugins.security.ssl.http.pemcert_filepath: certs/{{ .Values.certificates.node.certFile }}
+  plugins.security.ssl.http.pemkey_filepath: certs/{{ .Values.certificates.node.keyFile }}
+  plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ .Values.certificates.node.caFile }}
+
+  plugins.security.allow_default_init_securityindex: true
+
+jvm:
+  heap:
+    min: "2g"
+    max: "2g"
+  options: "-XX:+UseG1GC -XX:+AlwaysPreTouch -Dlog4j2.formatMsgNoLookups=true"
