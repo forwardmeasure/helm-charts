@@ -9,15 +9,20 @@ metadata:
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
 spec:
+  type: {{ .Values.service.type }}
   selector:
     app.kubernetes.io/name: {{ include "opensearch.name" . }}
+    app.kubernetes.io/component: search
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: {{ .Values.service.ports.http }}
-      targetPort: 9200
-      name: http
-    - protocol: TCP
+      targetPort: {{ .Values.service.ports.http }}
+    - name: transport
+      protocol: TCP
+      port: {{ .Values.service.ports.transport }}
+      targetPort: {{ .Values.service.ports.transport }}
+    - name: metrics
+      protocol: TCP
       port: {{ .Values.service.ports.metrics }}
-      targetPort: 9600
-      name: metrics
-  type: {{ .Values.service.type }}
+      targetPort: {{ .Values.service.ports.metrics }}

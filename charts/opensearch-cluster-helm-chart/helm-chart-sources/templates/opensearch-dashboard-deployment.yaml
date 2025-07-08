@@ -30,5 +30,11 @@ spec:
           env:
             - name: OPENSEARCH_HOSTS
               value: {{ .Values.dashboards.opensearchHosts | quote }}
+            - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+              value: {{ .Values.dashboards.disableSecurityPlugin | quote }}
+            - name: SERVER_BASEPATH
+              value: {{ .Values.dashboards.pathPrefix | quote }}
+            - name: SERVER_REWRITEBASEPATH
+              value: "true"
           resources:
             {{- toYaml .Values.dashboards.resources | nindent 12 }}

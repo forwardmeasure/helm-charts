@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opensearch-custom-config
+  labels:
+    app.kubernetes.io/name: {{ include "opensearch.name" . }}
+    app.kubernetes.io/component: config
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+data:
+  opensearch.yml: |
+    cluster.name: {{ .Values.clusterName }}
+    node.name: {{ .Values.nodeName }}
+    path.data: /usr/share/opensearch/data
+    path.logs: /usr/share/opensearch/logs
+    network.host: 0.0.0.0
+    http.port: {{ .Values.service.ports.http }}
+    transport.port: {{ .Values.service.ports.transport }}
+    discovery.type: single-node
+
+    plugins.security.disabled: {{ .Values.security.disable | default "false" }}
+
+    {{- if .Values.certificates.enabled }}
+    plugins.security.ssl.transport.enabled: true
+    plugins.security.ssl.transport.pemcert_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.certFile }}
+    plugins.security.ssl.transport.pemkey_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.keyFile }}
+    plugins.security.ssl.transport.pemtrustedcas_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.caFile }}
+    plugins.security.ssl.transport.enforce_hostname_verification: false
+
+    plugins.security.ssl.http.enabled: true
+    plugins.security.ssl.http.pemcert_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.certFile }}
+    plugins.security.ssl.http.pemkey_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.keyFile }}
+    plugins.security.ssl.http.pemtrustedcas_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.caFile }}
+    {{- end }}
+
+    plugins.security.allow_default_init_securityindex: true
+
+    {{- if .Values.certificates.admin.enabled }}
+    plugins.security.authcz.admin_dn:
+      - "{{ .Values.certificates.admin.subjectDN }}"
+    {{- end }}
+
+    {{- with .Values.extraConfig }}
+    {{ toYaml . | indent 4 }}
+    {{- end }}
+
