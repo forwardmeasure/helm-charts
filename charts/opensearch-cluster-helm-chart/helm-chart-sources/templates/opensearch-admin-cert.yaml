@@ -1,0 +1,20 @@
+{{- if .Values.certificates.admin.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "opensearch.fullname" . }}-admin-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: {{ .Values.certificates.admin.secretName }}
+  duration: 2160h
+  renewBefore: 360h
+  subject:
+    organizations:
+      - admin
+  commonName: {{ .Values.certificates.admin.subjectCN | default "admin" }}
+  dnsNames:
+    - {{ .Values.certificates.admin.subjectCN | default "admin" }}
+  issuerRef:
+    name: {{ .Values.certificates.issuer.name }}
+    kind: {{ .Values.certificates.issuer.kind | default "ClusterIssuer" }}
+{{- end }}
