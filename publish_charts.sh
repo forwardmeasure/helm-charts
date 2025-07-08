@@ -131,8 +131,14 @@ if $DO_PUSH; then
   git config push.default current
   if $DO_BRANCH; then git push -u origin "${RELEASE_BRANCH}"; fi
   if $DO_TAG; then git push origin "${RELEASE_TAG}"; fi
+
+  # === Delete local release branch after pushing
+  echo "🧹 Deleting local release branch: ${RELEASE_BRANCH}"
+  git checkout "${BASE_BRANCH}"
+  git branch -D "${RELEASE_BRANCH}"
 else
   echo "⚠️  Push skipped (--no-push was set)"
 fi
+
 
 echo "✅ Helm chart '${CHART_NAME}' version ${NEW_VERSION} packaged and index updated!"

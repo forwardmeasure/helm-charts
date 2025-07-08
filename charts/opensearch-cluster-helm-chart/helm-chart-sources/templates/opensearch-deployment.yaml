@@ -49,9 +49,9 @@ spec:
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: 9200
+            - containerPort: {{ .Values.service.ports.http }}
               name: http
-            - containerPort: 9600
+            - containerPort: {{ .Values.service.ports.metrics }}
               name: metrics
           env:
             - name: discovery.type
