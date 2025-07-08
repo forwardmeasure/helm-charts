@@ -34,6 +34,13 @@ dashboards:
     port: 80
   host: explore.datafabric.asvinau.com
   pathPrefix: /
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
 
 opensearch:
   host: explore.datafabric.asvinau.com
