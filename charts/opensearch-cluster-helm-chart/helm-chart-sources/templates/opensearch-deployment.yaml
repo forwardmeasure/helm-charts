@@ -51,6 +51,8 @@ spec:
           ports:
             - containerPort: {{ .Values.service.ports.http }}
               name: http
+            - containerPort: {{ .Values.service.ports.transport }}
+              name: transport
             - containerPort: {{ .Values.service.ports.metrics }}
               name: metrics
           env:
@@ -61,6 +63,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.adminSecret.name }}
                   key: {{ .Values.adminSecret.key }}
+            - name: OPENSEARCH_JAVA_OPTS
+              value: "-Xms{{ .Values.jvm.heap.min }} -Xmx{{ .Values.jvm.heap.max }} {{ .Values.jvm.options }}"
 
           livenessProbe:
             httpGet:
@@ -69,8 +73,9 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 60
             periodSeconds: 30
+            timeoutSeconds: 1
+            successThreshold: 1
             failureThreshold: 5
-
           readinessProbe:
             httpGet:
               path: /
@@ -78,16 +83,24 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 15
+            timeoutSeconds: 1
+            successThreshold: 1
             failureThreshold: 5
-
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-
           volumeMounts:
             - name: storage
               mountPath: /usr/share/opensearch/data
             - name: writable-config
               mountPath: /usr/share/opensearch/config
+            - name: custom-config
+              mountPath: /usr/share/opensearch/config/opensearch.yml
+              subPath: opensearch.yml
+            {{- if .Values.certificates.enabled }}
+            - name: certs
+              mountPath: {{ .Values.certificates.node.mountPath }}
+              readOnly: true
+            {{- end }}
 
       volumes:
         - name: storage
@@ -95,3 +108,11 @@ spec:
             claimName: {{ include "opensearch.fullname" . }}-pvc
         - name: writable-config
           emptyDir: {}
+        - name: custom-config
+          configMap:
+            name: opensearch-custom-config
+        {{- if .Values.certificates.enabled }}
+        - name: certs
+          secret:
+            secretName: {{ .Values.certificates.node.secretName }}
+        {{- end }}

@@ -9,7 +9,7 @@ opensearch
 Return the full name of the main OpenSearch deployment
 */}}
 {{- define "opensearch.fullname" -}}
-{{ printf "%s-%s" .Release.Name "opensearch" }}
+{{ printf "%s-%s" .Release.Name (include "opensearch.name" .) }}
 {{- end -}}
 
 {{/*
