@@ -32,11 +32,26 @@ spec:
               value: {{ .Values.dashboards.opensearchHosts | quote }}
             - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
               value: {{ .Values.dashboards.disableSecurityPlugin | quote }}
+            - name: OPENSEARCH_SSL_VERIFICATIONMODE
+              value: {{ .Values.dashboards.ssl.verificationMode | default "none" | quote }}
+            - name: OPENSEARCH_SSL_CERTIFICATEAUTHORITIES
+              value: "/usr/share/opensearch-dashboards/config/certs/ca.crt"
             {{- if and (.Values.dashboards.pathPrefix) (ne .Values.dashboards.pathPrefix "/") }}
             - name: SERVER_BASEPATH
               value: {{ .Values.dashboards.pathPrefix | quote }}
             - name: SERVER_REWRITEBASEPATH
               value: "true"
             {{- end }}
+          volumeMounts:
+            - name: opensearch-ca
+              mountPath: /usr/share/opensearch-dashboards/config/certs
+              readOnly: true
           resources:
             {{- toYaml .Values.dashboards.resources | nindent 12 }}
+      volumes:
+        - name: opensearch-ca
+          secret:
+            secretName: {{ .Values.certificates.node.secretName }}
+            items:
+              - key: {{ .Values.certificates.node.caFile }}
+                path: ca.crt
