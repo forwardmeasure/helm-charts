@@ -66,6 +66,10 @@ dashboards:
     limits:
       cpu: "500m"
       memory: "512Mi"
+  ssl:
+    verificationMode: "none"
+  istio:
+    disableMTLS: true
 
 gateway:
   name: data-fabric-gateway
