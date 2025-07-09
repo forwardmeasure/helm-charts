@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensearch-cert-debug
+  namespace: opensearch-cluster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opensearch-cert-debug
+  template:
+    metadata:
+      labels:
+        app: opensearch-cert-debug
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      volumes:
+        - name: original-certs
+          secret:
+            secretName: opensearch-node-secret
+        - name: patched-certs
+          emptyDir: {}
+      initContainers:
+        - name: cert-debugger
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[Init] Preparing certs for debug..."
+              mkdir -p /patched-certs
+              cp /certs/tls.key /patched-certs/tls.key
+              cp /certs/tls.crt /patched-certs/tls.crt
+              cp /certs/ca.crt /patched-certs/ca.crt
+              chown 1000:1000 /patched-certs/*.crt /patched-certs/*.key
+              chmod 600 /patched-certs/tls.key
+              chmod 644 /patched-certs/tls.crt /patched-certs/ca.crt
+              ls -l /patched-certs
+          volumeMounts:
+            - name: original-certs
+              mountPath: /certs
+              readOnly: true
+            - name: patched-certs
+              mountPath: /patched-certs
+      containers:
+        - name: shell
+          image: debian:bookworm
+          command:
+            - sleep
+            - "3600"
+          volumeMounts:
+            - name: patched-certs
+              mountPath: /usr/share/opensearch/config/certs

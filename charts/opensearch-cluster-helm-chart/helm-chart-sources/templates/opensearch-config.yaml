@@ -21,27 +21,7 @@ data:
 
     plugins.security.disabled: {{ .Values.security.disable | default "false" }}
 
-    {{- if .Values.certificates.enabled }}
-    plugins.security.ssl.transport.enabled: true
-    plugins.security.ssl.transport.pemcert_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.certFile }}
-    plugins.security.ssl.transport.pemkey_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.keyFile }}
-    plugins.security.ssl.transport.pemtrustedcas_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.caFile }}
-    plugins.security.ssl.transport.enforce_hostname_verification: false
-
-    plugins.security.ssl.http.enabled: true
-    plugins.security.ssl.http.pemcert_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.certFile }}
-    plugins.security.ssl.http.pemkey_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.keyFile }}
-    plugins.security.ssl.http.pemtrustedcas_filepath: {{ printf "%s/%s" (.Values.certificates.node.mountPath | trimSuffix "/") .Values.certificates.node.caFile }}
-    {{- end }}
-
-    plugins.security.allow_default_init_securityindex: true
-
-    {{- if .Values.certificates.admin.enabled }}
-    plugins.security.authcz.admin_dn:
-      - "{{ .Values.certificates.admin.subjectDN }}"
-    {{- end }}
-
     {{- with .Values.extraConfig }}
-    {{ toYaml . | indent 4 }}
+{{ toYaml . | indent 4 }}
     {{- end }}
 
