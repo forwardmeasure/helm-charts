@@ -3,50 +3,50 @@ kind: Deployment
 metadata:
   name: {{ include "opensearch.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "opensearch.name" . }}
-    app.kubernetes.io/component: search
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
-    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app: {{ include "opensearch.name" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "opensearch.name" . }}
-      app.kubernetes.io/component: search
+      app: {{ include "opensearch.name" . }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "opensearch.name" . }}
-        app.kubernetes.io/component: search
+        app: {{ include "opensearch.name" . }}
     spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
       initContainers:
-        - name: fix-perf-analyzer-perms
-          image: busybox:latest
-          imagePullPolicy: IfNotPresent
+        - name: patch-certs
+          image: alpine:3.20
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "[Init] Creating Performance Analyzer config files..."
-              mkdir -p /usr/share/opensearch/data /usr/share/opensearch/config
-              for f in performance_analyzer_enabled.conf \
-                       rca_enabled.conf \
-                       logging_enabled.conf \
-                       batch_metrics_enabled.conf \
-                       thread_contention_monitoring_enabled.conf; do
-                touch "/usr/share/opensearch/data/$f"
-              done
-              chmod 0644 /usr/share/opensearch/data/*.conf
-              chown -R 1000:1000 /usr/share/opensearch/data /usr/share/opensearch/config
+              echo "[Init] Preparing certs for OpenSearch TLS..."
+              apk add --no-cache curl
+              mkdir -p /patched-certs
+              cat /certs/tls.crt > /patched-certs/tls.crt
+              curl -sSL {{ .Values.certificates.r3Url }} >> /patched-certs/tls.crt
+              cp /certs/tls.key /patched-certs/tls.key
+              curl -sSL {{ .Values.certificates.r3Url }} -o /patched-certs/ca.crt
+              chown 1000:1000 /patched-certs/*.crt /patched-certs/*.key
+              chmod 600 /patched-certs/tls.key
+              chmod 644 /patched-certs/tls.crt /patched-certs/ca.crt
           volumeMounts:
-            - name: storage
-              mountPath: /usr/share/opensearch/data
-            - name: writable-config
-              mountPath: /usr/share/opensearch/config
+            - name: raw-certs
+              mountPath: /certs
+              readOnly: true
+            - name: patched-certs
+              mountPath: /patched-certs
+          securityContext:
+            runAsUser: 0
 
       containers:
         - name: opensearch
-          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.ports.http }}
@@ -63,56 +63,20 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.adminSecret.name }}
                   key: {{ .Values.adminSecret.key }}
-            - name: OPENSEARCH_JAVA_OPTS
-              value: "-Xms{{ .Values.jvm.heap.min }} -Xmx{{ .Values.jvm.heap.max }} {{ .Values.jvm.options }}"
-
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-              scheme: HTTP
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 1
-            successThreshold: 1
-            failureThreshold: 5
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
-              scheme: HTTP
-            initialDelaySeconds: 30
-            periodSeconds: 15
-            timeoutSeconds: 1
-            successThreshold: 1
-            failureThreshold: 5
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: storage
+            - name: data
               mountPath: /usr/share/opensearch/data
-            - name: writable-config
-              mountPath: /usr/share/opensearch/config
-            - name: custom-config
-              mountPath: /usr/share/opensearch/config/opensearch.yml
-              subPath: opensearch.yml
-            {{- if .Values.certificates.enabled }}
-            - name: certs
-              mountPath: {{ .Values.certificates.node.mountPath }}
+            - name: patched-certs
+              mountPath: /usr/share/opensearch/config/certs
               readOnly: true
-            {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
 
       volumes:
-        - name: storage
-          persistentVolumeClaim:
-            claimName: {{ include "opensearch.fullname" . }}-pvc
-        - name: writable-config
+        - name: data
           emptyDir: {}
-        - name: custom-config
-          configMap:
-            name: opensearch-custom-config
-        {{- if .Values.certificates.enabled }}
-        - name: certs
+        - name: raw-certs
           secret:
             secretName: {{ .Values.certificates.node.secretName }}
-        {{- end }}
+        - name: patched-certs
+          emptyDir: {}

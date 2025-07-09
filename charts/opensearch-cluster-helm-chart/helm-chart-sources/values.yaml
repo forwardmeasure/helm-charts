@@ -8,13 +8,13 @@ security:
 
 image:
   repository: opensearchproject/opensearch
-  tag: 3.1.0
+  tag: "3.1.0"
   pullPolicy: Always
 
 adminSecret:
   name: opensearch-initial-admin-secret
   key: OPENSEARCH_INITIAL_ADMIN_PASSWORD
-  value: ChangeMe123!
+  value: "ChangeMe123!"
 
 service:
   type: ClusterIP
@@ -28,35 +28,6 @@ persistence:
   size: 30Gi
   storageClass: standard
 
-dashboards:
-  replicaCount: 1
-  image:
-    repository: opensearchproject/opensearch-dashboards
-    tag: 3.1.0
-    pullPolicy: Always
-  opensearchHosts: https://opensearch-opensearch:9200
-  disableSecurityPlugin: "false"
-  service:
-    type: ClusterIP
-    port: 80
-  host: explore.datafabric.asvinau.com
-  pathPrefix: /
-  resources:
-    requests:
-      cpu: "100m"
-      memory: "256Mi"
-    limits:
-      cpu: "500m"
-      memory: "512Mi"
-
-opensearch:
-  host: explore.datafabric.asvinau.com
-  pathPrefix: /api
-
-gateway:
-  name: data-fabric-gateway
-  namespace: istio-system
-
 resources:
   limits:
     cpu: "2"
@@ -65,44 +36,64 @@ resources:
     cpu: "500m"
     memory: "2Gi"
 
-certificates:
-  enabled: true
-
-  issuer:
-    name: letsencrypt-prod
-    kind: ClusterIssuer # or Issuer
-
-  node:
-    secretName: opensearch-node-secret
-    mountPath: /usr/share/opensearch/config/certs
-    certFile: tls.crt
-    keyFile: tls.key
-    caFile: ca.crt
-
-  admin:
-    enabled: true
-    secretName: opensearch-admin-secret
-    certFile: tls.crt
-    keyFile: tls.key
-    subjectDN: "CN=admin,OU=SSL,O=SSL,C=DE"
-
-# These will be rendered into opensearch.yml via ConfigMap template
-extraConfig:
-  plugins.security.ssl.transport.enabled: true
-  plugins.security.ssl.transport.pemcert_filepath: certs/{{ .Values.certificates.node.certFile }}
-  plugins.security.ssl.transport.pemkey_filepath: certs/{{ .Values.certificates.node.keyFile }}
-  plugins.security.ssl.transport.pemtrustedcas_filepath: certs/{{ .Values.certificates.node.caFile }}
-  plugins.security.ssl.transport.enforce_hostname_verification: false
-
-  plugins.security.ssl.http.enabled: true
-  plugins.security.ssl.http.pemcert_filepath: certs/{{ .Values.certificates.node.certFile }}
-  plugins.security.ssl.http.pemkey_filepath: certs/{{ .Values.certificates.node.keyFile }}
-  plugins.security.ssl.http.pemtrustedcas_filepath: certs/{{ .Values.certificates.node.caFile }}
-
-  plugins.security.allow_default_init_securityindex: true
-
 jvm:
   heap:
     min: "2g"
     max: "2g"
   options: "-XX:+UseG1GC -XX:+AlwaysPreTouch -Dlog4j2.formatMsgNoLookups=true"
+
+opensearch:
+  host: explore.datafabric.asvinau.com
+  pathPrefix: "/api"
+
+dashboards:
+  replicaCount: 1
+  image:
+    repository: opensearchproject/opensearch-dashboards
+    tag: "3.1.0"
+    pullPolicy: Always
+  opensearchHosts: "https://opensearch-opensearch:9200"
+  disableSecurityPlugin: "false"
+  service:
+    type: ClusterIP
+    port: 80
+  host: explore.datafabric.asvinau.com
+  pathPrefix: "/"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+gateway:
+  name: data-fabric-gateway
+  namespace: istio-system
+
+certificates:
+  enabled: true
+  r3Url: https://letsencrypt.org/certs/lets-encrypt-r3.pem
+
+  issuer:
+    name: letsencrypt-gcp-dns
+    kind: ClusterIssuer
+
+  node:
+    secretName: opensearch-node-secret
+    mountPath: /certs
+    certFile: tls.crt
+    keyFile: tls.key
+    caFile: ca.crt
+
+extraConfig:
+  "plugins.security.ssl.transport.enabled": "true"
+  "plugins.security.ssl.transport.pemcert_filepath": "/usr/share/opensearch/config/certs/tls.crt"
+  "plugins.security.ssl.transport.pemkey_filepath": "/usr/share/opensearch/config/certs/tls.key"
+  "plugins.security.ssl.transport.pemtrustedcas_filepath": "/usr/share/opensearch/config/certs/ca.crt"
+  "plugins.security.ssl.transport.enforce_hostname_verification": "false"
+  "plugins.security.ssl.http.enabled": "true"
+  "plugins.security.ssl.http.pemcert_filepath": "/usr/share/opensearch/config/certs/tls.crt"
+  "plugins.security.ssl.http.pemkey_filepath": "/usr/share/opensearch/config/certs/tls.key"
+  "plugins.security.ssl.http.pemtrustedcas_filepath": "/usr/share/opensearch/config/certs/ca.crt"
+  "plugins.security.allow_default_init_securityindex": "true"

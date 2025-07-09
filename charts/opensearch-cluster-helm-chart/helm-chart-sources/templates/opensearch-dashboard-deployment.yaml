@@ -32,9 +32,11 @@ spec:
               value: {{ .Values.dashboards.opensearchHosts | quote }}
             - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
               value: {{ .Values.dashboards.disableSecurityPlugin | quote }}
+            {{- if and (.Values.dashboards.pathPrefix) (ne .Values.dashboards.pathPrefix "/") }}
             - name: SERVER_BASEPATH
               value: {{ .Values.dashboards.pathPrefix | quote }}
             - name: SERVER_REWRITEBASEPATH
               value: "true"
+            {{- end }}
           resources:
             {{- toYaml .Values.dashboards.resources | nindent 12 }}
