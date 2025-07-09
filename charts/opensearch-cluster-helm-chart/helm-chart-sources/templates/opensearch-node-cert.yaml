@@ -1,17 +1,24 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ include "opensearch.fullname" . }}-node-cert
+  name: {{ .Values.certificates.node.certificateName | default (printf "%s-node-cert" (include "opensearch.fullname" .)) }}
   namespace: {{ .Release.Namespace }}
 spec:
   secretName: {{ .Values.certificates.node.secretName }}
-  duration: 2160h        # 90 days
-  renewBefore: 360h      # 15 days before expiration
+  duration: 2160h # 90 days
+  renewBefore: 360h
   commonName: {{ .Values.opensearch.host }}
   dnsNames:
     - {{ .Values.opensearch.host }}
-    - {{ include "opensearch.fullname" . }}
-    - {{ include "opensearch.fullname" . }}.{{ .Release.Namespace }}.svc
+  privateKey:
+    algorithm: RSA
+    size: 2048
   issuerRef:
     name: {{ .Values.certificates.issuer.name }}
     kind: {{ .Values.certificates.issuer.kind | default "ClusterIssuer" }}
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+    - client auth
+
