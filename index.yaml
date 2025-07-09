@@ -1,23 +1,32 @@
 apiVersion: v1
 entries:
   opensearch:
-    - apiVersion: v1
-      appVersion: 3.1.0
-      created: "2025-07-08T12:02:12.550106679-04:00"
-      description: A Helm chart for OpenSearch Cluster deployment
-      digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
-      name: opensearch
-      urls:
-        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
-      version: 1.0.16
+  - apiVersion: v1
+    appVersion: 3.1.0
+    created: "2025-07-09T14:43:52.169822265-04:00"
+    description: A Helm chart for OpenSearch Cluster deployment
+    digest: cc65647770278f7c5048ed6fef3671e75589ba2ada8ac43f8c09f35e7b7dce72
+    name: opensearch
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.17.tgz
+    version: 1.0.17
+  - apiVersion: v1
+    appVersion: 3.1.0
+    created: "2025-07-09T14:43:52.169584801-04:00"
+    description: A Helm chart for OpenSearch Cluster deployment
+    digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
+    name: opensearch
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
+    version: 1.0.16
   spark-cluster:
-    - apiVersion: v2
-      appVersion: 4.0.0
-      created: "2025-03-25T15:01:48.430567672-04:00"
-      description: A Helm chart for Spark Cluster deployment
-      digest: 152ca802f469a5437325682afa35734a72b2dbd867cd3b550502c66cb392bf84
-      name: spark-cluster
-      urls:
-        - https://forwardmeasure.github.io/spark-cluster-helm-chart/spark-cluster-1.0.0.tgz
-      version: 1.0.0
-generated: "2025-07-08T12:02:12.549116717-04:00"
+  - apiVersion: v2
+    appVersion: 4.0.0
+    created: "2025-03-25T15:01:48.430567672-04:00"
+    description: A Helm chart for Spark Cluster deployment
+    digest: 152ca802f469a5437325682afa35734a72b2dbd867cd3b550502c66cb392bf84
+    name: spark-cluster
+    urls:
+    - https://forwardmeasure.github.io/spark-cluster-helm-chart/spark-cluster-1.0.0.tgz
+    version: 1.0.0
+generated: "2025-07-09T14:43:52.169245794-04:00"
