@@ -3,8 +3,13 @@ replicaCount: 1
 clusterName: "opensearch-cluster"
 nodeName: "opensearch-node-1"
 
+# Toggle OpenSearch security and TLS features
 security:
-  disable: "false"
+  disable: true
+
+  http:
+    tls:
+      enabled: false # TLS on HTTP disabled
 
 image:
   repository: opensearchproject/opensearch
@@ -52,8 +57,8 @@ dashboards:
     repository: opensearchproject/opensearch-dashboards
     tag: "3.1.0"
     pullPolicy: Always
-  opensearchHosts: "https://opensearch-opensearch:9200"
-  disableSecurityPlugin: "false"
+  opensearchHosts: "http://opensearch-opensearch.opensearch-cluster.svc.cluster.local:9200"
+  disableSecurityPlugin: true
   service:
     type: ClusterIP
     port: 80
@@ -67,9 +72,11 @@ dashboards:
       cpu: "500m"
       memory: "512Mi"
   ssl:
-    verificationMode: "none"
+    verificationMode: none
   istio:
     disableMTLS: true
+  podAnnotations:
+    traffic.sidecar.istio.io/includeIPRanges: "*"
 
 gateway:
   name: data-fabric-gateway
@@ -90,14 +97,14 @@ certificates:
     keyFile: tls.key
     caFile: ca.crt
 
+# Optional extra config passed to opensearch.yml
 extraConfig:
+  # Enable transport layer TLS (required for inter-node communication)
   "plugins.security.ssl.transport.enabled": "true"
   "plugins.security.ssl.transport.pemcert_filepath": "/usr/share/opensearch/config/certs/tls.crt"
   "plugins.security.ssl.transport.pemkey_filepath": "/usr/share/opensearch/config/certs/tls.key"
   "plugins.security.ssl.transport.pemtrustedcas_filepath": "/usr/share/opensearch/config/certs/ca.crt"
   "plugins.security.ssl.transport.enforce_hostname_verification": "false"
-  "plugins.security.ssl.http.enabled": "true"
-  "plugins.security.ssl.http.pemcert_filepath": "/usr/share/opensearch/config/certs/tls.crt"
-  "plugins.security.ssl.http.pemkey_filepath": "/usr/share/opensearch/config/certs/tls.key"
-  "plugins.security.ssl.http.pemtrustedcas_filepath": "/usr/share/opensearch/config/certs/ca.crt"
+
+  # Enable security index bootstrapping
   "plugins.security.allow_default_init_securityindex": "true"

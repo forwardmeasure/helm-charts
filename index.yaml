@@ -1,27 +1,19 @@
 apiVersion: v1
 entries:
+  karavan:
+  - apiVersion: v2
+    appVersion: 4.10.2
+    created: "2025-09-12T16:58:30.743493725-04:00"
+    description: Chart Helm for deploy Karavan
+    digest: 54aa61e7fffec3ddd3ab5344537a0ad39acc89c2c5f50da75e0493421d039877
+    name: karavan
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.1.tgz
+    version: 1.0.1
   opensearch:
   - apiVersion: v1
     appVersion: 3.1.0
-    created: "2025-07-09T15:21:41.612105392-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 67e87de6f4e6b18245bdcccda597265bb822962f7dfa0e41663a6bccf9e477dc
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.21.tgz
-    version: 1.0.21
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-09T15:21:41.611430447-04:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 1008dcd9e37b99d589e2a239cae56f92bef8e94af657e16f3db45984775b8f23
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.20.tgz
-    version: 1.0.20
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2025-07-09T15:21:41.610800633-04:00"
+    created: "2025-07-09T14:43:52.169822265-04:00"
     description: A Helm chart for OpenSearch Cluster deployment
     digest: cc65647770278f7c5048ed6fef3671e75589ba2ada8ac43f8c09f35e7b7dce72
     name: opensearch
@@ -30,7 +22,7 @@ entries:
     version: 1.0.17
   - apiVersion: v1
     appVersion: 3.1.0
-    created: "2025-07-09T15:21:41.610240634-04:00"
+    created: "2025-07-09T14:43:52.169584801-04:00"
     description: A Helm chart for OpenSearch Cluster deployment
     digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
     name: opensearch
@@ -47,4 +39,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/spark-cluster-helm-chart/spark-cluster-1.0.0.tgz
     version: 1.0.0
-generated: "2025-07-09T15:21:41.609463153-04:00"
+generated: "2025-09-12T16:58:30.743277-04:00"
