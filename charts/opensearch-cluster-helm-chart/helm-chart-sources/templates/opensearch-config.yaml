@@ -21,7 +21,16 @@ data:
 
     plugins.security.disabled: {{ .Values.security.disable | default "false" }}
 
+    {{- if and (not (.Values.security.disable | default false)) (.Values.security.http.tls.enabled | default false) }}
+    plugins.security.ssl.http.enabled: true
+    plugins.security.ssl.http.pemcert_filepath: certs/tls.crt
+    plugins.security.ssl.http.pemkey_filepath: certs/tls.key
+    plugins.security.ssl.http.pemtrustedcas_filepath: certs/ca.crt
+    plugins.security.ssl.http.clientauth_mode: OPTIONAL
+    {{- else }}
+    plugins.security.ssl.http.enabled: false
+    {{- end }}
+
     {{- with .Values.extraConfig }}
 {{ toYaml . | indent 4 }}
     {{- end }}
-

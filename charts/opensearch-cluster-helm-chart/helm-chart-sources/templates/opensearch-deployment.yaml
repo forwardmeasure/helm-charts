@@ -19,6 +19,7 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
 
+{{- if .Values.security.http.tls.enabled }}
       initContainers:
         - name: patch-certs
           image: alpine:3.20
@@ -43,6 +44,7 @@ spec:
               mountPath: /patched-certs
           securityContext:
             runAsUser: 0
+{{- end }}
 
       containers:
         - name: opensearch
@@ -64,19 +66,27 @@ spec:
                   name: {{ .Values.adminSecret.name }}
                   key: {{ .Values.adminSecret.key }}
           volumeMounts:
-            - name: data
-              mountPath: /usr/share/opensearch/data
+            - name: config
+              mountPath: /usr/share/opensearch/config/opensearch.yml
+              subPath: opensearch.yml
+{{- if .Values.security.http.tls.enabled }}
             - name: patched-certs
               mountPath: /usr/share/opensearch/config/certs
               readOnly: true
+{{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
 
       volumes:
         - name: data
           emptyDir: {}
+        - name: config
+          configMap:
+            name: opensearch-custom-config
+{{- if .Values.security.http.tls.enabled }}
         - name: raw-certs
           secret:
             secretName: {{ .Values.certificates.node.secretName }}
         - name: patched-certs
           emptyDir: {}
+{{- end }}

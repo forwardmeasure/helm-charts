@@ -19,6 +19,10 @@ spec:
       labels:
         app.kubernetes.io/name: {{ include "opensearch.dashboards.name" . }}
         app.kubernetes.io/component: dashboard
+      {{- with .Values.dashboards.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       containers:
         - name: dashboards
@@ -32,26 +36,40 @@ spec:
               value: {{ .Values.dashboards.opensearchHosts | quote }}
             - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
               value: {{ .Values.dashboards.disableSecurityPlugin | quote }}
+
+            {{- if and (.Values.dashboards.ssl.verificationMode) (ne (.Values.dashboards.ssl.verificationMode | lower) "none") }}
             - name: OPENSEARCH_SSL_VERIFICATIONMODE
-              value: {{ .Values.dashboards.ssl.verificationMode | default "none" | quote }}
+              value: {{ .Values.dashboards.ssl.verificationMode | quote }}
             - name: OPENSEARCH_SSL_CERTIFICATEAUTHORITIES
               value: "/usr/share/opensearch-dashboards/config/certs/ca.crt"
+            {{- else }}
+            - name: OPENSEARCH_SSL_VERIFICATIONMODE
+              value: "none"
+            {{- end }}
+
             {{- if and (.Values.dashboards.pathPrefix) (ne .Values.dashboards.pathPrefix "/") }}
             - name: SERVER_BASEPATH
               value: {{ .Values.dashboards.pathPrefix | quote }}
             - name: SERVER_REWRITEBASEPATH
               value: "true"
             {{- end }}
+
           volumeMounts:
+            {{- if and (.Values.dashboards.ssl.verificationMode) (ne (.Values.dashboards.ssl.verificationMode | lower) "none") }}
             - name: opensearch-ca
               mountPath: /usr/share/opensearch-dashboards/config/certs
               readOnly: true
+            {{- end }}
+
           resources:
             {{- toYaml .Values.dashboards.resources | nindent 12 }}
+
       volumes:
+        {{- if and (.Values.dashboards.ssl.verificationMode) (ne (.Values.dashboards.ssl.verificationMode | lower) "none") }}
         - name: opensearch-ca
           secret:
-            secretName: {{ .Values.certificates.node.secretName }}
+            secretName: {{ .Values.dashboards.ssl.caSecretName | quote }}
             items:
-              - key: {{ .Values.certificates.node.caFile }}
+              - key: ca.crt
                 path: ca.crt
+        {{- end }}
