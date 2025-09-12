@@ -3,13 +3,22 @@ entries:
   karavan:
   - apiVersion: v2
     appVersion: 4.10.2
-    created: "2025-09-12T16:58:44.982809662-04:00"
+    created: "2025-09-12T17:01:02.470350108-04:00"
     description: Chart Helm for deploy Karavan
     digest: 26379f4d0bfa78491f640f772e8909d4ddab78ceb42e37349eaf42b3987d580c
     name: karavan
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.1.tgz
     version: 1.0.1
+  - apiVersion: v2
+    appVersion: 4.10.2
+    created: "2025-09-12T17:01:02.470199312-04:00"
+    description: Chart Helm for deploy Karavan
+    digest: b76a4fe25e47af615ea81945966e63d4b05b0a253e676837596daf31991203f7
+    name: karavan
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.0.tgz
+    version: 1.0.0
   opensearch:
   - apiVersion: v1
     appVersion: 3.1.0
@@ -39,4 +48,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/spark-cluster-helm-chart/spark-cluster-1.0.0.tgz
     version: 1.0.0
-generated: "2025-09-12T16:58:44.982594944-04:00"
+generated: "2025-09-12T17:01:02.469982795-04:00"
