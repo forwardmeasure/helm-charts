@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "docling-serve.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "docling-serve.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "docling-serve.name" . }}
+    spec:
+      volumes:
+        - name: hf-cache
+          persistentVolumeClaim:
+            claimName: {{ .Values.cache.pvcName }}
+      initContainers:
+        - name: fix-cache-perms
+          image: {{ .Values.initContainer.image }}
+          command: ["sh", "-lc"]
+          args:
+            - |
+              set -eux
+              mkdir -p /cache/huggingface /cache/docling
+              chmod -R 0777 /cache
+          volumeMounts:
+            - name: hf-cache
+              mountPath: {{ .Values.cache.mountPath }}
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+      containers:
+        - name: docling-serve
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.containerPort }}
+          env:
+            - name: HF_HOME
+              value: {{ .Values.env.HF_HOME | quote }}
+            - name: HF_HUB_CACHE
+              value: {{ .Values.env.HF_HUB_CACHE | quote }}
+            - name: DOCLING_ARTIFACTS_PATH
+              value: {{ .Values.env.DOCLING_ARTIFACTS_PATH | quote }}
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: {{ .Values.env.HF_HUB_ENABLE_HF_TRANSFER | quote }}
+            - name: DOCLING_VLM_MODEL_ID
+              value: {{ .Values.env.DOCLING_VLM_MODEL_ID | quote }}
+            - name: DOCLING_CODEFORMULA_MODEL_ID
+              value: {{ .Values.env.DOCLING_CODEFORMULA_MODEL_ID | quote }}
+            - name: DOCLING_REPO_TYPE
+              value: {{ .Values.env.DOCLING_REPO_TYPE | quote }}
+            - name: DOCLING_SERVE_ENABLE_UI
+              value: {{ .Values.env.DOCLING_SERVE_ENABLE_UI | quote }}
+          volumeMounts:
+            - name: hf-cache
+              mountPath: {{ .Values.cache.mountPath }}
