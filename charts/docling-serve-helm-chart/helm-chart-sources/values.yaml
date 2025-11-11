@@ -1,0 +1,36 @@
+replicaCount: 1
+image:
+  repository: quay.io/docling-project/docling-serve
+  tag: latest
+  pullPolicy: IfNotPresent
+containerPort: 5001
+
+env:
+  HF_HOME: /cache/huggingface
+  HF_HUB_CACHE: /cache/huggingface
+  DOCLING_ARTIFACTS_PATH: /cache/docling
+  HF_HUB_ENABLE_HF_TRANSFER: "1"
+  DOCLING_VLM_MODEL_ID: HuggingFaceTB/SmolVLM-256M-Instruct
+  DOCLING_CODEFORMULA_MODEL_ID: ds4sd/CodeFormulaV2
+  DOCLING_REPO_TYPE: model
+  DOCLING_SERVE_ENABLE_UI: "1"
+
+cache:
+  pvcName: docling-cache-pvc
+  mountPath: /cache
+
+initContainer:
+  image: alpine:3.20
+
+service:
+  type: ClusterIP
+  port: 5001
+  targetPort: 5001
+  name: http
+
+persistence:
+  enabled: true
+  existingClaim: docling-cache-pvc
+  accessMode: ReadWriteOnce
+  size: 50Gi
+  storageClass: ""
