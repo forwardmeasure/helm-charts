@@ -18,8 +18,8 @@ data:
     {{- $root := . }}
     {{- $ss := include "zookeeper.fullname" $root }}
     {{- $svc := include "zookeeper.headlessName" $root }}
-    {{- $ns := $root.Release.Namespace }}
     {{- range $i := until (int $root.Values.replicaCount) }}
     {{- $id := add $i 1 }}
-    server.{{ $id }}={{ $ss }}-{{ $i }}.{{ $svc }}.{{ $ns }}.svc.cluster.local:{{ $root.Values.service.ports.quorum }}:{{ $root.Values.service.ports.election }};{{ $root.Values.service.ports.client }}
+    # Pod: {{ $ss }}-{{ $i }}
+    server.{{ $id }}={{ $ss }}-{{ $i }}.{{ $svc }}:{{ $root.Values.service.ports.quorum }}:{{ $root.Values.service.ports.election }};{{ $root.Values.service.ports.client }}
     {{- end }}
