@@ -5,7 +5,6 @@ metadata:
   labels:
     app: {{ include "zookeeper.name" . }}
 spec:
-  serviceAccountName: {{ include "zookeeper.fullname" . }}
   serviceName: {{ include "zookeeper.headlessName" . }}
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -16,6 +15,7 @@ spec:
       labels:
         app: {{ include "zookeeper.name" . }}
     spec:
+      serviceAccountName: {{ include "zookeeper.fullname" . }} 
       initContainers:
         - name: set-myid
           image: busybox:1.36
