@@ -1,0 +1,44 @@
+1. Accessing Zookeeper:
+
+{{- $serviceType := default "ClusterIP" .Values.service.type }}
+
+{{- if contains "NodePort" $serviceType }}
+  # NodePort service:
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o
+jsonpath="{.spec.ports[0].nodePort}" svc {{ include "zookeeper.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o
+jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Connect using: zkCli.sh -server $NODE_IP:$NODE_PORT"
+
+{{- else if contains "LoadBalancer" $serviceType }}
+  # LoadBalancer service:
+  echo "Waiting for LoadBalancer IP..."
+  echo "You can watch status with:"
+  echo "  kubectl get svc -n {{ .Release.Namespace }} -w {{ include
+"zookeeper.fullname" . }}"
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include
+"zookeeper.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo "Connect using: zkCli.sh -server $SERVICE_IP:{{ .Values.service.port }}"
+
+{{- else if contains "ClusterIP" $serviceType }}
+  # ClusterIP (default, internal-only):
+  export POD_NAME=$(kubectl get pods -n {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include
+"zookeeper.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o
+jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod -n {{ .Release.Namespace }} $POD_NAME -o
+jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "To connect locally, port-forward a pod:"
+  echo "  kubectl -n {{ .Release.Namespace }} port-forward $POD_NAME 2181:$CONTAINER_PORT"
+  echo "Then connect Zookeeper client to localhost:2181"
+{{- end }}
+
+2. Zookeeper Ensemble Status:
+   kubectl get pods -n {{ .Release.Namespace }}
+
+3. Chart Management:
+   helm list -n {{ .Release.Namespace }}
+
+4. Cluster DNS:
+   The headless service is: {{ include "zookeeper.headlessName" . }}
+   Each pod is discoverable at: <pod-name>.{{ include "zookeeper.headlessName" . }}.{{ .Release.Namespace
+}}.svc.cluster.local:2888:3888
