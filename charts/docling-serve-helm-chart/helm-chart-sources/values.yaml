@@ -25,10 +25,8 @@ env:
   # Requires hf_transfer to be installed in the container image.
   # Verify the docling-serve image includes it before enabling.
   HF_HUB_ENABLE_HF_TRANSFER: "1"
-  # SmolVLM is used for picture description. The model is downloaded via the
-  # download-hf-repo target in the models.extras list below, not via the named
-  # 'smolvlm' token (which does not place files where DOCLING_SERVE_ARTIFACTS_PATH expects).
-  DOCLING_VLM_MODEL_ID: HuggingFaceTB/SmolVLM-256M-Instruct
+  # granite_vision token downloads ibm-granite/granite-vision-3.3-2b for picture description.
+  DOCLING_VLM_MODEL_ID: ibm-granite/granite-vision-3.3-2b
   DOCLING_CODEFORMULA_MODEL_ID: ds4sd/CodeFormulaV2
   DOCLING_REPO_TYPE: model
   DOCLING_SERVE_ENABLE_UI: "1"
@@ -80,19 +78,22 @@ models:
     tag: main
     pullPolicy: IfNotPresent
   # Named model tokens passed to: docling-tools models download --output-dir=...
-  # These cover the core pipeline models (layout, OCR, table, classifier).
+  # Full token list (current docling-tools version):
+  #   layout, tableformer, code_formula, picture_classifier,
+  #   smolvlm, granitedocling, granitedocling_mlx, smoldocling, smoldocling_mlx,
+  #   granite_vision, granite_chart_extraction, rapidocr, easyocr
   list:
     - layout
     - tableformer
-    - code_formula
+    - code_formula # also covers CodeFormulaV2 (ds4sd/CodeFormulaV2)
     - picture_classifier
     - easyocr
+    - rapidocr
+    - granite_vision # ibm-granite/granite-vision-3.3-2b  -> DOCLING_VLM_MODEL_ID
+    - smoldocling # ibm-granite/granite-docling-258M   -> full-page VLM pipeline
   # HuggingFace repos downloaded directly via: docling-tools models download-hf-repo
-  # Use this for VLM models that are not available via the named token mechanism,
-  # or where the named token does not place files in the expected ARTIFACTS_PATH layout.
-  extras:
-    - HuggingFaceTB/SmolVLM-256M-Instruct
-    - ds4sd/CodeFormulaV2
+  # Only needed for models not available as named tokens above.
+  extras: []
   checksumManifest: ".model-manifest.sha256"
   resources:
     requests:
