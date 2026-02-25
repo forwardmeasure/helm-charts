@@ -198,6 +198,15 @@ spec:
               nvidia.com/gpu: {{ .Values.gpu.count | default 1 }}
             {{- end }}
 
+          # startupProbe gates liveness/readiness until the app is up.
+          # failureThreshold * periodSeconds = max startup budget (20 * 30s = 10 min).
+          # Loading granite_vision-3.3-2b on CPU can take several minutes.
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            periodSeconds: 30
+            failureThreshold: 20
           livenessProbe:
             httpGet:
               path: {{ .Values.probes.liveness.path }}
