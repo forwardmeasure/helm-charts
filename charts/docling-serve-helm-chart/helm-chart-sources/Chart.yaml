@@ -2,7 +2,9 @@ apiVersion: v2
 name: docling-serve
 description: Helm chart for deploying Docling Serve with PVC-backed cache and configurable backend models.
 type: application
-version: "0.1.3"
+version: "0.1.6"
+# NOTE: Pin appVersion to a specific release tag or image digest in production.
+# "latest" is mutable and makes rollbacks unreliable.
 appVersion: "latest"
 keywords:
   - docling

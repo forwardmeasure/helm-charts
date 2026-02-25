@@ -2,21 +2,29 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "docling-serve.fullname" . }}
+  labels:
+    {{- include "docling-serve.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "docling-serve.name" . }}
+      {{- include "docling-serve.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: {{ include "docling-serve.name" . }}
+        {{- include "docling-serve.selectorLabels" . | nindent 8 }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
         - name: hf-cache
           persistentVolumeClaim:
-            claimName: {{ .Values.cache.pvcName }}
+            claimName: {{ .Values.persistence.existingClaim }}
       initContainers:
+
+        # Step 1: Fix ownership and permissions on the cache directories.
         - name: fix-cache-perms
           image: {{ .Values.initContainer.image }}
           command: ["sh", "-lc"]
@@ -24,7 +32,7 @@ spec:
             - |
               set -eux
               mkdir -p /cache/huggingface /cache/docling
-              chmod -R 0777 /cache
+              chmod -R 0755 /cache
           volumeMounts:
             - name: hf-cache
               mountPath: {{ .Values.cache.mountPath }}
@@ -32,12 +40,82 @@ spec:
             runAsUser: 0
             runAsGroup: 0
             allowPrivilegeEscalation: false
+          resources:
+            {{- toYaml .Values.initContainer.resources | nindent 12 }}
+
+        # Step 2: Download model weights if the checksum manifest is missing or invalid.
+        # On a warm cache, checksum verification completes in seconds and the download is skipped.
+        # On a cold cache or corrupt cache, models are re-downloaded and a fresh manifest is written.
+        - name: download-models
+          image: "{{ .Values.models.image.repository }}:{{ .Values.models.image.tag }}"
+          imagePullPolicy: {{ .Values.models.image.pullPolicy }}
+          command: ["sh", "-lc"]
+          args:
+            - |
+              set -eu
+
+              CACHE_DIR="{{ .Values.cache.mountPath }}/docling"
+              MANIFEST="${CACHE_DIR}/{{ .Values.models.checksumManifest }}"
+
+              verify_manifest() {
+                echo "Verifying model cache checksums..."
+                # sha256sum -c exits non-zero if any file is missing or its checksum does not match.
+                if sha256sum -c "${MANIFEST}" --quiet 2>/dev/null; then
+                  echo "Checksum verification passed. Skipping download."
+                  return 0
+                else
+                  echo "Checksum verification FAILED. Cache is missing or corrupt."
+                  return 1
+                fi
+              }
+
+              download_models() {
+                echo "Downloading models to ${CACHE_DIR}..."
+                docling-tools models download \
+                  --output-dir="${CACHE_DIR}" \
+                  {{- range .Values.models.list }}
+                  {{ . }} \
+                  {{- end }}
+
+                echo "Generating checksum manifest at ${MANIFEST}..."
+                # Find all files, sort for determinism, compute sha256 for each.
+                # Paths in the manifest are relative to CACHE_DIR so the manifest
+                # remains valid even if the PVC is remounted at a different path.
+                find "${CACHE_DIR}" -type f ! -name "{{ .Values.models.checksumManifest }}" \
+                  | sort \
+                  | xargs sha256sum \
+                  | sed "s|${CACHE_DIR}/||g" \
+                  > "${MANIFEST}"
+                echo "Manifest written with $(wc -l < "${MANIFEST}") entries."
+              }
+
+              # Enter CACHE_DIR so sha256sum -c can resolve relative paths in the manifest.
+              mkdir -p "${CACHE_DIR}"
+              cd "${CACHE_DIR}"
+
+              if [ ! -f "${MANIFEST}" ]; then
+                echo "No manifest found. Performing initial download."
+                download_models
+              elif ! verify_manifest; then
+                echo "Re-downloading models due to verification failure."
+                download_models
+              else
+                echo "Model cache is valid."
+              fi
+          volumeMounts:
+            - name: hf-cache
+              mountPath: {{ .Values.cache.mountPath }}
+          resources:
+            {{- toYaml .Values.models.resources | nindent 12 }}
+
       containers:
         - name: docling-serve
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: {{ .Values.containerPort }}
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
           env:
             - name: HF_HOME
               value: {{ .Values.env.HF_HOME | quote }}
@@ -58,3 +136,19 @@ spec:
           volumeMounts:
             - name: hf-cache
               mountPath: {{ .Values.cache.mountPath }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}

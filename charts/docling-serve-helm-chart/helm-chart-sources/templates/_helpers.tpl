@@ -7,10 +7,22 @@
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
 {{- $name := default .Chart.Name .Values.nameOverride }}
-{{- printf "%s" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
 {{- end }}
 {{- end }}
 
 {{- define "docling-serve.chart" -}}
 {{- .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+{{- end }}
+
+{{- define "docling-serve.labels" -}}
+helm.sh/chart: {{ include "docling-serve.chart" . }}
+app.kubernetes.io/name: {{ include "docling-serve.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{- define "docling-serve.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "docling-serve.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
