@@ -237,8 +237,24 @@ models:
   resources: {}
 
 persistence:
+  # Set existingClaim to use the shared model-cache-pvc (standard for GCS FUSE
+  # model cache deployments). When set, create is ignored and no PVC is created
+  # by this chart -- the pre-existing shared PVC is used instead.
+  existingClaim: model-cache-pvc
+  # Set create: true and clear existingClaim for standalone/dev deployments
+  # that don't use the shared model cache infrastructure.
+  create: false
+  accessMode: ReadWriteMany
+  size: 200Gi
+  storageClass: model-cache-sc
+
+# ---------------------------------------------------------------------------
+# ServiceAccount
+# Creates the model-cache-sa KSA used to access the shared GCS FUSE PVC.
+# The Workload Identity annotation (iam.gke.io/gcp-service-account) is
+# injected by the GCP Kustomize overlay -- do not set it here.
+# ---------------------------------------------------------------------------
+serviceAccount:
   create: true
-  existingClaim: docling-cache-pvc
-  accessMode: ReadWriteOnce
-  size: 50Gi
-  storageClass: ""
+  name: model-cache-sa
+  annotations: {}
