@@ -1,0 +1,214 @@
+# ---------------------------------------------------------------------------
+# ConfigMap containing the shared model download library.
+# Mounted into init containers at /scripts/model-download-lib.sh.
+# All workloads that download models should mount this ConfigMap.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-download-lib
+  namespace: model-cache
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    purpose: model-cache
+data:
+  model-download-lib.sh: |
+    #!/bin/sh
+    # ---------------------------------------------------------------------------
+    # model-download-lib.sh
+    # Reusable shell library for downloading HuggingFace/docling model weights
+    # to a shared GCS-backed PVC.
+    #
+    # Usage in init container scripts:
+    #   . /scripts/model-download-lib.sh
+    #   model_download_named "layout tableformer easyocr" "/models" "my-workload"
+    #   model_download_hf_repo "ibm-granite/granite-vision-3.3-2b" "/models" "my-workload"
+    #   model_write_manifest "/models" "my-workload"
+    #
+    # Locking strategy:
+    #   Each model directory gets a .download.lock sentinel file while being
+    #   downloaded. Other init containers that see the lock file will wait up
+    #   to LOCK_TIMEOUT_SECS before proceeding (handles crashed downloaders).
+    #
+    # Manifest strategy:
+    #   Each workload writes its own .<workload>.manifest file listing only
+    #   the models it cares about. This means deploying a new workload never
+    #   invalidates another workload's manifest or triggers re-downloads.
+    # ---------------------------------------------------------------------------
+    
+    LOCK_TIMEOUT_SECS="${LOCK_TIMEOUT_SECS:-600}"
+    LOCK_POLL_SECS="${LOCK_POLL_SECS:-10}"
+    
+    # ---------------------------------------------------------------------------
+    # _acquire_lock MODEL_DIR
+    # Creates a .download.lock sentinel in MODEL_DIR.
+    # Waits if a lock already exists (another init container is downloading).
+    # Returns 0 if lock acquired, 1 if timed out waiting.
+    # ---------------------------------------------------------------------------
+    _acquire_lock() {
+      local model_dir="$1"
+      local lock_file="${model_dir}/.download.lock"
+      local elapsed=0
+    
+      while [ -f "${lock_file}" ]; do
+        if [ "${elapsed}" -ge "${LOCK_TIMEOUT_SECS}" ]; then
+          echo "⚠️  Lock timeout after ${LOCK_TIMEOUT_SECS}s on ${model_dir}. Stale lock? Proceeding anyway."
+          break
+        fi
+        echo "⏳ Waiting for lock on ${model_dir} (${elapsed}s / ${LOCK_TIMEOUT_SECS}s)..."
+        sleep "${LOCK_POLL_SECS}"
+        elapsed=$((elapsed + LOCK_POLL_SECS))
+      done
+    
+      # Write our PID and hostname as lock content for debugging
+      mkdir -p "${model_dir}"
+      echo "locked by ${HOSTNAME} pid $$ at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${lock_file}"
+      echo "🔒 Lock acquired on ${model_dir}"
+    }
+    
+    # ---------------------------------------------------------------------------
+    # _release_lock MODEL_DIR
+    # ---------------------------------------------------------------------------
+    _release_lock() {
+      local model_dir="$1"
+      rm -f "${model_dir}/.download.lock"
+      echo "🔓 Lock released on ${model_dir}"
+    }
+    
+    # ---------------------------------------------------------------------------
+    # _model_exists MODEL_DIR
+    # Returns 0 if the model directory exists and contains at least one file.
+    # ---------------------------------------------------------------------------
+    _model_exists() {
+      local model_dir="$1"
+      [ -d "${model_dir}" ] && [ -n "$(find "${model_dir}" -type f ! -name '.download.lock' -maxdepth 2 | head -1)" ]
+    }
+    
+    # ---------------------------------------------------------------------------
+    # model_download_named TOKENS CACHE_DIR WORKLOAD_NAME
+    # Downloads named docling-tools model tokens to CACHE_DIR.
+    # Skips tokens whose target directory already exists and is populated.
+    # TOKENS is a space-separated string of token names.
+    # ---------------------------------------------------------------------------
+    model_download_named() {
+      local tokens="$1"
+      local cache_dir="$2"
+      local workload="$3"
+    
+      echo "📦 [${workload}] Downloading named model tokens: ${tokens}"
+      mkdir -p "${cache_dir}"
+    
+      # docling-tools downloads all tokens in one call - we can't easily
+      # check per-token existence without knowing the exact output dir name.
+      # So we call it with all tokens and let it skip existing ones.
+      # shellcheck disable=SC2086
+      docling-tools models download \
+        --output-dir="${cache_dir}" \
+        ${tokens}
+    }
+    
+    # ---------------------------------------------------------------------------
+    # model_download_hf_repo REPO_ID CACHE_DIR WORKLOAD_NAME
+    # Downloads a HuggingFace repo to CACHE_DIR using docling-tools.
+    # Skips if the model directory already exists and is populated.
+    # Uses a lock file to prevent concurrent downloads of the same model.
+    # ---------------------------------------------------------------------------
+    model_download_hf_repo() {
+      local repo_id="$1"
+      local cache_dir="$2"
+      local workload="$3"
+    
+      # Derive the expected directory name (HF convention: org--repo)
+      local model_dir="${cache_dir}/$(echo "${repo_id}" | tr '/' '-' | sed 's/-/--/1')"
+      # More accurate: replace first / with --
+      model_dir="${cache_dir}/$(echo "${repo_id}" | sed 's|/|--|')"
+    
+      if _model_exists "${model_dir}"; then
+        echo "✅ [${workload}] ${repo_id} already present at ${model_dir}, skipping."
+        return 0
+      fi
+    
+      _acquire_lock "${model_dir}"
+    
+      # Re-check after acquiring lock - another pod may have downloaded while we waited
+      if _model_exists "${model_dir}"; then
+        echo "✅ [${workload}] ${repo_id} downloaded by another pod while waiting, skipping."
+        _release_lock "${model_dir}"
+        return 0
+      fi
+    
+      echo "⬇️  [${workload}] Downloading ${repo_id}..."
+      if docling-tools models download-hf-repo "${repo_id}" --output-dir="${cache_dir}"; then
+        echo "✅ [${workload}] ${repo_id} downloaded successfully."
+      else
+        echo "❌ [${workload}] Failed to download ${repo_id}."
+        _release_lock "${model_dir}"
+        return 1
+      fi
+    
+      _release_lock "${model_dir}"
+    }
+    
+    # ---------------------------------------------------------------------------
+    # model_write_manifest CACHE_DIR WORKLOAD_NAME MODEL_DIRS...
+    # Writes a per-workload checksum manifest covering only the specified
+    # model directories. Does not touch other workloads' manifests.
+    # MODEL_DIRS is a space-separated list of directory names relative to CACHE_DIR.
+    # ---------------------------------------------------------------------------
+    model_write_manifest() {
+      local cache_dir="$1"
+      local workload="$2"
+      shift 2
+      local model_dirs="$*"
+      local manifest="${cache_dir}/.${workload}.manifest"
+    
+      echo "📝 [${workload}] Writing manifest to ${manifest}..."
+    
+      # Build find arguments for the specific model directories
+      local find_args=""
+      for dir in ${model_dirs}; do
+        if [ -d "${cache_dir}/${dir}" ]; then
+          find_args="${find_args} ${cache_dir}/${dir}"
+        fi
+      done
+    
+      if [ -z "${find_args}" ]; then
+        echo "⚠️  [${workload}] No model directories found for manifest."
+        return 1
+      fi
+    
+      # shellcheck disable=SC2086
+      find ${find_args} -type f ! -name '.download.lock' \
+        | sort \
+        | xargs sha256sum \
+        | sed "s|${cache_dir}/||g" \
+        > "${manifest}"
+    
+      echo "✅ [${workload}] Manifest written with $(wc -l < "${manifest}") entries."
+    }
+    
+    # ---------------------------------------------------------------------------
+    # model_verify_manifest CACHE_DIR WORKLOAD_NAME
+    # Returns 0 if the workload's manifest exists and all checksums pass.
+    # Returns 1 if manifest is missing or any checksum fails.
+    # ---------------------------------------------------------------------------
+    model_verify_manifest() {
+      local cache_dir="$1"
+      local workload="$2"
+      local manifest="${cache_dir}/.${workload}.manifest"
+    
+      if [ ! -f "${manifest}" ]; then
+        echo "ℹ️  [${workload}] No manifest found at ${manifest}."
+        return 1
+      fi
+    
+      echo "🔍 [${workload}] Verifying manifest..."
+      # sha256sum -c expects paths relative to CWD
+      if (cd "${cache_dir}" && sha256sum -c "${manifest}" --quiet 2>/dev/null); then
+        echo "✅ [${workload}] Manifest verification passed."
+        return 0
+      else
+        echo "❌ [${workload}] Manifest verification FAILED."
+        return 1
+      fi
+    }
