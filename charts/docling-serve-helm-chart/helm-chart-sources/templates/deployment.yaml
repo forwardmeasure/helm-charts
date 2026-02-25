@@ -78,7 +78,7 @@ spec:
             - |
               set -eu
 
-              CACHE_DIR="{{ .Values.cache.mountPath }}/docling"
+              CACHE_DIR="{{ .Values.cache.mountPath }}/docling/models"
               MANIFEST="${CACHE_DIR}/{{ .Values.models.checksumManifest }}"
 
               verify_manifest() {
@@ -99,6 +99,11 @@ spec:
                   {{- range .Values.models.list }}
                   {{ . }} \
                   {{- end }}
+                {{- range .Values.models.extras }}
+                echo "Downloading HF repo {{ . }}..."
+                docling-tools models download-hf-repo {{ . }} \
+                  --output-dir="${CACHE_DIR}"
+                {{- end }}
 
                 echo "Generating checksum manifest at ${MANIFEST}..."
                 find "${CACHE_DIR}" -type f ! -name "{{ .Values.models.checksumManifest }}" \
@@ -143,8 +148,8 @@ spec:
               value: {{ .Values.env.HF_HOME | quote }}
             - name: HF_HUB_CACHE
               value: {{ .Values.env.HF_HUB_CACHE | quote }}
-            - name: DOCLING_ARTIFACTS_PATH
-              value: {{ .Values.env.DOCLING_ARTIFACTS_PATH | quote }}
+            - name: DOCLING_SERVE_ARTIFACTS_PATH
+              value: {{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH | quote }}
             - name: HF_HUB_ENABLE_HF_TRANSFER
               value: {{ .Values.env.HF_HUB_ENABLE_HF_TRANSFER | quote }}
             - name: DOCLING_VLM_MODEL_ID
