@@ -5,7 +5,7 @@ fullnameOverride: ""
 image:
   repository: quay.io/docling-project/docling-serve
   # NOTE: Pin to a specific tag or SHA digest in production, e.g.:
-  #   tag: "0.4.0"
+  #   tag: "1.12.0"
   #   tag: "sha256:abc123..."
   tag: latest
   pullPolicy: IfNotPresent
@@ -26,6 +26,7 @@ env:
   # Verify the docling-serve image includes it before enabling.
   HF_HUB_ENABLE_HF_TRANSFER: "1"
   # granite_vision token downloads ibm-granite/granite-vision-3.3-2b for picture description.
+  # Switch to HuggingFaceTB/SmolVLM-256M-Instruct for lighter CPU-only deployments.
   DOCLING_VLM_MODEL_ID: ibm-granite/granite-vision-3.3-2b
   DOCLING_CODEFORMULA_MODEL_ID: ds4sd/CodeFormulaV2
   DOCLING_REPO_TYPE: model
@@ -47,23 +48,29 @@ initContainer:
       cpu: 100m
       memory: 64Mi
 
+# Main container resources.
+# granite-vision-3.3-2b (2B params) requires ~8GB RAM in float32 on CPU,
+# plus ~2GB for layout/table/OCR models loaded alongside it.
+# 16Gi limit provides safe headroom for concurrent inference requests.
 resources:
   requests:
     cpu: 500m
-    memory: 2Gi
+    memory: 6Gi
   limits:
-    cpu: 2000m
-    memory: 8Gi
+    cpu: 4000m
+    memory: 16Gi
 
+# startupProbe allows up to 10 min (20 * 30s) for VLM boot before liveness kicks in.
+# liveness/readiness delays are a secondary safety net after startup succeeds.
 probes:
   liveness:
     path: /health
-    initialDelaySeconds: 60
+    initialDelaySeconds: 180
     periodSeconds: 30
     failureThreshold: 3
   readiness:
     path: /health
-    initialDelaySeconds: 30
+    initialDelaySeconds: 120
     periodSeconds: 10
     failureThreshold: 3
 
@@ -73,10 +80,18 @@ service:
   name: http
 
 models:
+  # CPU image used for the download-models init container.
+  # Contains docling-tools CLI needed to download model weights.
   image:
     repository: ghcr.io/docling-project/docling-serve-cpu
     tag: main
     pullPolicy: IfNotPresent
+  # CUDA image used for download-models when gpu.enabled=true.
+  # cudaImage:
+  #   repository: ghcr.io/docling-project/docling-serve-cu128
+  #   tag: main
+  #   pullPolicy: IfNotPresent
+
   # Named model tokens passed to: docling-tools models download --output-dir=...
   # Full token list (current docling-tools version):
   #   layout, tableformer, code_formula, picture_classifier,
@@ -85,23 +100,53 @@ models:
   list:
     - layout
     - tableformer
-    - code_formula # also covers CodeFormulaV2 (ds4sd/CodeFormulaV2)
+    - code_formula # ds4sd/CodeFormulaV2 - also covers DOCLING_CODEFORMULA_MODEL_ID
     - picture_classifier
     - easyocr
     - rapidocr
-    - granite_vision # ibm-granite/granite-vision-3.3-2b  -> DOCLING_VLM_MODEL_ID
-    - smoldocling # ibm-granite/granite-docling-258M   -> full-page VLM pipeline
+    - granite_vision # ibm-granite/granite-vision-3.3-2b  - used by DOCLING_VLM_MODEL_ID
+    - smoldocling # ibm-granite/granite-docling-258M   - full-page VLM pipeline (per-request)
+
   # HuggingFace repos downloaded directly via: docling-tools models download-hf-repo
-  # Only needed for models not available as named tokens above.
+  # Only needed for models not yet available as named tokens above.
   extras: []
+
   checksumManifest: ".model-manifest.sha256"
+
+  # Init container resources for model download.
+  # Needs enough RAM for docling-tools process + download buffers across ~8.5GB of models.
   resources:
     requests:
       cpu: 500m
-      memory: 1Gi
+      memory: 2Gi
     limits:
       cpu: 2000m
-      memory: 4Gi
+      memory: 6Gi
+
+# GPU support - disabled by default.
+# When enabled, switches to CUDA image, adds nvidia.com/gpu resource limits,
+# sets runtimeClassName: nvidia, and injects GPU-specific env vars.
+# gpu:
+#   enabled: true
+#   count: 1
+#   cudaRepository: quay.io/docling-project/docling-serve-cu128
+#   cudaTag: "1.12.0"
+#   nodeSelector:
+#     cloud.google.com/gke-accelerator: nvidia-l4
+#   tolerations:
+#     - key: nvidia.com/gpu
+#       operator: Exists
+#       effect: NoSchedule
+
+# GPU-specific env vars - only injected when gpu.enabled=true.
+# gpuEnv:
+#   DOCLING_DEVICE: "cuda:0"
+#   NVIDIA_VISIBLE_DEVICES: "all"
+#   ORT_DISABLE_AZURE: "1"
+#   RAPIDOCR_ORT_PROVIDERS: "CUDAExecutionProvider,TensorrtExecutionProvider,CPUExecutionProvider"
+#   DOCLING_SERVE_LAYOUT_BATCH_SIZE: "64"
+#   DOCLING_SERVE_TABLE_BATCH_SIZE: "8"
+#   DOCLING_SERVE_OCR_BATCH_SIZE: "16"
 
 persistence:
   create: true
