@@ -18,10 +18,21 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
+      {{- if and .Values.gpu .Values.gpu.enabled }}
+      # Pin to GPU node pool. Remove if your cluster uses a different scheduling mechanism.
+      nodeSelector:
+        {{- toYaml (.Values.gpu.nodeSelector | default dict) | nindent 8 }}
+      tolerations:
+        {{- toYaml (.Values.gpu.tolerations | default list) | nindent 8 }}
+      runtimeClassName: nvidia
+      {{- end }}
+
       volumes:
         - name: hf-cache
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim }}
+
       initContainers:
 
         # Step 1: Fix ownership and permissions on the cache directories.
@@ -32,7 +43,9 @@ spec:
             - |
               set -eux
               mkdir -p /cache/huggingface /cache/docling
-              chmod -R 0755 /cache
+              # 0777 is intentional: download-models and serve containers run as
+              # non-root (UID 1001) and need write access to the root-owned PVC mount.
+              chmod -R 0777 /cache
           volumeMounts:
             - name: hf-cache
               mountPath: {{ .Values.cache.mountPath }}
@@ -47,8 +60,19 @@ spec:
         # On a warm cache, checksum verification completes in seconds and the download is skipped.
         # On a cold cache or corrupt cache, models are re-downloaded and a fresh manifest is written.
         - name: download-models
+          {{- if and .Values.gpu .Values.gpu.enabled }}
+          image: "{{ .Values.models.cudaImage.repository }}:{{ .Values.models.cudaImage.tag }}"
+          imagePullPolicy: {{ .Values.models.cudaImage.pullPolicy }}
+          {{- else }}
           image: "{{ .Values.models.image.repository }}:{{ .Values.models.image.tag }}"
           imagePullPolicy: {{ .Values.models.image.pullPolicy }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.models.resources | nindent 12 }}
+            {{- if and .Values.gpu .Values.gpu.enabled }}
+            limits:
+              nvidia.com/gpu: {{ .Values.gpu.count | default 1 }}
+            {{- end }}
           command: ["sh", "-lc"]
           args:
             - |
@@ -59,7 +83,6 @@ spec:
 
               verify_manifest() {
                 echo "Verifying model cache checksums..."
-                # sha256sum -c exits non-zero if any file is missing or its checksum does not match.
                 if sha256sum -c "${MANIFEST}" --quiet 2>/dev/null; then
                   echo "Checksum verification passed. Skipping download."
                   return 0
@@ -78,9 +101,6 @@ spec:
                   {{- end }}
 
                 echo "Generating checksum manifest at ${MANIFEST}..."
-                # Find all files, sort for determinism, compute sha256 for each.
-                # Paths in the manifest are relative to CACHE_DIR so the manifest
-                # remains valid even if the PVC is remounted at a different path.
                 find "${CACHE_DIR}" -type f ! -name "{{ .Values.models.checksumManifest }}" \
                   | sort \
                   | xargs sha256sum \
@@ -89,7 +109,6 @@ spec:
                 echo "Manifest written with $(wc -l < "${MANIFEST}") entries."
               }
 
-              # Enter CACHE_DIR so sha256sum -c can resolve relative paths in the manifest.
               mkdir -p "${CACHE_DIR}"
               cd "${CACHE_DIR}"
 
@@ -105,17 +124,20 @@ spec:
           volumeMounts:
             - name: hf-cache
               mountPath: {{ .Values.cache.mountPath }}
-          resources:
-            {{- toYaml .Values.models.resources | nindent 12 }}
 
       containers:
         - name: docling-serve
+          {{- if and .Values.gpu .Values.gpu.enabled }}
+          image: "{{ .Values.gpu.cudaRepository | default "" }}:{{ .Values.gpu.cudaTag | default "" }}"
+          {{- else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
               containerPort: {{ .Values.containerPort }}
               protocol: TCP
+
           env:
             - name: HF_HOME
               value: {{ .Values.env.HF_HOME | quote }}
@@ -133,11 +155,40 @@ spec:
               value: {{ .Values.env.DOCLING_REPO_TYPE | quote }}
             - name: DOCLING_SERVE_ENABLE_UI
               value: {{ .Values.env.DOCLING_SERVE_ENABLE_UI | quote }}
+            - name: DOCLING_SERVE_LOAD_MODELS_AT_BOOT
+              value: {{ .Values.env.DOCLING_SERVE_LOAD_MODELS_AT_BOOT | quote }}
+            - name: DOCLING_SERVE_ENG_LOC_NUM_WORKERS
+              value: {{ .Values.env.DOCLING_SERVE_ENG_LOC_NUM_WORKERS | quote }}
+            - name: DOCLING_SERVE_ENG_LOC_SHARE_MODELS
+              value: {{ .Values.env.DOCLING_SERVE_ENG_LOC_SHARE_MODELS | quote }}
+            {{- if and .Values.gpu .Values.gpu.enabled }}
+            - name: DOCLING_DEVICE
+              value: {{ .Values.gpuEnv.DOCLING_DEVICE | quote }}
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: {{ .Values.gpuEnv.NVIDIA_VISIBLE_DEVICES | quote }}
+            - name: ORT_DISABLE_AZURE
+              value: {{ .Values.gpuEnv.ORT_DISABLE_AZURE | quote }}
+            - name: RAPIDOCR_ORT_PROVIDERS
+              value: {{ .Values.gpuEnv.RAPIDOCR_ORT_PROVIDERS | quote }}
+            - name: DOCLING_SERVE_LAYOUT_BATCH_SIZE
+              value: {{ .Values.gpuEnv.DOCLING_SERVE_LAYOUT_BATCH_SIZE | quote }}
+            - name: DOCLING_SERVE_TABLE_BATCH_SIZE
+              value: {{ .Values.gpuEnv.DOCLING_SERVE_TABLE_BATCH_SIZE | quote }}
+            - name: DOCLING_SERVE_OCR_BATCH_SIZE
+              value: {{ .Values.gpuEnv.DOCLING_SERVE_OCR_BATCH_SIZE | quote }}
+            {{- end }}
+
           volumeMounts:
             - name: hf-cache
               mountPath: {{ .Values.cache.mountPath }}
+
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+            {{- if and .Values.gpu .Values.gpu.enabled }}
+            limits:
+              nvidia.com/gpu: {{ .Values.gpu.count | default 1 }}
+            {{- end }}
+
           livenessProbe:
             httpGet:
               path: {{ .Values.probes.liveness.path }}
