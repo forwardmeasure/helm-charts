@@ -2,10 +2,27 @@ replicaCount: 1
 nameOverride: ""
 fullnameOverride: ""
 
+# ---------------------------------------------------------------------------
+# Profile selects a pre-defined resource/model/image configuration bundle.
+#
+# Available profiles:
+#   cpu-light  - CPU only, SmolVLM 256M picture description, low RAM.
+#                Good for development, testing, or light workloads.
+#   cpu-full   - CPU only, granite_vision 2B picture description, high RAM.
+#                Production-grade quality without GPU infrastructure.
+#   gpu-full   - CUDA image, granite_vision 2B, GPU node scheduling,
+#                batch processing enabled. Best throughput and quality.
+#
+# Profile values are defaults. Individual keys in values.yaml (and Kustomize
+# --set overrides) take precedence over profile-derived values where the
+# template supports it.
+# ---------------------------------------------------------------------------
+profile: cpu-light
+
 image:
   repository: quay.io/docling-project/docling-serve
   # NOTE: Pin to a specific tag or SHA digest in production, e.g.:
-  #   tag: "1.12.0"
+  #   tag: "0.4.0"
   #   tag: "sha256:abc123..."
   tag: latest
   pullPolicy: IfNotPresent
@@ -25,10 +42,6 @@ env:
   # Requires hf_transfer to be installed in the container image.
   # Verify the docling-serve image includes it before enabling.
   HF_HUB_ENABLE_HF_TRANSFER: "1"
-  # granite_vision token downloads ibm-granite/granite-vision-3.3-2b for picture description.
-  # Switch to HuggingFaceTB/SmolVLM-256M-Instruct for lighter CPU-only deployments.
-  DOCLING_VLM_MODEL_ID: ibm-granite/granite-vision-3.3-2b
-  DOCLING_CODEFORMULA_MODEL_ID: ds4sd/CodeFormulaV2
   DOCLING_REPO_TYPE: model
   DOCLING_SERVE_ENABLE_UI: "1"
   DOCLING_SERVE_LOAD_MODELS_AT_BOOT: "1"
@@ -48,29 +61,154 @@ initContainer:
       cpu: 100m
       memory: 64Mi
 
-# Main container resources.
-# granite-vision-3.3-2b (2B params) requires ~8GB RAM in float32 on CPU,
-# plus ~2GB for layout/table/OCR models loaded alongside it.
-# 16Gi limit provides safe headroom for concurrent inference requests.
-resources:
-  requests:
-    cpu: 500m
-    memory: 6Gi
-  limits:
-    cpu: 4000m
-    memory: 16Gi
+# ---------------------------------------------------------------------------
+# GPU configuration - only active when profile=gpu-full or gpu.enabled=true.
+#
+# gpu.type sets nvidia.com/gpu.product nodeSelector (cloud-agnostic, requires
+# NVIDIA GPU Operator). Override gpu.nodeSelector directly for clouds that do
+# not use the GPU Operator label convention.
+#
+# Default nodeSelector includes the GKE accelerator label. Override this in
+# your cloud-specific Kustomize overlay, e.g. for EKS:
+#   --set 'gpu.nodeSelector.cloud\.google\.com/gke-accelerator=null'
+#   --set 'gpu.nodeSelector.karpenter\.k8s\.aws/instance-gpu-name=l4'
+# ---------------------------------------------------------------------------
+gpu:
+  enabled: false
+  # GPU model - maps to nvidia.com/gpu.product label via NVIDIA GPU Operator.
+  # Common values: NVIDIA-L4, NVIDIA-A100-SXM4-80GB, Tesla-T4
+  type: "NVIDIA-L4"
+  count: 1
+  # GKE-specific accelerator label. Override per cloud in your Kustomize overlay.
+  nodeSelector:
+    cloud.google.com/gke-accelerator: nvidia-l4
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  cudaImage:
+    repository: quay.io/docling-project/docling-serve-cu128
+    tag: main
+    pullPolicy: IfNotPresent
 
-# startupProbe allows up to 10 min (20 * 30s) for VLM boot before liveness kicks in.
-# liveness/readiness delays are a secondary safety net after startup succeeds.
+# GPU-specific environment variables - only injected when gpu.enabled=true.
+gpuEnv:
+  DOCLING_DEVICE: "cuda:0"
+  NVIDIA_VISIBLE_DEVICES: "all"
+  ORT_DISABLE_AZURE: "1"
+  RAPIDOCR_ORT_PROVIDERS: "CUDAExecutionProvider,TensorrtExecutionProvider,CPUExecutionProvider"
+  DOCLING_SERVE_LAYOUT_BATCH_SIZE: "64"
+  DOCLING_SERVE_TABLE_BATCH_SIZE: "8"
+  DOCLING_SERVE_OCR_BATCH_SIZE: "16"
+
+# ---------------------------------------------------------------------------
+# Per-profile configuration bundles.
+# These are consumed by the deployment template via the profile key above.
+# To override a specific value for your environment, use Kustomize --set on
+# the top-level key (e.g. resources.limits.memory) rather than editing here.
+# ---------------------------------------------------------------------------
+profiles:
+  cpu-light:
+    vlmModelId: "HuggingFaceTB/SmolVLM-256M-Instruct"
+    codeformulaModelId: "ds4sd/CodeFormulaV2"
+    models:
+      - layout
+      - tableformer
+      - code_formula
+      - picture_classifier
+      - easyocr
+      - rapidocr
+      - smolvlm
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 6Gi
+    modelDownloadResources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    startupProbeFailureThreshold: 10 # 10 * 30s = 5 min budget
+    livenessInitialDelaySeconds: 60
+    readinessInitialDelaySeconds: 30
+    gpu: false
+
+  cpu-full:
+    vlmModelId: "ibm-granite/granite-vision-3.3-2b"
+    codeformulaModelId: "ds4sd/CodeFormulaV2"
+    models:
+      - layout
+      - tableformer
+      - code_formula
+      - picture_classifier
+      - easyocr
+      - rapidocr
+      - granite_vision
+      - smoldocling
+      - smolvlm # UI default; kept so Gradio interface works without model override
+    resources:
+      requests:
+        cpu: 500m
+        memory: 6Gi
+      limits:
+        cpu: 4000m
+        memory: 16Gi
+    modelDownloadResources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 6Gi
+    startupProbeFailureThreshold: 20 # 20 * 30s = 10 min budget
+    livenessInitialDelaySeconds: 180
+    readinessInitialDelaySeconds: 120
+    gpu: false
+
+  gpu-full:
+    vlmModelId: "ibm-granite/granite-vision-3.3-2b"
+    codeformulaModelId: "ds4sd/CodeFormulaV2"
+    models:
+      - layout
+      - tableformer
+      - code_formula
+      - picture_classifier
+      - easyocr
+      - rapidocr
+      - granite_vision
+      - smoldocling
+      - smolvlm # UI default; kept so Gradio interface works without model override
+    resources:
+      requests:
+        cpu: 500m
+        memory: 8Gi
+      limits:
+        cpu: 4000m
+        memory: 16Gi
+    modelDownloadResources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 6Gi
+    startupProbeFailureThreshold: 6 # 6 * 30s = 3 min budget (GPU loads fast)
+    livenessInitialDelaySeconds: 60
+    readinessInitialDelaySeconds: 30
+    gpu: true
+
 probes:
   liveness:
     path: /health
-    initialDelaySeconds: 180
     periodSeconds: 30
     failureThreshold: 3
   readiness:
     path: /health
-    initialDelaySeconds: 120
     periodSeconds: 10
     failureThreshold: 3
 
@@ -80,73 +218,23 @@ service:
   name: http
 
 models:
-  # CPU image used for the download-models init container.
-  # Contains docling-tools CLI needed to download model weights.
   image:
     repository: ghcr.io/docling-project/docling-serve-cpu
     tag: main
     pullPolicy: IfNotPresent
-  # CUDA image used for download-models when gpu.enabled=true.
-  # cudaImage:
-  #   repository: ghcr.io/docling-project/docling-serve-cu128
-  #   tag: main
-  #   pullPolicy: IfNotPresent
-
   # Named model tokens passed to: docling-tools models download --output-dir=...
   # Full token list (current docling-tools version):
   #   layout, tableformer, code_formula, picture_classifier,
   #   smolvlm, granitedocling, granitedocling_mlx, smoldocling, smoldocling_mlx,
   #   granite_vision, granite_chart_extraction, rapidocr, easyocr
-  list:
-    - layout
-    - tableformer
-    - code_formula # ds4sd/CodeFormulaV2 - also covers DOCLING_CODEFORMULA_MODEL_ID
-    - picture_classifier
-    - easyocr
-    - rapidocr
-    - granite_vision # ibm-granite/granite-vision-3.3-2b  - used by DOCLING_VLM_MODEL_ID
-    - smoldocling # ibm-granite/granite-docling-258M   - full-page VLM pipeline (per-request)
-
+  # NOTE: This list is driven by the active profile. Edit profiles.<n>.models
+  # above to change the model set for a given profile.
+  list: []
   # HuggingFace repos downloaded directly via: docling-tools models download-hf-repo
-  # Only needed for models not yet available as named tokens above.
+  # Only needed for models not available as named tokens above.
   extras: []
-
   checksumManifest: ".model-manifest.sha256"
-
-  # Init container resources for model download.
-  # Needs enough RAM for docling-tools process + download buffers across ~8.5GB of models.
-  resources:
-    requests:
-      cpu: 500m
-      memory: 2Gi
-    limits:
-      cpu: 2000m
-      memory: 6Gi
-
-# GPU support - disabled by default.
-# When enabled, switches to CUDA image, adds nvidia.com/gpu resource limits,
-# sets runtimeClassName: nvidia, and injects GPU-specific env vars.
-# gpu:
-#   enabled: true
-#   count: 1
-#   cudaRepository: quay.io/docling-project/docling-serve-cu128
-#   cudaTag: "1.12.0"
-#   nodeSelector:
-#     cloud.google.com/gke-accelerator: nvidia-l4
-#   tolerations:
-#     - key: nvidia.com/gpu
-#       operator: Exists
-#       effect: NoSchedule
-
-# GPU-specific env vars - only injected when gpu.enabled=true.
-# gpuEnv:
-#   DOCLING_DEVICE: "cuda:0"
-#   NVIDIA_VISIBLE_DEVICES: "all"
-#   ORT_DISABLE_AZURE: "1"
-#   RAPIDOCR_ORT_PROVIDERS: "CUDAExecutionProvider,TensorrtExecutionProvider,CPUExecutionProvider"
-#   DOCLING_SERVE_LAYOUT_BATCH_SIZE: "64"
-#   DOCLING_SERVE_TABLE_BATCH_SIZE: "8"
-#   DOCLING_SERVE_OCR_BATCH_SIZE: "16"
+  resources: {}
 
 persistence:
   create: true
