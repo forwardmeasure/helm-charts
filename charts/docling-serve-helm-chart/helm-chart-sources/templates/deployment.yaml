@@ -1,9 +1,13 @@
+{{- $p := index .Values.profiles .Values.profile -}}
+{{- $gpuEnabled := or $p.gpu (and .Values.gpu .Values.gpu.enabled) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "docling-serve.fullname" . }}
   labels:
     {{- include "docling-serve.labels" . | nindent 4 }}
+  annotations:
+    docling-serve/profile: {{ .Values.profile | quote }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -13,16 +17,22 @@ spec:
     metadata:
       labels:
         {{- include "docling-serve.selectorLabels" . | nindent 8 }}
+        docling-serve/profile: {{ .Values.profile | quote }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
-      {{- if and .Values.gpu .Values.gpu.enabled }}
-      # Pin to GPU node pool. Remove if your cluster uses a different scheduling mechanism.
+      {{- if $gpuEnabled }}
+      # GPU node scheduling. nodeSelector defaults to GKE accelerator label.
+      # Override gpu.nodeSelector in your cloud-specific Kustomize overlay.
+      # gpu.type maps to nvidia.com/gpu.product (NVIDIA GPU Operator standard).
       nodeSelector:
-        {{- toYaml (.Values.gpu.nodeSelector | default dict) | nindent 8 }}
+        nvidia.com/gpu.product: {{ .Values.gpu.type | quote }}
+        {{- range $k, $v := (.Values.gpu.nodeSelector | default dict) }}
+        {{ $k }}: {{ $v | quote }}
+        {{- end }}
       tolerations:
         {{- toYaml (.Values.gpu.tolerations | default list) | nindent 8 }}
       runtimeClassName: nvidia
@@ -59,17 +69,18 @@ spec:
         # Step 2: Download model weights if the checksum manifest is missing or invalid.
         # On a warm cache, checksum verification completes in seconds and the download is skipped.
         # On a cold cache or corrupt cache, models are re-downloaded and a fresh manifest is written.
+        # Active profile: {{ .Values.profile }}
         - name: download-models
-          {{- if and .Values.gpu .Values.gpu.enabled }}
-          image: "{{ .Values.models.cudaImage.repository }}:{{ .Values.models.cudaImage.tag }}"
-          imagePullPolicy: {{ .Values.models.cudaImage.pullPolicy }}
+          {{- if $gpuEnabled }}
+          image: "{{ .Values.gpu.cudaImage.repository }}:{{ .Values.gpu.cudaImage.tag }}"
+          imagePullPolicy: {{ .Values.gpu.cudaImage.pullPolicy }}
           {{- else }}
           image: "{{ .Values.models.image.repository }}:{{ .Values.models.image.tag }}"
           imagePullPolicy: {{ .Values.models.image.pullPolicy }}
           {{- end }}
           resources:
-            {{- toYaml .Values.models.resources | nindent 12 }}
-            {{- if and .Values.gpu .Values.gpu.enabled }}
+            {{- toYaml $p.modelDownloadResources | nindent 12 }}
+            {{- if $gpuEnabled }}
             limits:
               nvidia.com/gpu: {{ .Values.gpu.count | default 1 }}
             {{- end }}
@@ -93,11 +104,13 @@ spec:
               }
 
               download_models() {
+                echo "Downloading models for profile: {{ .Values.profile }}"
                 echo "Downloading models to ${CACHE_DIR}..."
                 docling-tools models download \
                   --output-dir="${CACHE_DIR}" \
-                  {{- range $i, $m := .Values.models.list }}
-                  {{- if lt (add1 $i) (len $.Values.models.list) }}
+                  {{- $models := $p.models }}
+                  {{- range $i, $m := $models }}
+                  {{- if lt (add1 $i) (len $models) }}
                   {{ $m }} \
                   {{- else }}
                   {{ $m }}
@@ -136,12 +149,13 @@ spec:
 
       containers:
         - name: docling-serve
-          {{- if and .Values.gpu .Values.gpu.enabled }}
-          image: "{{ .Values.gpu.cudaRepository | default "" }}:{{ .Values.gpu.cudaTag | default "" }}"
+          {{- if $gpuEnabled }}
+          image: "{{ .Values.gpu.cudaImage.repository }}:{{ .Values.gpu.cudaImage.tag }}"
+          imagePullPolicy: {{ .Values.gpu.cudaImage.pullPolicy }}
           {{- else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.containerPort }}
@@ -157,9 +171,9 @@ spec:
             - name: HF_HUB_ENABLE_HF_TRANSFER
               value: {{ .Values.env.HF_HUB_ENABLE_HF_TRANSFER | quote }}
             - name: DOCLING_VLM_MODEL_ID
-              value: {{ .Values.env.DOCLING_VLM_MODEL_ID | quote }}
+              value: {{ $p.vlmModelId | quote }}
             - name: DOCLING_CODEFORMULA_MODEL_ID
-              value: {{ .Values.env.DOCLING_CODEFORMULA_MODEL_ID | quote }}
+              value: {{ $p.codeformulaModelId | quote }}
             - name: DOCLING_REPO_TYPE
               value: {{ .Values.env.DOCLING_REPO_TYPE | quote }}
             - name: DOCLING_SERVE_ENABLE_UI
@@ -170,7 +184,7 @@ spec:
               value: {{ .Values.env.DOCLING_SERVE_ENG_LOC_NUM_WORKERS | quote }}
             - name: DOCLING_SERVE_ENG_LOC_SHARE_MODELS
               value: {{ .Values.env.DOCLING_SERVE_ENG_LOC_SHARE_MODELS | quote }}
-            {{- if and .Values.gpu .Values.gpu.enabled }}
+            {{- if $gpuEnabled }}
             - name: DOCLING_DEVICE
               value: {{ .Values.gpuEnv.DOCLING_DEVICE | quote }}
             - name: NVIDIA_VISIBLE_DEVICES
@@ -192,32 +206,32 @@ spec:
               mountPath: {{ .Values.cache.mountPath }}
 
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-            {{- if and .Values.gpu .Values.gpu.enabled }}
+            {{- toYaml $p.resources | nindent 12 }}
+            {{- if $gpuEnabled }}
             limits:
               nvidia.com/gpu: {{ .Values.gpu.count | default 1 }}
             {{- end }}
 
           # startupProbe gates liveness/readiness until the app is up.
-          # failureThreshold * periodSeconds = max startup budget (20 * 30s = 10 min).
-          # Loading granite_vision-3.3-2b on CPU can take several minutes.
+          # Budget = startupProbeFailureThreshold * periodSeconds.
+          # Profile {{ .Values.profile }} budget: {{ mul $p.startupProbeFailureThreshold 30 }}s
           startupProbe:
             httpGet:
               path: {{ .Values.probes.liveness.path }}
               port: http
             periodSeconds: 30
-            failureThreshold: 20
+            failureThreshold: {{ $p.startupProbeFailureThreshold }}
           livenessProbe:
             httpGet:
               path: {{ .Values.probes.liveness.path }}
               port: http
-            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            initialDelaySeconds: {{ $p.livenessInitialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
           readinessProbe:
             httpGet:
               path: {{ .Values.probes.readiness.path }}
               port: http
-            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            initialDelaySeconds: {{ $p.readinessInitialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
