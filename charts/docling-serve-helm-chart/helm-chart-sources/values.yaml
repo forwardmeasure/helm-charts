@@ -1,5 +1,4 @@
 replicaCount: 1
-
 nameOverride: ""
 fullnameOverride: ""
 
@@ -19,14 +18,23 @@ containerPort: 5001
 env:
   HF_HOME: /cache/huggingface
   HF_HUB_CACHE: /cache/huggingface
-  DOCLING_ARTIFACTS_PATH: /cache/docling
+  # DOCLING_SERVE_ARTIFACTS_PATH is the correct env var recognised by docling-serve.
+  # DOCLING_ARTIFACTS_PATH is NOT recognised and will be silently ignored, causing
+  # the serve container to fall back to its internal default path.
+  DOCLING_SERVE_ARTIFACTS_PATH: /cache/docling/models
   # Requires hf_transfer to be installed in the container image.
   # Verify the docling-serve image includes it before enabling.
   HF_HUB_ENABLE_HF_TRANSFER: "1"
+  # SmolVLM is used for picture description. The model is downloaded via the
+  # download-hf-repo target in the models.extras list below, not via the named
+  # 'smolvlm' token (which does not place files where DOCLING_SERVE_ARTIFACTS_PATH expects).
   DOCLING_VLM_MODEL_ID: HuggingFaceTB/SmolVLM-256M-Instruct
   DOCLING_CODEFORMULA_MODEL_ID: ds4sd/CodeFormulaV2
   DOCLING_REPO_TYPE: model
   DOCLING_SERVE_ENABLE_UI: "1"
+  DOCLING_SERVE_LOAD_MODELS_AT_BOOT: "1"
+  DOCLING_SERVE_ENG_LOC_NUM_WORKERS: "1"
+  DOCLING_SERVE_ENG_LOC_SHARE_MODELS: "true"
 
 cache:
   mountPath: /cache
@@ -67,24 +75,24 @@ service:
   name: http
 
 models:
-  # The CPU loader image is used in the download-models init container.
-  # It is separate from the serve image because it ships the docling-tools CLI.
   image:
     repository: ghcr.io/docling-project/docling-serve-cpu
     tag: main
     pullPolicy: IfNotPresent
-  # Models to download. Remove entries to reduce cache size and download time.
+  # Named model tokens passed to: docling-tools models download --output-dir=...
+  # These cover the core pipeline models (layout, OCR, table, classifier).
   list:
     - layout
     - tableformer
     - code_formula
     - picture_classifier
-    - smolvlm
-    - granite_vision
     - easyocr
-  # Name of the sha256 checksum manifest file written into /cache/docling after download.
-  # The download-models init container verifies this on every pod start;
-  # a missing or failed manifest triggers a full re-download.
+  # HuggingFace repos downloaded directly via: docling-tools models download-hf-repo
+  # Use this for VLM models that are not available via the named token mechanism,
+  # or where the named token does not place files in the expected ARTIFACTS_PATH layout.
+  extras:
+    - HuggingFaceTB/SmolVLM-256M-Instruct
+    - ds4sd/CodeFormulaV2
   checksumManifest: ".model-manifest.sha256"
   resources:
     requests:
@@ -95,7 +103,6 @@ models:
       memory: 4Gi
 
 persistence:
-  # Set create: false and provide existingClaim to reuse a pre-existing PVC.
   create: true
   existingClaim: docling-cache-pvc
   accessMode: ReadWriteOnce
