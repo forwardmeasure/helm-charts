@@ -1,14 +1,27 @@
 replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
 image:
   repository: quay.io/docling-project/docling-serve
+  # NOTE: Pin to a specific tag or SHA digest in production, e.g.:
+  #   tag: "0.4.0"
+  #   tag: "sha256:abc123..."
   tag: latest
   pullPolicy: IfNotPresent
+
+# imagePullSecrets:
+#   - name: my-registry-secret
+
 containerPort: 5001
 
 env:
   HF_HOME: /cache/huggingface
   HF_HUB_CACHE: /cache/huggingface
   DOCLING_ARTIFACTS_PATH: /cache/docling
+  # Requires hf_transfer to be installed in the container image.
+  # Verify the docling-serve image includes it before enabling.
   HF_HUB_ENABLE_HF_TRANSFER: "1"
   DOCLING_VLM_MODEL_ID: HuggingFaceTB/SmolVLM-256M-Instruct
   DOCLING_CODEFORMULA_MODEL_ID: ds4sd/CodeFormulaV2
@@ -16,20 +29,74 @@ env:
   DOCLING_SERVE_ENABLE_UI: "1"
 
 cache:
-  pvcName: docling-cache-pvc
   mountPath: /cache
 
 initContainer:
   image: alpine:3.20
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2000m
+    memory: 8Gi
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    failureThreshold: 3
+  readiness:
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3
 
 service:
   type: ClusterIP
   port: 5001
-  targetPort: 5001
   name: http
 
+models:
+  # The CPU loader image is used in the download-models init container.
+  # It is separate from the serve image because it ships the docling-tools CLI.
+  image:
+    repository: ghcr.io/docling-project/docling-serve-cpu
+    tag: main
+    pullPolicy: IfNotPresent
+  # Models to download. Remove entries to reduce cache size and download time.
+  list:
+    - layout
+    - tableformer
+    - code_formula
+    - picture_classifier
+    - smolvlm
+    - granite_vision
+    - easyocr
+  # Name of the sha256 checksum manifest file written into /cache/docling after download.
+  # The download-models init container verifies this on every pod start;
+  # a missing or failed manifest triggers a full re-download.
+  checksumManifest: ".model-manifest.sha256"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
 persistence:
-  enabled: true
+  # Set create: false and provide existingClaim to reuse a pre-existing PVC.
+  create: true
   existingClaim: docling-cache-pvc
   accessMode: ReadWriteOnce
   size: 50Gi
