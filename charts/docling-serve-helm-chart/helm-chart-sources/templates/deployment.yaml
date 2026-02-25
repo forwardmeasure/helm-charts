@@ -19,15 +19,15 @@ spec:
         {{- include "docling-serve.selectorLabels" . | nindent 8 }}
         docling-serve/profile: {{ .Values.profile | quote }}
     spec:
+      # Workload Identity service account for GCS FUSE access
+      serviceAccountName: model-cache-sa
+
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
       {{- if $gpuEnabled }}
-      # GPU node scheduling. nodeSelector defaults to GKE accelerator label.
-      # Override gpu.nodeSelector in your cloud-specific Kustomize overlay.
-      # gpu.type maps to nvidia.com/gpu.product (NVIDIA GPU Operator standard).
       nodeSelector:
         nvidia.com/gpu.product: {{ .Values.gpu.type | quote }}
         {{- range $k, $v := (.Values.gpu.nodeSelector | default dict) }}
@@ -39,25 +39,27 @@ spec:
       {{- end }}
 
       volumes:
-        - name: hf-cache
+        - name: model-cache
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim }}
+        - name: model-download-lib
+          configMap:
+            name: model-download-lib
+            defaultMode: 0755
 
       initContainers:
 
-        # Step 1: Fix ownership and permissions on the cache directories.
+        # Step 1: Fix permissions on the cache directory.
         - name: fix-cache-perms
           image: {{ .Values.initContainer.image }}
           command: ["sh", "-lc"]
           args:
             - |
               set -eux
-              mkdir -p /cache/huggingface /cache/docling
-              # 0777 is intentional: download-models and serve containers run as
-              # non-root (UID 1001) and need write access to the root-owned PVC mount.
-              chmod -R 0777 /cache
+              mkdir -p {{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH }}
+              chmod -R 0777 {{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH }}
           volumeMounts:
-            - name: hf-cache
+            - name: model-cache
               mountPath: {{ .Values.cache.mountPath }}
           securityContext:
             runAsUser: 0
@@ -66,10 +68,10 @@ spec:
           resources:
             {{- toYaml .Values.initContainer.resources | nindent 12 }}
 
-        # Step 2: Download model weights if the checksum manifest is missing or invalid.
-        # On a warm cache, checksum verification completes in seconds and the download is skipped.
-        # On a cold cache or corrupt cache, models are re-downloaded and a fresh manifest is written.
-        # Active profile: {{ .Values.profile }}
+        # Step 2: Download model weights for profile {{ .Values.profile }}.
+        # Sources model-download-lib.sh from ConfigMap for locking and
+        # per-workload manifest logic. Models already present on the shared
+        # PVC (downloaded by another workload) are skipped automatically.
         - name: download-models
           {{- if $gpuEnabled }}
           image: "{{ .Values.gpu.cudaImage.repository }}:{{ .Values.gpu.cudaImage.tag }}"
@@ -84,68 +86,48 @@ spec:
             limits:
               nvidia.com/gpu: {{ .Values.gpu.count | default 1 }}
             {{- end }}
+          env:
+            - name: DOCLING_SERVE_ARTIFACTS_PATH
+              value: {{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH | quote }}
+            - name: PROFILE
+              value: {{ .Values.profile | quote }}
           command: ["sh", "-lc"]
           args:
             - |
               set -eu
+              . /scripts/model-download-lib.sh
 
-              CACHE_DIR="{{ .Values.cache.mountPath }}/docling/models"
-              MANIFEST="${CACHE_DIR}/{{ .Values.models.checksumManifest }}"
+              WORKLOAD="docling-serve"
+              CACHE_DIR="{{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH }}"
 
-              verify_manifest() {
-                echo "Verifying model cache checksums..."
-                if sha256sum -c "${MANIFEST}" --quiet 2>/dev/null; then
-                  echo "Checksum verification passed. Skipping download."
-                  return 0
-                else
-                  echo "Checksum verification FAILED. Cache is missing or corrupt."
-                  return 1
-                fi
-              }
-
-              download_models() {
-                echo "Downloading models for profile: {{ .Values.profile }}"
-                echo "Downloading models to ${CACHE_DIR}..."
-                docling-tools models download \
-                  --output-dir="${CACHE_DIR}" \
-                  {{- $models := $p.models }}
-                  {{- range $i, $m := $models }}
-                  {{- if lt (add1 $i) (len $models) }}
-                  {{ $m }} \
-                  {{- else }}
-                  {{ $m }}
-                  {{- end }}
-                  {{- end }}
-                {{- range .Values.models.extras }}
-                echo "Downloading HF repo {{ . }}..."
-                docling-tools models download-hf-repo {{ . }} \
-                  --output-dir="${CACHE_DIR}"
-                {{- end }}
-
-                echo "Generating checksum manifest at ${MANIFEST}..."
-                find "${CACHE_DIR}" -type f ! -name "{{ .Values.models.checksumManifest }}" \
-                  | sort \
-                  | xargs sha256sum \
-                  | sed "s|${CACHE_DIR}/||g" \
-                  > "${MANIFEST}"
-                echo "Manifest written with $(wc -l < "${MANIFEST}") entries."
-              }
-
-              mkdir -p "${CACHE_DIR}"
-              cd "${CACHE_DIR}"
-
-              if [ ! -f "${MANIFEST}" ]; then
-                echo "No manifest found. Performing initial download."
-                download_models
-              elif ! verify_manifest; then
-                echo "Re-downloading models due to verification failure."
-                download_models
-              else
-                echo "Model cache is valid."
+              # Verify existing manifest - skip all downloads if valid
+              if model_verify_manifest "${CACHE_DIR}" "${WORKLOAD}"; then
+                echo "Model cache valid for ${WORKLOAD}. Nothing to do."
+                exit 0
               fi
+
+              echo "Downloading models for profile: {{ .Values.profile }}"
+
+              # Download named tokens for this profile
+              model_download_named \
+                "{{- range $i, $m := $p.models }}{{ if $i }} {{ end }}{{ $m }}{{- end }}" \
+                "${CACHE_DIR}" \
+                "${WORKLOAD}"
+
+              {{- range .Values.models.extras }}
+              model_download_hf_repo "{{ . }}" "${CACHE_DIR}" "${WORKLOAD}"
+              {{- end }}
+
+              # Write per-workload manifest covering all model dirs
+              model_write_manifest "${CACHE_DIR}" "${WORKLOAD}" \
+                $(ls "${CACHE_DIR}" | grep -v '^\.' | tr '\n' ' ')
+
+              echo "Download complete for ${WORKLOAD}."
           volumeMounts:
-            - name: hf-cache
+            - name: model-cache
               mountPath: {{ .Values.cache.mountPath }}
+            - name: model-download-lib
+              mountPath: /scripts
 
       containers:
         - name: docling-serve
@@ -202,7 +184,7 @@ spec:
             {{- end }}
 
           volumeMounts:
-            - name: hf-cache
+            - name: model-cache
               mountPath: {{ .Values.cache.mountPath }}
 
           resources:
