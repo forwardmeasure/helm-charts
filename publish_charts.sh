@@ -39,7 +39,6 @@ CHART_SOURCE_DIR="${CHART_PARENT_DIR}/helm-chart-sources"
 CHART_PACKAGE_DIR="${CHART_PARENT_DIR}"
 CHART_FILE="${CHART_SOURCE_DIR}/Chart.yaml"
 VALUES_FILE="${CHART_SOURCE_DIR}/values.yaml"
-
 REPO_URL=${REPO_URL:-"https://forwardmeasure.github.io/helm-charts/charts/${CHART_NAME}"}
 
 # === Extract image tag from values.yaml ===
@@ -72,7 +71,17 @@ echo "🧪 CURRENT_VERSION=$CURRENT_VERSION"
 echo "🧪 NEW_VERSION=$NEW_VERSION"
 echo "🧪 IMAGE_TAG=$IMAGE_TAG"
 
-# === Update Chart.yaml ===
+# === Lint BEFORE making any changes ===
+# We lint against the current version so that a failure leaves Chart.yaml untouched
+# and the working tree clean.
+echo "🔍 Linting Helm chart (pre-bump)..."
+if ! helm lint "${CHART_SOURCE_DIR}"; then
+  echo "❌ Lint failed. Chart.yaml has NOT been modified. Fix the errors above and retry."
+  exit 1
+fi
+echo "✅ Lint passed."
+
+# === Update Chart.yaml (only reached if lint succeeded) ===
 if [[ "$NEW_VERSION" == "$CURRENT_VERSION" ]]; then
   echo "⚠️  Version unchanged ($NEW_VERSION). Skipping version bump."
 else
@@ -87,9 +96,6 @@ RELEASE_BRANCH="release/${CHART_NAME}/v${NEW_VERSION}"
 RELEASE_TAG="${CHART_NAME}-v${NEW_VERSION}"
 
 cd "$CHART_PARENT_DIR"
-
-echo "🔍 Linting Helm chart..."
-helm lint "${CHART_SOURCE_DIR}"
 
 echo "📦 Packaging Helm chart version ${NEW_VERSION}..."
 helm package "${CHART_SOURCE_DIR}" --destination "${CHART_PACKAGE_DIR}"
@@ -113,7 +119,6 @@ rm -f "$TMP_INDEX"
 cd "$SCRIPT_DIR"
 echo "📂 Committing changes to Git..."
 git add .
-
 git commit -m "${COMMIT_MSG}"
 
 if $DO_BRANCH; then
@@ -131,7 +136,6 @@ if $DO_PUSH; then
   git config push.default current
   if $DO_BRANCH; then git push -u origin "${RELEASE_BRANCH}"; fi
   if $DO_TAG; then git push origin "${RELEASE_TAG}"; fi
-
   # === Delete local release branch after pushing
   echo "🧹 Deleting local release branch: ${RELEASE_BRANCH}"
   git checkout "${BASE_BRANCH}"
@@ -139,6 +143,5 @@ if $DO_PUSH; then
 else
   echo "⚠️  Push skipped (--no-push was set)"
 fi
-
 
 echo "✅ Helm chart '${CHART_NAME}' version ${NEW_VERSION} packaged and index updated!"
