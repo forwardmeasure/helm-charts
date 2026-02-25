@@ -1,7 +1,10 @@
+{{- if .Values.persistence.create }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ .Values.persistence.existingClaim }}
+  labels:
+    {{- include "docling-serve.labels" . | nindent 4 }}
 spec:
   accessModes:
     - {{ .Values.persistence.accessMode }}
@@ -10,4 +13,5 @@ spec:
       storage: {{ .Values.persistence.size }}
 {{- if .Values.persistence.storageClass }}
   storageClassName: {{ .Values.persistence.storageClass }}
+{{- end }}
 {{- end }}
