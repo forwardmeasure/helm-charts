@@ -96,8 +96,12 @@ spec:
                 echo "Downloading models to ${CACHE_DIR}..."
                 docling-tools models download \
                   --output-dir="${CACHE_DIR}" \
-                  {{- range .Values.models.list }}
-                  {{ . }} \
+                  {{- range $i, $m := .Values.models.list }}
+                  {{- if lt (add1 $i) (len $.Values.models.list) }}
+                  {{ $m }} \
+                  {{- else }}
+                  {{ $m }}
+                  {{- end }}
                   {{- end }}
                 {{- range .Values.models.extras }}
                 echo "Downloading HF repo {{ . }}..."
