@@ -248,6 +248,26 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.0.tgz
     version: 1.0.0
+  keycloak:
+  - apiVersion: v2
+    appVersion: "26.0"
+    created: "2026-02-26T18:10:53.767280656-05:00"
+    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+      database support.
+    digest: f63d6c5d9b4f180d534d068ace0823c0f5441883b4bf0ab7d8e65d6cb0cf8fa1
+    keywords:
+    - keycloak
+    - iam
+    - authentication
+    - authorization
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: keycloak
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.1.1.tgz
+    version: 0.1.1
   opensearch:
   - apiVersion: v1
     appVersion: 3.1.0
@@ -308,4 +328,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-02-26T13:13:27.32478988-05:00"
+generated: "2026-02-26T18:10:53.766936134-05:00"

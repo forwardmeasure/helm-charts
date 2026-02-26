@@ -1,0 +1,153 @@
+# ---------------------------------------------------------------------------
+# values.yaml — Keycloak Helm chart defaults
+# ---------------------------------------------------------------------------
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+podManagementPolicy: Parallel
+updateStrategy: RollingUpdate
+terminationGracePeriodSeconds: 60
+enableServiceLinks: true
+
+image:
+  repository: quay.io/keycloak/keycloak
+  tag: "26.0"
+  pullPolicy: Always
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+
+# ---------------------------------------------------------------------------
+# Keycloak configuration
+# ---------------------------------------------------------------------------
+keycloak:
+  httpPort: 8080
+  httpsPort: 8443
+  hostname: ""
+  hostnameUrl: ""
+  hostnameDebug: "true"
+  proxy: edge
+  httpEnabled: "true"
+  httpRelativePath: /auth
+  transactionXaEnabled: "false"
+  logLevel: INFO
+  log: console
+  healthEnabled: "true"
+  metricsEnabled: "true"
+
+  # Database
+  db:
+    type: postgres
+    # schema: optional — omit to use database default
+    schema: ""
+    # driver: optional — omit to use Keycloak's built-in driver for the db type
+    driver: ""
+    poolInitialSize: "5"
+    poolMinSize: "5"
+    poolMaxSize: "20"
+    # Secret must contain: KC_DB_USERNAME, KC_DB_PASSWORD, KC_DB_URL
+    # Set urlPropertiesSecret: true if the secret also contains KC_DB_URL_PROPERTIES
+    credentialsSecret: keycloak-db-credentials
+    urlPropertiesSecret: false
+
+  # Secret must contain: KEYCLOAK_ADMIN, KEYCLOAK_ADMIN_PASSWORD
+  adminCredentialsSecret: keycloak-admin-credentials
+
+# ---------------------------------------------------------------------------
+# TLS
+# Secret must contain tls.crt and tls.key
+# ---------------------------------------------------------------------------
+tls:
+  secretName: data-fabric-tls-secret
+
+# ---------------------------------------------------------------------------
+# Realm bootstrap
+# Mounts a realm JSON file from a ConfigMap into /opt/keycloak/data/import
+# ---------------------------------------------------------------------------
+realm:
+  # Set enabled: true to mount and auto-import a realm on first boot.
+  # Override in your environment values file with the appropriate configMap.
+  enabled: false
+  name: datafabric
+  configMapName: bootstrap-keycloak-realm-configmap
+  configMapKey: bootstrap-keycloak-realm.json
+
+# ---------------------------------------------------------------------------
+# ServiceAccount
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# ---------------------------------------------------------------------------
+# Security contexts
+# ---------------------------------------------------------------------------
+podSecurityContext:
+  fsGroup: 1000
+
+containerSecurityContext:
+  runAsUser: 1000
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# ---------------------------------------------------------------------------
+# Probes
+# ---------------------------------------------------------------------------
+livenessProbe:
+  enabled: true
+  path: /auth/health/live
+  initialDelaySeconds: 120
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  path: /auth/health/ready
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  failureThreshold: 3
+
+# ---------------------------------------------------------------------------
+# Affinity — defaults to pod anti-affinity for HA
+# ---------------------------------------------------------------------------
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: NotIn
+              values:
+                - test
+        topologyKey: kubernetes.io/hostname
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: NotIn
+                values:
+                  - test
+          topologyKey: failure-domain.beta.kubernetes.io/zone
+
+# ---------------------------------------------------------------------------
+# Extra configuration
+# ---------------------------------------------------------------------------
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []
