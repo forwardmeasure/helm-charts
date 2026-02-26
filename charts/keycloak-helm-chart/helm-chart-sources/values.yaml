@@ -70,11 +70,23 @@ tls:
 # ---------------------------------------------------------------------------
 realm:
   # Set enabled: true to mount and auto-import a realm on first boot.
-  # Override in your environment values file with the appropriate configMap.
+  # Override in your environment-specific values file (e.g. gcp-workfusion.yaml.gotmpl).
+  # The ConfigMap and credentialsSecret must be created in the kustomize overlay
+  # for the target environment before deploying.
   enabled: false
   name: datafabric
   configMapName: bootstrap-keycloak-realm-configmap
   configMapKey: bootstrap-keycloak-realm.json
+  # Secret must contain: KEYCLOAK_DEFAULT_REALM_NAME, KEYCLOAK_DEFAULT_CLIENT_ID,
+  #   KEYCLOAK_DEFAULT_CLIENT_SECRET, KEYCLOAK_DEFAULT_USER_NAME, KEYCLOAK_DEFAULT_USER_PASSWORD
+  credentialsSecret: keycloak-default-realm-credentials
+  features: "scripts,authorization"
+  javaOpts: >-
+    -Dkeycloak.migration.action=import
+    -Dkeycloak.migration.provider=dir
+    -Dkeycloak.migration.dir=/opt/keycloak/data/import
+    -Dkeycloak.migration.strategy=OVERWRITE_EXISTING
+    -Dkeycloak.migration.replace-placeholders=true
 
 # ---------------------------------------------------------------------------
 # ServiceAccount
