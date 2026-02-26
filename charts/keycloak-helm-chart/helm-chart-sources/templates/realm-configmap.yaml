@@ -1,4 +1,4 @@
-{{- if .Values.realm.enabled }}
+{{- if and .Values.realm.enabled .Values.realm.json }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,6 +7,6 @@ metadata:
   labels:
     {{- include "keycloak.labels" . | nindent 4 }}
 data:
-  {{ .Values.realm.configMapKey }}: |
+  {{ .Values.realm.configMapKey | quote }}: |
     {{- .Values.realm.json | nindent 4 }}
 {{- end }}
