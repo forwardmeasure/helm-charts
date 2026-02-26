@@ -20,7 +20,7 @@ spec:
         docling-serve/profile: {{ .Values.profile | quote }}
     spec:
       # Workload Identity service account for GCS FUSE access
-      serviceAccountName: model-cache-sa
+      serviceAccountName: {{ .Values.serviceAccount.name | default "model-cache-sa" }}
 
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -41,7 +41,11 @@ spec:
       volumes:
         - name: model-cache
           persistentVolumeClaim:
+            {{- if .Values.persistence.existingClaim }}
             claimName: {{ .Values.persistence.existingClaim }}
+            {{- else }}
+            claimName: {{ include "docling-serve.fullname" . }}-cache
+            {{- end }}
         - name: model-download-lib
           configMap:
             name: model-download-lib
