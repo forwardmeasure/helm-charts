@@ -251,7 +251,26 @@ entries:
   keycloak:
   - apiVersion: v2
     appVersion: "26.0"
-    created: "2026-02-26T18:35:45.009293941-05:00"
+    created: "2026-02-26T18:40:32.388215579-05:00"
+    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+      database support.
+    digest: 72b9e5e70b5c73d6c6d59fb0af7b3ed8136c5dc309a4e61e1487cb1918ea7ade
+    keywords:
+    - keycloak
+    - iam
+    - authentication
+    - authorization
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: keycloak
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
+    appVersion: "26.0"
+    created: "2026-02-26T18:40:32.387926334-05:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: ddd2d890a64ebbeec251ab2caabdede92b6a93b0a6b5606ab049c550f8405be8
@@ -270,7 +289,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: "26.0"
-    created: "2026-02-26T18:35:45.009022037-05:00"
+    created: "2026-02-26T18:40:32.387661601-05:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 5e67c97f8fc91ad171d23e58d711625932dd58cd317677fc4102638b9cb4e197
@@ -289,7 +308,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: "26.0"
-    created: "2026-02-26T18:35:45.008753793-05:00"
+    created: "2026-02-26T18:40:32.387362543-05:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: f63d6c5d9b4f180d534d068ace0823c0f5441883b4bf0ab7d8e65d6cb0cf8fa1
@@ -366,4 +385,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-02-26T18:35:45.008400676-05:00"
+generated: "2026-02-26T18:40:32.387023818-05:00"
