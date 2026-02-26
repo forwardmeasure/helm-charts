@@ -1,0 +1,35 @@
+{{- /*
+  PersistentVolume template for docling-serve model cache.
+
+  Creates a namespace-scoped PV name to avoid conflicts with PVs created
+  for other workload namespaces pointing at the same GCS bucket.
+
+  The CSI block (driver, volumeHandle, volumeAttributes) is cloud-specific
+  and is injected by the cloud overlay Kustomize patch:
+    overlays/gcp/docling-serve-pv-patch.yaml
+
+  This template is always rendered — persistence.existingClaim controls
+  whether the PVC references this PV or a pre-existing one, but the PV
+  itself must always exist for the PVC binding to work.
+*/ -}}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Release.Namespace }}-model-cache-pv
+  labels:
+    {{- include "docling-serve.labels" . | nindent 4 }}
+    purpose: model-cache
+    namespace: {{ .Release.Namespace }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.size }}
+  volumeMode: Filesystem
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ .Values.persistence.storageClass }}
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: {{ .Values.persistence.existingClaim | default (printf "%s-cache" (include "docling-serve.fullname" .)) }}
+  # csi block is patched in by the cloud-specific Kustomize overlay.
+  # Do not add cloud-specific fields here.
