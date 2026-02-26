@@ -60,7 +60,13 @@ spec:
             runAsNonRoot: true
             runAsUser: {{ .Values.containerSecurityContext.runAsUser }}
           args:
+            {{- if .Values.realm.enabled }}
             - start
+            - --import-realm
+            - --log-level={{ .Values.keycloak.logLevel }}
+            {{- else }}
+            - start
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.keycloak.httpPort }}
@@ -155,6 +161,37 @@ spec:
                   name: {{ .Values.keycloak.adminCredentialsSecret }}
                   key: KEYCLOAK_ADMIN_PASSWORD
 
+            {{- if .Values.realm.enabled }}
+            - name: KEYCLOAK_DEFAULT_REALM_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.realm.credentialsSecret }}
+                  key: KEYCLOAK_DEFAULT_REALM_NAME
+            - name: KEYCLOAK_DEFAULT_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.realm.credentialsSecret }}
+                  key: KEYCLOAK_DEFAULT_CLIENT_ID
+            - name: KEYCLOAK_DEFAULT_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.realm.credentialsSecret }}
+                  key: KEYCLOAK_DEFAULT_CLIENT_SECRET
+            - name: KEYCLOAK_DEFAULT_USER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.realm.credentialsSecret }}
+                  key: KEYCLOAK_DEFAULT_USER_NAME
+            - name: KEYCLOAK_DEFAULT_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.realm.credentialsSecret }}
+                  key: KEYCLOAK_DEFAULT_USER_PASSWORD
+            - name: KC_FEATURES
+              value: {{ .Values.realm.features | quote }}
+            - name: JAVA_OPTS_APPEND
+              value: {{ .Values.realm.javaOpts | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
