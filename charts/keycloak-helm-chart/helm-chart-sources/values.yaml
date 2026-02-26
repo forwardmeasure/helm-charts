@@ -87,6 +87,7 @@ realm:
     -Dkeycloak.migration.dir=/opt/keycloak/data/import
     -Dkeycloak.migration.strategy=OVERWRITE_EXISTING
     -Dkeycloak.migration.replace-placeholders=true
+  json: ""
 
 # ---------------------------------------------------------------------------
 # ServiceAccount
