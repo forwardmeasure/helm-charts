@@ -1,0 +1,14 @@
+apiVersion: v2
+name: keycloak
+description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external database support.
+type: application
+version: "0.1.1"
+appVersion: "26.0"
+keywords:
+  - keycloak
+  - iam
+  - authentication
+  - authorization
+maintainers:
+  - name: Prashanth Nandavanam
+    email: pn@forwardmeasure.com

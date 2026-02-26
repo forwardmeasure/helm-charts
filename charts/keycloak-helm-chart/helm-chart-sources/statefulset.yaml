@@ -1,0 +1,195 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "keycloak.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keycloak.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "keycloak.selectorLabels" . | nindent 6 }}
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "keycloak.fullname" . }}-internal
+  podManagementPolicy: {{ .Values.podManagementPolicy }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy }}
+  template:
+    metadata:
+      labels:
+        {{- include "keycloak.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name | default (printf "%s-service-account" (include "keycloak.fullname" .)) }}
+      securityContext:
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+      enableServiceLinks: {{ .Values.enableServiceLinks }}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      volumes:
+        - name: keycloak-tls-server-cert-volume
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+            items:
+              - key: tls.crt
+                path: server-certificate.pem
+              - key: tls.key
+                path: server-certificate-key.pem
+        {{- if .Values.realm.enabled }}
+        - name: keycloak-realm-import-volume
+          configMap:
+            name: {{ .Values.realm.configMapName }}
+            items:
+              - key: {{ .Values.realm.configMapKey }}
+                path: {{ .Values.realm.name }}-realm.json
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
+      containers:
+        - name: keycloak
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ .Values.containerSecurityContext.runAsUser }}
+          args:
+            - start
+          ports:
+            - name: http
+              containerPort: {{ .Values.keycloak.httpPort }}
+              protocol: TCP
+            - name: https
+              containerPort: {{ .Values.keycloak.httpsPort }}
+              protocol: TCP
+
+          env:
+            - name: KC_HTTP_PORT
+              value: {{ .Values.keycloak.httpPort | quote }}
+            - name: KC_HTTPS_PORT
+              value: {{ .Values.keycloak.httpsPort | quote }}
+            - name: KC_HOSTNAME_URL
+              value: {{ .Values.keycloak.hostnameUrl | quote }}
+            - name: KC_HOSTNAME
+              value: {{ .Values.keycloak.hostname | quote }}
+            - name: KC_HOSTNAME_DEBUG
+              value: {{ .Values.keycloak.hostnameDebug | quote }}
+            - name: KC_PROXY
+              value: {{ .Values.keycloak.proxy | quote }}
+            - name: KC_HTTP_ENABLED
+              value: {{ .Values.keycloak.httpEnabled | quote }}
+            - name: KC_HTTP_RELATIVE_PATH
+              value: {{ .Values.keycloak.httpRelativePath | quote }}
+            - name: KC_TRANSACTION_XA_ENABLED
+              value: {{ .Values.keycloak.transactionXaEnabled | quote }}
+            - name: KC_LOG_LEVEL
+              value: {{ .Values.keycloak.logLevel | quote }}
+            - name: KC_LOG
+              value: {{ .Values.keycloak.log | quote }}
+            - name: KC_HEALTH_ENABLED
+              value: {{ .Values.keycloak.healthEnabled | quote }}
+            - name: KC_METRICS_ENABLED
+              value: {{ .Values.keycloak.metricsEnabled | quote }}
+
+            # Database
+            - name: KC_DB
+              value: {{ .Values.keycloak.db.type | quote }}
+            {{- if .Values.keycloak.db.schema }}
+            - name: KC_DB_SCHEMA
+              value: {{ .Values.keycloak.db.schema | quote }}
+            {{- end }}
+            {{- if .Values.keycloak.db.driver }}
+            - name: KC_DB_DRIVER
+              value: {{ .Values.keycloak.db.driver | quote }}
+            {{- end }}
+            - name: KC_DB_POOL_INITIAL_SIZE
+              value: {{ .Values.keycloak.db.poolInitialSize | quote }}
+            - name: KC_DB_POOL_MIN_SIZE
+              value: {{ .Values.keycloak.db.poolMinSize | quote }}
+            - name: KC_DB_POOL_MAX_SIZE
+              value: {{ .Values.keycloak.db.poolMaxSize | quote }}
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.db.credentialsSecret }}
+                  key: KC_DB_USERNAME
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.db.credentialsSecret }}
+                  key: KC_DB_PASSWORD
+            - name: KC_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.db.credentialsSecret }}
+                  key: KC_DB_URL
+            {{- if .Values.keycloak.db.urlPropertiesSecret }}
+            - name: KC_DB_URL_PROPERTIES
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.db.credentialsSecret }}
+                  key: KC_DB_URL_PROPERTIES
+            {{- end }}
+
+            # TLS
+            - name: KC_HTTPS_CERTIFICATE_FILE
+              value: /secrets/tls/server-certificate.pem
+            - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+              value: /secrets/tls/server-certificate-key.pem
+
+            # Admin credentials
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.adminCredentialsSecret }}
+                  key: KEYCLOAK_ADMIN
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.adminCredentialsSecret }}
+                  key: KEYCLOAK_ADMIN_PASSWORD
+
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          volumeMounts:
+            - name: keycloak-tls-server-cert-volume
+              mountPath: /secrets/tls
+              readOnly: true
+            {{- if .Values.realm.enabled }}
+            - name: keycloak-realm-import-volume
+              mountPath: /opt/keycloak/data/import
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
