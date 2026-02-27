@@ -2,7 +2,7 @@ apiVersion: v2
 name: keycloak
 description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external database support.
 type: application
-version: "0.1.4"
+version: "0.1.5"
 appVersion: "26.0"
 keywords:
   - keycloak
