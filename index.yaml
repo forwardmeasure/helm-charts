@@ -193,10 +193,10 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: latest
-    created: "2026-02-26T13:13:27.328311303-05:00"
+    created: "2026-02-27T10:52:34.559297957-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
-    digest: 0ff6101a3095e2c0e416c82bd69285a7a5c1ad5ff476b9b65f09afb786617135
+    digest: b9701cd542d170e3e49a85fb602cebdbd3be395af2a77c65b9c586b3e3cf2b07
     keywords:
     - docling
     - NLP
@@ -212,7 +212,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: latest
-    created: "2026-02-27T10:47:06.187988287-05:00"
+    created: "2026-02-27T10:52:34.5586403-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: cafcaec8474e1273a328385427a6bfd5bb54261da06df31126a53e2c6274ae0f
@@ -423,4 +423,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-02-27T10:47:06.187251955-05:00"
+generated: "2026-02-27T10:52:34.557875396-05:00"
