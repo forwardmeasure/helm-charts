@@ -31,6 +31,11 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
       volumes:
         - name: keycloak-tls-server-cert-volume
           secret:
@@ -48,11 +53,46 @@ spec:
               - key: {{ .Values.realm.configMapKey }}
                 path: {{ .Values.realm.name }}-realm.json
         {{- end }}
+        {{- if .Values.cloudSqlProxy.enabled }}
+        - name: gcp-service-account-credentials-volume
+          secret:
+            secretName: {{ .Values.cloudSqlProxy.credentialsSecret }}
+            items:
+              - key: gcp-service-account-credentials-json
+                path: gcp-service-account-credentials.json
+        {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
 
       containers:
+        # ---------------------------------------------------------------------------
+        # Cloud SQL Auth Proxy sidecar — GCP only, enabled via cloudSqlProxy.enabled
+        # ---------------------------------------------------------------------------
+        {{- if .Values.cloudSqlProxy.enabled }}
+        - name: cloud-sql-proxy
+          image: "{{ .Values.cloudSqlProxy.image.repository }}:{{ .Values.cloudSqlProxy.image.tag }}"
+          imagePullPolicy: {{ .Values.cloudSqlProxy.image.pullPolicy }}
+          args:
+            - "--private-ip"
+            - {{ .Values.cloudSqlProxy.instanceConnectionName | quote }}
+            - "--port={{ .Values.cloudSqlProxy.port }}"
+            - "--address=0.0.0.0"
+            - "--structured-logs"
+            - "--credentials-file=/secrets/gcp/gcp-service-account-credentials.json"
+          securityContext:
+            runAsNonRoot: true
+          volumeMounts:
+            - name: gcp-service-account-credentials-volume
+              mountPath: /secrets/gcp
+              readOnly: true
+          resources:
+            {{- toYaml .Values.cloudSqlProxy.resources | nindent 12 }}
+        {{- end }}
+
+        # ---------------------------------------------------------------------------
+        # Keycloak main container
+        # ---------------------------------------------------------------------------
         - name: keycloak
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -161,6 +201,7 @@ spec:
                   name: {{ .Values.keycloak.adminCredentialsSecret }}
                   key: KEYCLOAK_ADMIN_PASSWORD
 
+            # Realm bootstrap
             {{- if .Values.realm.enabled }}
             - name: KEYCLOAK_DEFAULT_REALM_NAME
               valueFrom:
@@ -192,6 +233,15 @@ spec:
             - name: JAVA_OPTS_APPEND
               value: {{ .Values.realm.javaOpts | quote }}
             {{- end }}
+
+            # GCP Cloud SQL proxy
+            {{- if .Values.cloudSqlProxy.enabled }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /secrets/gcp/gcp-service-account-credentials.json
+            - name: KC_HOSTNAME_STRICT
+              value: {{ .Values.cloudSqlProxy.hostnameStrict | quote }}
+            {{- end }}
+
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -203,6 +253,11 @@ spec:
             {{- if .Values.realm.enabled }}
             - name: keycloak-realm-import-volume
               mountPath: /opt/keycloak/data/import
+            {{- end }}
+            {{- if .Values.cloudSqlProxy.enabled }}
+            - name: gcp-service-account-credentials-volume
+              mountPath: /secrets/gcp
+              readOnly: true
             {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}

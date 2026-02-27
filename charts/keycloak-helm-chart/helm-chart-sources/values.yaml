@@ -171,3 +171,21 @@ gcp:
     enabled: false
     gcpServiceAccountName: ""
     gcpProjectId: ""
+
+cloudSqlProxy:
+  enabled: false
+  image:
+    repository: gcr.io/cloud-sql-connectors/cloud-sql-proxy
+    tag: "2.11.0"
+    pullPolicy: IfNotPresent
+  instanceConnectionName: ""
+  port: 5432
+  hostnameStrict: "false"
+  credentialsSecret: gcp-service-account-credentials
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
