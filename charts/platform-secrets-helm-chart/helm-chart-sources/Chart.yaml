@@ -1,0 +1,9 @@
+apiVersion: v2
+name: platform-secrets
+description: |
+  ESO ExternalSecret resources for platform-wide secrets.
+  Common secrets (TLS, Docker Hub) are defined in base values.
+  Cloud-specific secrets (GCP SA, AWS IAM, Azure Managed Identity)
+  are enabled per-cloud via the values layer chain.
+version: "0.1.1"
+type: application
