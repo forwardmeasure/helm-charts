@@ -1,130 +1,132 @@
 apiVersion: v1
 entries:
   docling-serve:
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-02-27T12:01:16.9603743-05:00"
-    description: Helm chart for deploying Docling Serve with PVC-backed cache and
-      configurable backend models.
-    digest: dea10fc8aabcf7d61c361044bfd83a5af8f0fea5ce7b15f27b970f45ffca34b4
-    keywords:
-    - docling
-    - NLP
-    - model-serving
-    - PVC
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: docling-serve
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.3.tgz
-    version: 0.0.3
+    - apiVersion: v2
+      appVersion: latest
+      created: "2026-02-27T12:01:16.9603743-05:00"
+      description:
+        Helm chart for deploying Docling Serve with PVC-backed cache and
+        configurable backend models.
+      digest: dea10fc8aabcf7d61c361044bfd83a5af8f0fea5ce7b15f27b970f45ffca34b4
+      keywords:
+        - docling
+        - NLP
+        - model-serving
+        - PVC
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: docling-serve
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.3.tgz
+      version: 0.0.3
   karavan:
-  - apiVersion: v2
-    appVersion: 4.10.2
-    created: "2026-02-27T11:57:12.268999921-05:00"
-    description: Chart Helm for deploy Karavan
-    digest: 26379f4d0bfa78491f640f772e8909d4ddab78ceb42e37349eaf42b3987d580c
-    name: karavan
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/camel-karavan-helm-chart/karavan-1.0.1.tgz
-    version: 1.0.1
-  - apiVersion: v2
-    appVersion: 4.10.2
-    created: "2026-02-27T11:57:12.267992298-05:00"
-    description: Chart Helm for deploy Karavan
-    digest: b76a4fe25e47af615ea81945966e63d4b05b0a253e676837596daf31991203f7
-    name: karavan
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/camel-karavan-helm-chart/karavan-1.0.0.tgz
-    version: 1.0.0
+    - apiVersion: v2
+      appVersion: 4.10.2
+      created: "2026-02-27T11:57:12.268999921-05:00"
+      description: Chart Helm for deploy Karavan
+      digest: 26379f4d0bfa78491f640f772e8909d4ddab78ceb42e37349eaf42b3987d580c
+      name: karavan
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.1.tgz
+      version: 1.0.1
+    - apiVersion: v2
+      appVersion: 4.10.2
+      created: "2026-02-27T11:57:12.267992298-05:00"
+      description: Chart Helm for deploy Karavan
+      digest: b76a4fe25e47af615ea81945966e63d4b05b0a253e676837596daf31991203f7
+      name: karavan
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.0.tgz
+      version: 1.0.0
   keycloak:
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-02-27T11:57:12.269532681-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 26b76dd997f486a73b862060ba50bf5e5c010ace508c8f558014dddd2b15bf48
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/keycloak-helm-chart/keycloak-0.0.2.tgz
-    version: 0.0.2
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-02-27T11:57:12.269532681-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 26b76dd997f486a73b862060ba50bf5e5c010ace508c8f558014dddd2b15bf48
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.2.tgz
+      version: 0.0.2
   opensearch:
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2026-02-27T11:57:12.270958601-05:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 67e87de6f4e6b18245bdcccda597265bb822962f7dfa0e41663a6bccf9e477dc
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/opensearch-cluster-helm-chart/opensearch-1.0.21.tgz
-    version: 1.0.21
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2026-02-27T11:57:12.270576206-05:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 1008dcd9e37b99d589e2a239cae56f92bef8e94af657e16f3db45984775b8f23
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/opensearch-cluster-helm-chart/opensearch-1.0.20.tgz
-    version: 1.0.20
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2026-02-27T11:57:12.2702346-05:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: cc65647770278f7c5048ed6fef3671e75589ba2ada8ac43f8c09f35e7b7dce72
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/opensearch-cluster-helm-chart/opensearch-1.0.17.tgz
-    version: 1.0.17
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2026-02-27T11:57:12.269893988-05:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
-    version: 1.0.16
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2026-02-27T11:57:12.270958601-05:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: 67e87de6f4e6b18245bdcccda597265bb822962f7dfa0e41663a6bccf9e477dc
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.21.tgz
+      version: 1.0.21
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2026-02-27T11:57:12.270576206-05:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: 1008dcd9e37b99d589e2a239cae56f92bef8e94af657e16f3db45984775b8f23
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.20.tgz
+      version: 1.0.20
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2026-02-27T11:57:12.2702346-05:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: cc65647770278f7c5048ed6fef3671e75589ba2ada8ac43f8c09f35e7b7dce72
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.17.tgz
+      version: 1.0.17
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2026-02-27T11:57:12.269893988-05:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
+      version: 1.0.16
   zookeeper:
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-02-27T11:57:12.271631347-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 7fbb00b2b58fedcbfcec4ebe4b9ed33a2c5cabac6712ac25da3cf8d7744940b3
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/zookeeper-cluster-helm-chart/zookeeper-1.0.3.tgz
-    version: 1.0.3
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-02-27T11:57:12.271410908-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 9685e037bfbf02307800d2524a0c44fa301334b79e528bb99a638461bf58b488
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/zookeeper-cluster-helm-chart/zookeeper-1.0.2.tgz
-    version: 1.0.2
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-02-27T11:57:12.271187077-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 747e9e5b5389bb53de3c6a1a300fb4fb18bf2bf3b8eca8f2f57de1e8327f44e2
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
-    version: 1.0.1
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-02-27T11:57:12.271631347-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 7fbb00b2b58fedcbfcec4ebe4b9ed33a2c5cabac6712ac25da3cf8d7744940b3
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.3.tgz
+      version: 1.0.3
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-02-27T11:57:12.271410908-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 9685e037bfbf02307800d2524a0c44fa301334b79e528bb99a638461bf58b488
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.2.tgz
+      version: 1.0.2
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-02-27T11:57:12.271187077-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 747e9e5b5389bb53de3c6a1a300fb4fb18bf2bf3b8eca8f2f57de1e8327f44e2
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
+      version: 1.0.1
 generated: "2026-02-27T12:01:16.959750558-05:00"
