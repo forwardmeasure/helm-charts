@@ -219,7 +219,7 @@ service:
 
 models:
   image:
-    repository: ghcr.io/docling-project/docling-serve-cpu
+    repository: quay.io/docling-project/docling-serve-cpu
     tag: main
     pullPolicy: IfNotPresent
   # Named model tokens passed to: docling-tools models download --output-dir=...
