@@ -13,7 +13,7 @@ enableServiceLinks: true
 
 image:
   repository: quay.io/keycloak/keycloak
-  tag: "26.0"
+  tag: "26.5"
   pullPolicy: Always
 
 imagePullSecrets: []
