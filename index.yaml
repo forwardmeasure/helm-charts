@@ -193,10 +193,10 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: latest
-    created: "2026-02-27T10:54:21.810102142-05:00"
+    created: "2026-02-26T13:13:27.328311303-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
-    digest: b9701cd542d170e3e49a85fb602cebdbd3be395af2a77c65b9c586b3e3cf2b07
+    digest: 0ff6101a3095e2c0e416c82bd69285a7a5c1ad5ff476b9b65f09afb786617135
     keywords:
     - docling
     - NLP
@@ -212,10 +212,10 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: latest
-    created: "2026-02-27T10:54:21.809441367-05:00"
+    created: "2026-02-26T13:13:27.325004175-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
-    digest: cafcaec8474e1273a328385427a6bfd5bb54261da06df31126a53e2c6274ae0f
+    digest: 5937b0974a2579989fb76a591eb18b8fcf6df112735bfafe23117db94307fef6
     keywords:
     - docling
     - NLP
@@ -229,25 +229,6 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.1.1.tgz
     version: 0.1.1
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-02-27T10:54:21.808699526-05:00"
-    description: Helm chart for deploying Docling Serve with PVC-backed cache and
-      configurable backend models.
-    digest: dfd8d840e7710c82fb197e971d7f1e672f3f515f87a2bf05d5bf6cdac106157d
-    keywords:
-    - docling
-    - NLP
-    - model-serving
-    - PVC
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: docling-serve
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.2.tgz
-    version: 0.0.2
   karavan:
   - apiVersion: v2
     appVersion: 4.10.2
@@ -382,6 +363,25 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.1.1.tgz
     version: 0.1.1
+  - apiVersion: v2
+    appVersion: "26.0"
+    created: "2026-02-27T10:55:41.167440322-05:00"
+    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+      database support.
+    digest: 03899669239b0b4fdc7c44681eb526faad677723c906bf460f186ede48dedbd5
+    keywords:
+    - keycloak
+    - iam
+    - authentication
+    - authorization
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: keycloak
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.2.tgz
+    version: 0.0.2
   opensearch:
   - apiVersion: v1
     appVersion: 3.1.0
@@ -442,4 +442,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-02-27T10:54:21.807544231-05:00"
+generated: "2026-02-27T10:55:41.16625558-05:00"
