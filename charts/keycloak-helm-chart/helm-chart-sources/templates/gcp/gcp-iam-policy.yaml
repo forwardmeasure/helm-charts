@@ -1,0 +1,21 @@
+{{- if .Values.gcp.workloadIdentity.enabled }}
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicy
+metadata:
+  name: {{ include "keycloak.fullname" . }}-gcp-sa-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keycloak.labels" . | nindent 4 }}
+spec:
+  resourceRef:
+    apiVersion: iam.cnrm.cloud.google.com/v1beta1
+    kind: IAMServiceAccount
+    name: {{ include "keycloak.fullname" . }}-gcp-sa
+  bindings:
+    - role: roles/iam.workloadIdentityUser
+      members:
+        - serviceAccount:{{ .Values.gcp.workloadIdentity.gcpProjectId }}.svc.id.goog[{{ .Release.Namespace }}/{{ .Values.serviceAccount.name }}]
+    - role: roles/cloudsql.client
+      members:
+        - serviceAccount:{{ .Values.gcp.workloadIdentity.gcpProjectId }}.svc.id.goog[{{ .Release.Namespace }}/{{ .Values.serviceAccount.name }}]
+{{- end }}
