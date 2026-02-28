@@ -8,7 +8,7 @@ Usage: include "platform-secrets.externalSecret" (dict "secret" $secret "root" .
 {{- if and $secret.enabled $secret.namespaces -}}
 {{- range $secret.namespaces }}
 ---
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: {{ $secret.name }}
