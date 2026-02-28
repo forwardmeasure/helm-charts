@@ -218,11 +218,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.realm.credentialsSecret }}
                   key: KEYCLOAK_DEFAULT_CLIENT_SECRET
-            - name: KEYCLOAK_DEFAULT_USER_NAME
+            - name: KEYCLOAK_DEFAULT_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.realm.credentialsSecret }}
-                  key: KEYCLOAK_DEFAULT_USER_NAME
+                  key: KEYCLOAK_DEFAULT_USERNAME
             - name: KEYCLOAK_DEFAULT_USER_PASSWORD
               valueFrom:
                 secretKeyRef:
