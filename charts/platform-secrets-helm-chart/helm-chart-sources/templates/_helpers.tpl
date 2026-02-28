@@ -1,22 +1,37 @@
-# ---------------------------------------------------------------------------
-# platform-secrets values
-#
-# secrets: is a list of ExternalSecret definitions. Each entry controls
-# which namespaces receive the secret and what remote keys to fetch.
-#
-# Cloud-specific secrets are added in the appropriate values layer:
-#   values/platform-secrets/gcp/base.yaml.gotmpl
-#   values/platform-secrets/aws/base.yaml.gotmpl
-#   values/platform-secrets/azure/base.yaml.gotmpl
-#
-# secretStoreRef controls which ClusterSecretStore is used globally.
-# Override per-cloud when switching from fake to a real backend.
-# ---------------------------------------------------------------------------
-
-secretStoreRef:
-  name: fake-secret-store
-  kind: ClusterSecretStore
-
-refreshInterval: 1h
-
-secrets: []
+{{/*
+Generate ExternalSecret resources for a single secret definition.
+Usage: include "platform-secrets.externalSecret" (dict "secret" $secret "root" .)
+*/}}
+{{- define "platform-secrets.externalSecret" -}}
+{{- $secret := .secret -}}
+{{- $root := .root -}}
+{{- if and $secret.enabled $secret.namespaces -}}
+{{- range $secret.namespaces }}
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: {{ $secret.name }}
+  namespace: {{ . }}
+  labels:
+    app.kubernetes.io/managed-by: platform-secrets
+spec:
+  refreshInterval: {{ $root.Values.refreshInterval }}
+  secretStoreRef:
+    name: {{ $root.Values.secretStoreRef.name }}
+    kind: {{ $root.Values.secretStoreRef.kind }}
+  target:
+    name: {{ $secret.name }}
+    {{- if $secret.secretType }}
+    template:
+      type: {{ $secret.secretType }}
+    {{- end }}
+  data:
+    {{- range $secret.remoteRefs }}
+    - secretKey: {{ .secretKey }}
+      remoteRef:
+        key: {{ .remoteKey }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
