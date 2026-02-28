@@ -78,7 +78,7 @@ realm:
   configMapName: bootstrap-keycloak-realm-configmap
   configMapKey: bootstrap-keycloak-realm.json
   # Secret must contain: KEYCLOAK_DEFAULT_REALM_NAME, KEYCLOAK_DEFAULT_CLIENT_ID,
-  #   KEYCLOAK_DEFAULT_CLIENT_SECRET, KEYCLOAK_DEFAULT_USER_NAME, KEYCLOAK_DEFAULT_USER_PASSWORD
+  #   KEYCLOAK_DEFAULT_CLIENT_SECRET, KEYCLOAK_DEFAULT_USERNAME, KEYCLOAK_DEFAULT_USER_PASSWORD
   credentialsSecret: keycloak-default-realm-credentials
   features: "scripts,authorization"
   javaOpts: >-
