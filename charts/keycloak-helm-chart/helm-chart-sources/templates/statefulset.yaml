@@ -18,6 +18,10 @@ spec:
     metadata:
       labels:
         {{- include "keycloak.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name | default (printf "%s-service-account" (include "keycloak.fullname" .)) }}
       securityContext:
@@ -127,7 +131,7 @@ spec:
             - name: KC_HOSTNAME_DEBUG
               value: {{ .Values.keycloak.hostnameDebug | quote }}
             - name: KC_HOSTNAME_STRICT
-              value: {{ .Values.keycloak.hostnameStrict | quote }}              
+              value: {{ .Values.keycloak.hostnameStrict | quote }}
             - name: KC_PROXY
               value: {{ .Values.keycloak.proxy | quote }}
             - name: KC_HTTP_ENABLED
