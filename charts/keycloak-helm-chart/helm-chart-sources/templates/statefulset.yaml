@@ -126,6 +126,8 @@ spec:
               value: {{ .Values.keycloak.hostname | quote }}
             - name: KC_HOSTNAME_DEBUG
               value: {{ .Values.keycloak.hostnameDebug | quote }}
+            - name: KC_HOSTNAME_STRICT
+              value: {{ .Values.keycloak.hostnameStrict | quote }}              
             - name: KC_PROXY
               value: {{ .Values.keycloak.proxy | quote }}
             - name: KC_HTTP_ENABLED
@@ -238,8 +240,6 @@ spec:
             {{- if .Values.cloudSqlProxy.enabled }}
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /secrets/gcp/gcp-service-account-credentials.json
-            - name: KC_HOSTNAME_STRICT
-              value: {{ .Values.cloudSqlProxy.hostnameStrict | quote }}
             {{- end }}
 
             {{- with .Values.extraEnv }}

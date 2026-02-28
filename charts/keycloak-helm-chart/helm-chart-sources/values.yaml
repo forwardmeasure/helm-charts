@@ -30,6 +30,7 @@ keycloak:
   hostname: ""
   hostnameUrl: ""
   hostnameDebug: "true"
+  hostnameStrict: "false"
   proxy: edge
   httpEnabled: "true"
   httpRelativePath: /auth
@@ -180,7 +181,6 @@ cloudSqlProxy:
     pullPolicy: IfNotPresent
   instanceConnectionName: ""
   port: 5432
-  hostnameStrict: "false"
   credentialsSecret: gcp-service-account-credentials
   resources:
     requests:
