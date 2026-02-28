@@ -5,5 +5,5 @@ description: |
   Common secrets (TLS, Docker Hub) are defined in base values.
   Cloud-specific secrets (GCP SA, AWS IAM, Azure Managed Identity)
   are enabled per-cloud via the values layer chain.
-version: "0.1.2"
+version: "0.1.3"
 type: application
