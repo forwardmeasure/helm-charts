@@ -123,14 +123,14 @@ resources:
 # ---------------------------------------------------------------------------
 livenessProbe:
   enabled: true
-  path: /auth/health/live
+  path: /health/live
   initialDelaySeconds: 120
   periodSeconds: 30
   failureThreshold: 3
 
 readinessProbe:
   enabled: true
-  path: /auth/health/ready
+  path: /health/ready
   initialDelaySeconds: 60
   periodSeconds: 10
   failureThreshold: 3
@@ -189,3 +189,5 @@ cloudSqlProxy:
     limits:
       cpu: 2000m
       memory: 2Gi
+
+podAnnotations: {}
