@@ -27,11 +27,18 @@ service:
 keycloak:
   httpPort: 8080
   httpsPort: 8443
+
+  # Keycloak 26.x management interface (health/metrics commonly served here)
+  managementPort: 9000
+
   hostname: ""
   hostnameUrl: ""
   hostnameDebug: "true"
   hostnameStrict: "false"
+
+  # NOTE: You are using hostname v1 "proxy" option; Keycloak warns but it still works.
   proxy: edge
+
   httpEnabled: "true"
   httpRelativePath: /auth
   transactionXaEnabled: "false"
@@ -70,16 +77,10 @@ tls:
 # Mounts a realm JSON file from a ConfigMap into /opt/keycloak/data/import
 # ---------------------------------------------------------------------------
 realm:
-  # Set enabled: true to mount and auto-import a realm on first boot.
-  # Override in your environment-specific values file (e.g. gcp-workfusion.yaml.gotmpl).
-  # The ConfigMap and credentialsSecret must be created in the kustomize overlay
-  # for the target environment before deploying.
   enabled: false
   name: datafabric
   configMapName: bootstrap-keycloak-realm-configmap
   configMapKey: bootstrap-keycloak-realm.json
-  # Secret must contain: KEYCLOAK_DEFAULT_REALM_NAME, KEYCLOAK_DEFAULT_CLIENT_ID,
-  #   KEYCLOAK_DEFAULT_CLIENT_SECRET, KEYCLOAK_DEFAULT_USERNAME, KEYCLOAK_DEFAULT_USER_PASSWORD
   credentialsSecret: keycloak-default-realm-credentials
   features: "scripts,authorization"
   javaOpts: >-
@@ -120,10 +121,14 @@ resources:
 
 # ---------------------------------------------------------------------------
 # Probes
+# Defaults target Keycloak management interface on 9000 (HTTPS).
+# These fields map directly to the updated StatefulSet template.
 # ---------------------------------------------------------------------------
 readinessProbe:
   enabled: true
   path: /health/ready
+  port: 9000
+  scheme: HTTPS
   initialDelaySeconds: 120
   periodSeconds: 10
   timeoutSeconds: 3
@@ -132,6 +137,8 @@ readinessProbe:
 livenessProbe:
   enabled: true
   path: /health/live
+  port: 9000
+  scheme: HTTPS
   initialDelaySeconds: 300
   periodSeconds: 20
   timeoutSeconds: 3
@@ -140,9 +147,11 @@ livenessProbe:
 startupProbe:
   enabled: true
   path: /health/ready
+  port: 9000
+  scheme: HTTPS
   periodSeconds: 5
   timeoutSeconds: 3
-  failureThreshold: 120 # 10 minutes
+  failureThreshold: 120 # ~10 minutes
 
 # ---------------------------------------------------------------------------
 # Affinity — defaults to pod anti-affinity for HA
@@ -186,7 +195,7 @@ cloudSqlProxy:
   enabled: false
   image:
     repository: gcr.io/cloud-sql-connectors/cloud-sql-proxy
-    tag: "2.11.0"
+    tag: "2.21.1"
     pullPolicy: IfNotPresent
   instanceConnectionName: ""
   port: 5432
@@ -199,4 +208,7 @@ cloudSqlProxy:
       cpu: 2000m
       memory: 2Gi
 
+# ---------------------------------------------------------------------------
+# Pod annotations (merged into pod template metadata.annotations)
+# ---------------------------------------------------------------------------
 podAnnotations: {}
