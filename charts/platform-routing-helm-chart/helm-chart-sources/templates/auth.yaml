@@ -1,0 +1,35 @@
+{{- range .Values.routes }}
+{{- if .auth }}
+{{- if .auth.enabled }}
+---
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.gateway.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .auth.selector | nindent 6 }}
+  jwtRules:
+    - issuer: {{ .auth.issuerUrl | quote }}
+      jwksUri: {{ .auth.jwksUri | quote }}
+      forwardOriginalToken: true
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.gateway.namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .auth.selector | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+{{- end }}
+{{- end }}
+{{- end }}

@@ -8,6 +8,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 DO_TAG=true
 DO_PUSH=true
 DO_BRANCH=true
+DRY_RUN=false
 BASE_BRANCH="develop"
 CHART_NAME=""
 REPO_URL=""
@@ -23,6 +24,7 @@ while [[ "$#" -gt 0 ]]; do
     --no-tag) DO_TAG=false ;;
     --no-push) DO_PUSH=false ;;
     --no-branch) DO_BRANCH=false ;;
+    --dry-run) DRY_RUN=true ;;
     *) echo "❌ Unknown parameter passed: $1"; exit 1 ;;
   esac
   shift
@@ -41,11 +43,15 @@ CHART_FILE="${CHART_SOURCE_DIR}/Chart.yaml"
 VALUES_FILE="${CHART_SOURCE_DIR}/values.yaml"
 REPO_URL=${REPO_URL:-"https://forwardmeasure.github.io/helm-charts/charts/${CHART_NAME}"}
 
+if $DRY_RUN; then
+  echo "🔬 DRY RUN — no files will be modified, no git operations will be performed"
+fi
+
 # === Extract image tag from values.yaml ===
 IMAGE_TAG=$(yq e '.image.tag' "${VALUES_FILE}")
-if [[ -z "$IMAGE_TAG" ]]; then
-  echo "❌ Could not extract image tag from values.yaml"
-  exit 1
+if [[ -z "$IMAGE_TAG" || "$IMAGE_TAG" == "null" ]]; then
+  IMAGE_TAG=$(grep "^appVersion:" "$CHART_FILE" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs)
+  echo "ℹ️  No image.tag in values.yaml — using existing appVersion: ${IMAGE_TAG}"
 fi
 
 # === Determine current and new version ===
@@ -71,17 +77,28 @@ echo "🧪 CURRENT_VERSION=$CURRENT_VERSION"
 echo "🧪 NEW_VERSION=$NEW_VERSION"
 echo "🧪 IMAGE_TAG=$IMAGE_TAG"
 
-# === Lint BEFORE making any changes ===
-# We lint against the current version so that a failure leaves Chart.yaml untouched
-# and the working tree clean.
-echo "🔍 Linting Helm chart (pre-bump)..."
+# === Lint ===
+echo "🔍 Linting Helm chart..."
 if ! helm lint "${CHART_SOURCE_DIR}"; then
-  echo "❌ Lint failed. Chart.yaml has NOT been modified. Fix the errors above and retry."
+  echo "❌ Lint failed. Fix the errors above and retry."
   exit 1
 fi
 echo "✅ Lint passed."
 
-# === Update Chart.yaml (only reached if lint succeeded) ===
+if $DRY_RUN; then
+  echo ""
+  echo "🔬 Dry run complete. The following would have been performed:"
+  echo "   - Bump Chart.yaml: version ${CURRENT_VERSION} → ${NEW_VERSION}, appVersion ${IMAGE_TAG}"
+  echo "   - Package chart to ${CHART_PACKAGE_DIR}"
+  echo "   - Merge into index.yaml"
+  echo "   - git commit: '${COMMIT_MSG:-Release chart version ${NEW_VERSION}}'"
+  if $DO_BRANCH; then echo "   - git checkout -b release/${CHART_NAME}/v${NEW_VERSION}"; fi
+  if $DO_TAG;   then echo "   - git tag ${CHART_NAME}-v${NEW_VERSION}"; fi
+  if $DO_PUSH;  then echo "   - git push branch and tag to remote"; fi
+  exit 0
+fi
+
+# === Update Chart.yaml ===
 if [[ "$NEW_VERSION" == "$CURRENT_VERSION" ]]; then
   echo "⚠️  Version unchanged ($NEW_VERSION). Skipping version bump."
 else
@@ -136,7 +153,6 @@ if $DO_PUSH; then
   git config push.default current
   if $DO_BRANCH; then git push -u origin "${RELEASE_BRANCH}"; fi
   if $DO_TAG; then git push origin "${RELEASE_TAG}"; fi
-  # === Delete local release branch after pushing
   echo "🧹 Deleting local release branch: ${RELEASE_BRANCH}"
   git checkout "${BASE_BRANCH}"
   git branch -D "${RELEASE_BRANCH}"
