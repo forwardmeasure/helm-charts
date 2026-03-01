@@ -1,0 +1,89 @@
+# ---------------------------------------------------------------------------
+# values.yaml — platform-routing chart defaults
+# All actual values are supplied via helmfile values files.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Gateway
+# ---------------------------------------------------------------------------
+gateway:
+  enabled: true
+  name: data-fabric-gateway
+  namespace: istio-system
+  gatewayClassName: istio
+  loadBalancerIp: ""
+  # Root domain TLS secret (shared by all routes on the root domain)
+  rootTlsSecret: data-fabric-tls-secret
+  # Root hostname
+  rootHostname: ""
+  # Additional listeners beyond http, root-https.
+  # Each entry maps to one HTTPS listener in the Gateway.
+  # listeners[].name        — listener name (used as sectionName in parentRef)
+  # listeners[].hostname    — fully qualified hostname
+  # listeners[].tlsSecret   — name of TLS secret in gateway namespace
+  listeners: []
+
+# ---------------------------------------------------------------------------
+# HTTP redirect route (http -> https) and Telemetry
+# ---------------------------------------------------------------------------
+httpRedirect:
+  enabled: true
+
+telemetry:
+  enabled: true
+
+# ---------------------------------------------------------------------------
+# ClusterIssuer (cert-manager, Let's Encrypt via GCP Cloud DNS)
+# ---------------------------------------------------------------------------
+clusterIssuer:
+  enabled: false
+  name: letsencrypt-gcp-dns
+  server: https://acme-v02.api.letsencrypt.org/directory
+  email: ""
+  gcpProject: ""
+  gcpCredentialsSecret: gcp-service-account-credentials
+  gcpCredentialsKey: gcp-service-account-credentials-json
+
+# ---------------------------------------------------------------------------
+# Routes
+# Each entry generates:
+#   - HTTPRoute or TCPRoute in the gateway namespace
+#   - ReferenceGrant(s) in each unique backend namespace
+#   - cert-manager Certificate (if certificate.enabled)
+#   - Istio RequestAuthentication + AuthorizationPolicy (if auth.enabled)
+#   - Istio DestinationRule (if destinationRule.enabled)
+#
+# Route fields:
+#   name              — used as resource name prefix
+#   kind              — HTTP (default) | TCP
+#   hostnames         — list of hostnames for the route
+#   parentRef
+#     sectionName     — optional, ties to a specific gateway listener
+#   rules[]
+#     matches[]
+#       path.type     — PathPrefix | Exact
+#       path.value    — path string
+#     rewrite         — optional URL rewrite
+#       path          — replacePrefixMatch value
+#     backend
+#       name          — service name
+#       namespace     — service namespace
+#       port          — service port
+#       weight        — optional, default 1
+#   certificate
+#     enabled         — create a cert-manager Certificate
+#     secretName      — TLS secret name to produce
+#   auth
+#     enabled         — create RequestAuthentication + AuthorizationPolicy
+#     selector        — matchLabels for the policy selector
+#     issuerUrl       — Keycloak realm issuer URL
+#     jwksUri         — Keycloak JWKS URI
+#   destinationRule
+#     enabled         — create a DestinationRule
+#     host            — fully qualified service hostname
+#     namespace       — namespace to create the DestinationRule in
+#     tls
+#       mode          — SIMPLE | MUTUAL | ISTIO_MUTUAL
+#       sni           — SNI hostname
+# ---------------------------------------------------------------------------
+routes: []

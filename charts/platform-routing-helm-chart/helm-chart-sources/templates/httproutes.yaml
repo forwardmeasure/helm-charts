@@ -1,0 +1,45 @@
+{{- range .Values.routes }}
+{{- if ne (.kind | default "HTTP") "TCP" }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.gateway.namespace }}
+spec:
+  parentRefs:
+    - name: {{ $.Values.gateway.name }}
+      namespace: {{ $.Values.gateway.namespace }}
+      {{- if .parentRef }}
+      {{- if .parentRef.sectionName }}
+      sectionName: {{ .parentRef.sectionName }}
+      {{- end }}
+      {{- end }}
+  hostnames:
+    {{- range .hostnames }}
+    - {{ . | quote }}
+    {{- end }}
+  rules:
+    {{- range .rules }}
+    - matches:
+        {{- range .matches }}
+        - path:
+            type: {{ .path.type }}
+            value: {{ .path.value | quote }}
+        {{- end }}
+      {{- if .rewrite }}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: {{ .rewrite.path | quote }}
+      {{- end }}
+      backendRefs:
+        - name: {{ .backend.name }}
+          namespace: {{ .backend.namespace }}
+          port: {{ .backend.port }}
+          weight: {{ .backend.weight | default 1 }}
+    {{- end }}
+{{- end }}
+{{- end }}
