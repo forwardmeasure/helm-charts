@@ -1,0 +1,18 @@
+{{- range .Values.routes }}
+{{- if .destinationRule }}
+{{- if .destinationRule.enabled }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ .name }}
+  namespace: {{ .destinationRule.namespace }}
+spec:
+  host: {{ .destinationRule.host }}
+  trafficPolicy:
+    tls:
+      mode: {{ .destinationRule.tls.mode }}
+      sni: {{ .destinationRule.tls.sni | quote }}
+{{- end }}
+{{- end }}
+{{- end }}

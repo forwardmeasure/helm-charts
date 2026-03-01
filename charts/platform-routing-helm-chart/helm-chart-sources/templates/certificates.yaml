@@ -1,0 +1,43 @@
+{{- if .Values.clusterIssuer.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.clusterIssuer.name }}
+spec:
+  acme:
+    server: {{ .Values.clusterIssuer.server }}
+    email: {{ .Values.clusterIssuer.email }}
+    privateKeySecretRef:
+      name: letsencrypt-gcp-account-key
+    solvers:
+      - dns01:
+          cloudDNS:
+            project: {{ .Values.clusterIssuer.gcpProject }}
+            serviceAccountSecretRef:
+              name: {{ .Values.clusterIssuer.gcpCredentialsSecret }}
+              key: {{ .Values.clusterIssuer.gcpCredentialsKey }}
+{{- end }}
+
+{{- range .Values.routes }}
+{{- if .certificate }}
+{{- if .certificate.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .name }}-cert
+  namespace: {{ $.Values.gateway.namespace }}
+spec:
+  secretName: {{ .certificate.secretName }}
+  issuerRef:
+    name: {{ $.Values.clusterIssuer.name }}
+    kind: ClusterIssuer
+  commonName: {{ first .hostnames }}
+  dnsNames:
+    {{- range .hostnames }}
+    - {{ . | quote }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
