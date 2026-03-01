@@ -129,7 +129,7 @@ resources:
 # ---------------------------------------------------------------------------
 readinessProbe:
   enabled: true
-  path: /health/ready
+  path: /auth/health/ready
   port: 9000
   scheme: HTTP
   initialDelaySeconds: 120
@@ -140,7 +140,7 @@ readinessProbe:
 
 livenessProbe:
   enabled: true
-  path: /health/live
+  path: /auth/health/live
   port: 9000
   scheme: HTTP
   initialDelaySeconds: 300
@@ -151,7 +151,7 @@ livenessProbe:
 
 startupProbe:
   enabled: true
-  path: /health/ready
+  path: /auth/health/ready
   port: 9000
   scheme: HTTP
   periodSeconds: 5
