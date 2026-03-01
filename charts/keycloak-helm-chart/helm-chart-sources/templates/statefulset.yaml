@@ -109,7 +109,7 @@ spec:
             - --import-realm
             - --health-enabled=true
             - --metrics-enabled=true
-            - --http-management-scheme=http- 
+            - --http-management-scheme=http
             - --log-level={{ .Values.keycloak.logLevel }}
             {{- else }}
             - start
@@ -275,7 +275,7 @@ spec:
 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-{{- if .Values.livenessProbe.enabled }}
+          {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
               path: {{ .Values.livenessProbe.path }}
