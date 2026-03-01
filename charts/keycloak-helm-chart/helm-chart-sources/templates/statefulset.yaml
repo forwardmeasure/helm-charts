@@ -107,9 +107,15 @@ spec:
             {{- if .Values.realm.enabled }}
             - start
             - --import-realm
+            - --health-enabled=true
+            - --metrics-enabled=true
+            - --http-management-scheme=http- 
             - --log-level={{ .Values.keycloak.logLevel }}
             {{- else }}
             - start
+            - --health-enabled=true
+            - --metrics-enabled=true
+            - --http-management-scheme=http
             {{- end }}
           ports:
             - name: http
@@ -148,10 +154,6 @@ spec:
               value: {{ .Values.keycloak.logLevel | quote }}
             - name: KC_LOG
               value: {{ .Values.keycloak.log | quote }}
-            - name: KC_HEALTH_ENABLED
-              value: {{ .Values.keycloak.healthEnabled | quote }}
-            - name: KC_METRICS_ENABLED
-              value: {{ .Values.keycloak.metricsEnabled | quote }}
 
             # Database
             - name: KC_DB
@@ -273,13 +275,16 @@ spec:
 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-
-          {{- if .Values.livenessProbe.enabled }}
+{{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
               path: {{ .Values.livenessProbe.path }}
               port: {{ .Values.livenessProbe.port | default "http" }}
               scheme: {{ .Values.livenessProbe.scheme | default "HTTP" }}
+              {{- with .Values.livenessProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
             initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds | default 3 }}
@@ -292,6 +297,10 @@ spec:
               path: {{ .Values.readinessProbe.path }}
               port: {{ .Values.readinessProbe.port | default "http" }}
               scheme: {{ .Values.readinessProbe.scheme | default "HTTP" }}
+              {{- with .Values.readinessProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
             initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds | default 3 }}
@@ -304,6 +313,10 @@ spec:
               path: {{ .Values.startupProbe.path }}
               port: {{ .Values.startupProbe.port | default (.Values.readinessProbe.port | default "http") }}
               scheme: {{ .Values.startupProbe.scheme | default (.Values.readinessProbe.scheme | default "HTTP") }}
+              {{- with .Values.startupProbe.httpHeaders }}
+              httpHeaders:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
             periodSeconds: {{ .Values.startupProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds | default 3 }}
             failureThreshold: {{ .Values.startupProbe.failureThreshold }}
