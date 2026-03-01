@@ -1,0 +1,10 @@
+apiVersion: v2
+name: platform-routing
+description: >
+  Manages all Istio/Gateway API routing resources for the Data Fabric platform.
+  Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
+  Certificates, ClusterIssuer, and optional Istio RequestAuthentication,
+  AuthorizationPolicy, and DestinationRule resources.
+type: application
+version: "0.0.2"
+appVersion: "1.0.0"

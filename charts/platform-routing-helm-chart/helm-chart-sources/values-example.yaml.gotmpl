@@ -1,0 +1,282 @@
+# ---------------------------------------------------------------------------
+# values/platform-routing/gcp/workfusion.yaml.gotmpl
+# All platform route definitions for the gcp-workfusion environment.
+# Replaces: keycloak-routing.yaml, opensearch-routing.yaml,
+#           pinot-routing.yaml, docling-serve-routing.yaml,
+#           camel-karavan-routing.yaml, open-webui-routing.yaml,
+#           superset-routing.yaml, valkey-routing.yaml,
+#           route-certificates.yaml, route-explicit-auth.yaml
+# ---------------------------------------------------------------------------
+
+gateway:
+  name: {{ .Values.dataFabricIstioGatewayName }}
+  namespace: {{ .Values.istioNamespace }}
+  loadBalancerIp: {{ .Values.dataFabricDeploymentLoadbalancerIp }}
+  rootHostname: {{ .Values.dataFabricDeploymentDomain }}
+  rootTlsSecret: data-fabric-tls-secret
+  listeners:
+    - name: explore-https
+      hostname: {{ .Values.opensearchClusterDnsName }}
+      tlsSecret: explore-tls
+    - name: olap-https
+      hostname: {{ .Values.pinotClusterDnsName }}
+      tlsSecret: olap-tls
+    - name: insights-https
+      hostname: {{ .Values.supersetClusterDnsName }}
+      tlsSecret: insights-tls
+    - name: docling-serve-https
+      hostname: {{ .Values.doclingServeDnsName }}
+      tlsSecret: docling-serve-tls
+    - name: camel-karavan-https
+      hostname: {{ .Values.karavanDnsName }}
+      tlsSecret: camel-karavan-tls
+    - name: open-webui-https
+      hostname: {{ .Values.openWebuiDnsName }}
+      tlsSecret: open-webui-tls
+
+clusterIssuer:
+  enabled: true
+  name: letsencrypt-gcp-dns
+  server: https://acme-v02.api.letsencrypt.org/directory
+  email: pn@forwardmeasure.com
+  gcpProject: {{ .Values.gcpProjectId }}
+  gcpCredentialsSecret: gcp-service-account-credentials
+  gcpCredentialsKey: gcp-service-account-credentials-json
+
+routes:
+  # ---------------------------------------------------------------------------
+  # Keycloak — path-based on root domain
+  # ---------------------------------------------------------------------------
+  - name: keycloak
+    hostnames:
+      - {{ .Values.dataFabricDeploymentDomain | quote }}
+    parentRef:
+      sectionName: root-https
+    rules:
+      - matches:
+          - path:
+              type: Exact
+              value: /auth
+          - path:
+              type: PathPrefix
+              value: /auth/
+        backend:
+          name: keycloak-internal
+          namespace: {{ .Values.keycloakNamespace | quote }}
+          port: 8080
+
+  # ---------------------------------------------------------------------------
+  # OpenSearch — dashboards UI on subdomain, API on root domain
+  # ---------------------------------------------------------------------------
+  - name: opensearch-dashboards
+    hostnames:
+      - {{ .Values.opensearchClusterDnsName | quote }}
+    parentRef:
+      sectionName: explore-https
+    certificate:
+      enabled: true
+      secretName: explore-tls
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backend:
+          name: opensearch-dashboards
+          namespace: {{ .Values.opensearchNamespace | quote }}
+          port: 5601
+    destinationRule:
+      enabled: true
+      host: "opensearch-cluster-master.{{ .Values.opensearchNamespace }}.svc.cluster.local"
+      namespace: {{ .Values.opensearchNamespace | quote }}
+      tls:
+        mode: SIMPLE
+        sni: {{ .Values.opensearchClusterDnsName | quote }}
+
+  - name: opensearch-api
+    hostnames:
+      - {{ .Values.dataFabricDeploymentDomain | quote }}
+    parentRef:
+      sectionName: root-https
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: {{ .Values.apiPathPrefixV1 }}/opensearch
+        rewrite:
+          path: /
+        backend:
+          name: opensearch-cluster-master
+          namespace: {{ .Values.opensearchNamespace | quote }}
+          port: 9200
+
+  # ---------------------------------------------------------------------------
+  # Pinot — controller UI on subdomain, broker API on root domain
+  # ---------------------------------------------------------------------------
+  - name: pinot-controller-ui
+    hostnames:
+      - {{ .Values.pinotClusterDnsName | quote }}
+    parentRef:
+      sectionName: olap-https
+    certificate:
+      enabled: true
+      secretName: olap-tls
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backend:
+          name: pinot-controller
+          namespace: {{ .Values.pinotNamespace | quote }}
+          port: 9000
+    auth:
+      enabled: true
+      selector:
+        app: pinot
+        component: controller
+        release: pinot
+      issuerUrl: "{{ .Values.keycloakUrl }}/realms/{{ .Values.keycloakDefaultRealmName }}"
+      jwksUri: "{{ .Values.keycloakUrl }}/realms/{{ .Values.keycloakDefaultRealmName }}/protocol/openid-connect/certs"
+
+  - name: pinot-broker-api
+    hostnames:
+      - {{ .Values.dataFabricDeploymentDomain | quote }}
+    parentRef:
+      sectionName: root-https
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: {{ .Values.apiPathPrefixV1 }}/olap/sql
+        rewrite:
+          path: /broker/sql
+        backend:
+          name: pinot-broker
+          namespace: {{ .Values.pinotNamespace | quote }}
+          port: 8099
+
+  # ---------------------------------------------------------------------------
+  # Superset — API on root domain only (UI via subdomain TBD)
+  # ---------------------------------------------------------------------------
+  - name: superset
+    hostnames:
+      - {{ .Values.dataFabricDeploymentDomain | quote }}
+    parentRef:
+      sectionName: root-https
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: {{ .Values.apiPathPrefixV1 }}/insights
+        rewrite:
+          path: /
+        backend:
+          name: superset
+          namespace: {{ .Values.supersetNamespace | quote }}
+          port: 8088
+
+  # ---------------------------------------------------------------------------
+  # Docling Serve — API with rewrite + UI on subdomain
+  # ---------------------------------------------------------------------------
+  - name: docling-serve-api
+    hostnames:
+      - {{ .Values.doclingServeDnsName | quote }}
+    parentRef:
+      sectionName: docling-serve-https
+    certificate:
+      enabled: true
+      secretName: docling-serve-tls
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: {{ .Values.apiPathPrefixV1 }}/docextract
+        rewrite:
+          path: /
+        backend:
+          name: docling-serve
+          namespace: {{ .Values.doclingServeNamespace | quote }}
+          port: 5001
+    auth:
+      enabled: true
+      selector:
+        app.kubernetes.io/name: docling-serve
+      issuerUrl: "{{ .Values.keycloakUrl }}/realms/{{ .Values.keycloakDefaultRealmName }}"
+      jwksUri: "{{ .Values.keycloakUrl }}/realms/{{ .Values.keycloakDefaultRealmName }}/protocol/openid-connect/certs"
+
+  - name: docling-serve-ui
+    hostnames:
+      - {{ .Values.doclingServeDnsName | quote }}
+    parentRef:
+      sectionName: docling-serve-https
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backend:
+          name: docling-serve
+          namespace: {{ .Values.doclingServeNamespace | quote }}
+          port: 5001
+
+  # ---------------------------------------------------------------------------
+  # Camel Karavan
+  # ---------------------------------------------------------------------------
+  - name: camel-karavan
+    hostnames:
+      - {{ .Values.karavanDnsName | quote }}
+    parentRef:
+      sectionName: camel-karavan-https
+    certificate:
+      enabled: true
+      secretName: camel-karavan-tls
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backend:
+          name: camel-karavan
+          namespace: {{ .Values.karavanNamespace | quote }}
+          port: 80
+    auth:
+      enabled: true
+      selector:
+        app.kubernetes.io/name: camel-karavan
+      issuerUrl: "{{ .Values.keycloakUrl }}/realms/{{ .Values.keycloakDefaultRealmName }}"
+      jwksUri: "{{ .Values.keycloakUrl }}/realms/{{ .Values.keycloakDefaultRealmName }}/protocol/openid-connect/certs"
+
+  # ---------------------------------------------------------------------------
+  # Open WebUI
+  # ---------------------------------------------------------------------------
+  - name: open-webui
+    hostnames:
+      - {{ .Values.openWebuiDnsName | quote }}
+    parentRef:
+      sectionName: open-webui-https
+    certificate:
+      enabled: true
+      secretName: open-webui-tls
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+        backend:
+          name: open-webui
+          namespace: {{ .Values.openWebuiNamespace | quote }}
+          port: 80
+
+  # ---------------------------------------------------------------------------
+  # Valkey — TCP route
+  # ---------------------------------------------------------------------------
+  - name: valkey-tcp
+    kind: TCP
+    parentRef:
+      sectionName: valkey-tcp
+    rules:
+      - backend:
+          name: valkey-primary
+          namespace: {{ .Values.valkeyNamespace | quote }}
+          port: 6379

@@ -248,6 +248,20 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
     version: 1.0.16
+  platform-routing:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-01T11:30:09.811306507-05:00"
+    description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
+      platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
+      Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
+      and DestinationRule resources. '
+    digest: 81c41ca807bc62768da77405da3c39f95c193b5bc5dcdebfd4e7cb36eb179ed8
+    name: platform-routing
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/platform-routing-helm-chart/platform-routing-0.0.2.tgz
+    version: 0.0.2
   platform-secrets:
   - apiVersion: v2
     created: "2026-02-28T11:32:49.334237416-05:00"
@@ -316,4 +330,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-01T01:51:05.019538031-05:00"
+generated: "2026-03-01T11:30:09.810393964-05:00"
