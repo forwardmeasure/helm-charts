@@ -118,6 +118,10 @@ spec:
             - name: https
               containerPort: {{ .Values.keycloak.httpsPort }}
               protocol: TCP
+            # Keycloak 26.x management interface (health/metrics live here by default)
+            - name: management
+              containerPort: 9000
+              protocol: TCP
 
           env:
             - name: KC_HTTP_PORT
@@ -274,9 +278,11 @@ spec:
           livenessProbe:
             httpGet:
               path: {{ .Values.livenessProbe.path }}
-              port: http
+              port: {{ .Values.livenessProbe.port | default "http" }}
+              scheme: {{ .Values.livenessProbe.scheme | default "HTTP" }}
             initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds | default 3 }}
             failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
           {{- end }}
 
@@ -284,9 +290,11 @@ spec:
           readinessProbe:
             httpGet:
               path: {{ .Values.readinessProbe.path }}
-              port: http
+              port: {{ .Values.readinessProbe.port | default "http" }}
+              scheme: {{ .Values.readinessProbe.scheme | default "HTTP" }}
             initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds | default 3 }}
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           {{- end }}
 
@@ -294,8 +302,9 @@ spec:
           startupProbe:
             httpGet:
               path: {{ .Values.startupProbe.path }}
-              port: http
+              port: {{ .Values.startupProbe.port | default (.Values.readinessProbe.port | default "http") }}
+              scheme: {{ .Values.startupProbe.scheme | default (.Values.readinessProbe.scheme | default "HTTP") }}
             periodSeconds: {{ .Values.startupProbe.periodSeconds }}
-            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds | default 3 }}
             failureThreshold: {{ .Values.startupProbe.failureThreshold }}
-          {{- end }}          
+          {{- end }}
