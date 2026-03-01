@@ -47,15 +47,8 @@ if $DRY_RUN; then
   echo "🔬 DRY RUN — no files will be modified, no git operations will be performed"
 fi
 
-# === Extract image tag from values.yaml ===
-IMAGE_TAG=$(yq e '.image.tag' "${VALUES_FILE}")
-if [[ -z "$IMAGE_TAG" || "$IMAGE_TAG" == "null" ]]; then
-  IMAGE_TAG=$(grep "^appVersion:" "$CHART_FILE" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs)
-  echo "ℹ️  No image.tag in values.yaml — using existing appVersion: ${IMAGE_TAG}"
-fi
-
 # === Determine current and new version ===
-CURRENT_VERSION=$(grep "^version:" "$CHART_FILE" | awk '{print $2}' | tr -d '\r\n' | xargs)
+CURRENT_VERSION=$(grep "^version:" "$CHART_FILE" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs)
 if [[ -z "$CURRENT_VERSION" ]]; then
   echo "❌ Could not extract version from Chart.yaml"
   exit 1
@@ -71,6 +64,18 @@ else
   fi
   PATCH=$((PATCH + 1))
   NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+fi
+
+# === Extract image tag from values.yaml ===
+IMAGE_TAG=$(yq e '.image.tag' "${VALUES_FILE}") || true
+if [[ -z "$IMAGE_TAG" || "$IMAGE_TAG" == "null" ]]; then
+  IMAGE_TAG=$(grep "^appVersion:" "$CHART_FILE" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs) || true
+  if [[ -z "$IMAGE_TAG" || "$IMAGE_TAG" == "null" ]]; then
+    IMAGE_TAG="$NEW_VERSION"
+    echo "ℹ️  No image.tag or appVersion found — using chart version as appVersion: ${IMAGE_TAG}"
+  else
+    echo "ℹ️  No image.tag in values.yaml — using existing appVersion: ${IMAGE_TAG}"
+  fi
 fi
 
 echo "🧪 CURRENT_VERSION=$CURRENT_VERSION"

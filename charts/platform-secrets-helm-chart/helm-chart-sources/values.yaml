@@ -20,3 +20,8 @@ secretStoreRef:
 refreshInterval: 1h
 
 secrets: []
+
+clusterSecretStore:
+  enabled: false
+  name: fake-secret-store
+  provider: {}
