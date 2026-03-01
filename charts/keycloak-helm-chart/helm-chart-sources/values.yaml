@@ -121,19 +121,28 @@ resources:
 # ---------------------------------------------------------------------------
 # Probes
 # ---------------------------------------------------------------------------
-livenessProbe:
-  enabled: true
-  path: /health/live
-  initialDelaySeconds: 120
-  periodSeconds: 30
-  failureThreshold: 3
-
 readinessProbe:
   enabled: true
   path: /health/ready
-  initialDelaySeconds: 60
+  initialDelaySeconds: 120
   periodSeconds: 10
-  failureThreshold: 3
+  timeoutSeconds: 3
+  failureThreshold: 18
+
+livenessProbe:
+  enabled: true
+  path: /health/live
+  initialDelaySeconds: 300
+  periodSeconds: 20
+  timeoutSeconds: 3
+  failureThreshold: 6
+
+startupProbe:
+  enabled: true
+  path: /health/ready
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 120 # 10 minutes
 
 # ---------------------------------------------------------------------------
 # Affinity — defaults to pod anti-affinity for HA
