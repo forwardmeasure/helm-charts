@@ -1,0 +1,7 @@
+# Ignore a specific helmfile
+helmfile.yaml
+headless-service.yaml
+
+*.yaml
+*.yaml.gotmpl
+*.gotmpl
