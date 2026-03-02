@@ -1,0 +1,12 @@
+{{- if .Values.user.enabled }}
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaUser
+metadata:
+  name: {{ .Values.user.name }}
+  labels:
+    strimzi.io/cluster: {{ .Values.clusterName }}
+spec:
+  authentication:
+    type: {{ .Values.user.authentication.type }}
+{{- end }}

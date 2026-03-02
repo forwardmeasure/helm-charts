@@ -1,0 +1,56 @@
+# ---------------------------------------------------------------------------
+# values.yaml — kafka chart defaults
+# All actual values are supplied via helmfile values files.
+# ---------------------------------------------------------------------------
+
+# Kafka cluster
+clusterName: kafka-cluster
+kafkaVersion: "4.0.0"
+
+# ---------------------------------------------------------------------------
+# Listeners
+# ---------------------------------------------------------------------------
+listeners:
+  clientPlainPort: 9092
+  clientTlsPort: 9093
+  interBrokerPort: 9094
+
+# ---------------------------------------------------------------------------
+# Broker config
+# ---------------------------------------------------------------------------
+config:
+  offsetsTopicReplicationFactor: 3
+  transactionStateLogReplicationFactor: 3
+  transactionStateLogMinIsr: 2
+  defaultReplicationFactor: 3
+  minInsyncReplicas: 2
+  logRetentionHours: 168
+
+# ---------------------------------------------------------------------------
+# Controllers (KRaft)
+# ---------------------------------------------------------------------------
+controllers:
+  nodePoolName: kafka-controllers
+  replicas: 3
+  storage:
+    size: 20Gi
+    deleteClaim: false
+
+# ---------------------------------------------------------------------------
+# Brokers
+# ---------------------------------------------------------------------------
+brokers:
+  nodePoolName: kafka-brokers
+  replicas: 3
+  storage:
+    size: 100Gi
+    deleteClaim: false
+
+# ---------------------------------------------------------------------------
+# KafkaUser
+# ---------------------------------------------------------------------------
+user:
+  enabled: true
+  name: kafka-user
+  authentication:
+    type: scram-sha-512
