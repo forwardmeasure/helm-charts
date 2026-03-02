@@ -21,7 +21,6 @@ resources:
     memory: 4Gi
 
 persistence:
-  enabled: true
   storageClass: "standard-rwo"
   size: 50Gi
 
@@ -33,15 +32,9 @@ zookeeperConfig:
   autopurgeSnapRetainCount: 10
   maxClientCnxns: 60
 
-networkPolicy:
-  enabled: true
-
 podDisruptionBudget:
   enabled: true
   minAvailable: 2
-
-affinity:
-  podAntiAffinityPreset: hard
 
 serviceAccount:
   create: true

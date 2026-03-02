@@ -1,21 +1,27 @@
+# prettier-ignore
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ include "zookeeper.fullname" . }}
   labels:
-    app: {{ include "zookeeper.name" . }}
+    {{- include "zookeeper.labels" . | nindent 4 }}
 spec:
   serviceName: {{ include "zookeeper.headlessName" . }}
   replicas: {{ .Values.replicaCount }}
+
+  # MUST be minimal + stable and must match pod template labels.
   selector:
     matchLabels:
-      app: {{ include "zookeeper.name" . }}
+      {{- include "zookeeper.selectorLabels" . | nindent 6 }}
+
   template:
     metadata:
       labels:
-        app: {{ include "zookeeper.name" . }}
+        {{- include "zookeeper.selectorLabels" . | nindent 8 }}
+        {{- include "zookeeper.labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "zookeeper.fullname" . }} 
+      serviceAccountName: {{ include "zookeeper.serviceAccountName" . }}
+
       initContainers:
         - name: set-myid
           image: busybox:1.36
@@ -23,7 +29,6 @@ spec:
             - sh
             - -c
             - |
-              # Extract ordinal from pod name: zookeeper-0 => 0, zookeeper-1 => 1, ...
               ORDINAL="$(hostname | awk -F'-' '{print $NF}')"
               MY_ID=$((ORDINAL + 1))
               echo "Setting myid=${MY_ID} in /data/myid"
@@ -31,13 +36,14 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+
       containers:
         - name: zookeeper
-          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{
-.Values.image.tag }}"
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+
           env:
             - name: ZOOKEEPERTICKTIME
               value: "{{ .Values.zookeeperConfig.tickTime }}"
@@ -51,13 +57,15 @@ spec:
               value: "{{ .Values.zookeeperConfig.autopurgeSnapRetainCount }}"
             - name: ZOOKEEPERMAXCLIENTCNXNS
               value: "{{ .Values.zookeeperConfig.maxClientCnxns }}"
+
           ports:
-            - containerPort: {{ .Values.service.ports.client }}
-              name: client
-            - containerPort: {{ .Values.service.ports.quorum }}
-              name: quorum
-            - containerPort: {{ .Values.service.ports.election }}
-              name: election
+            - name: client
+              containerPort: {{ .Values.service.ports.client }}
+            - name: quorum
+              containerPort: {{ .Values.service.ports.quorum }}
+            - name: election
+              containerPort: {{ .Values.service.ports.election }}
+
           volumeMounts:
             - name: config
               mountPath: /conf/zoo.cfg
@@ -66,12 +74,14 @@ spec:
               mountPath: /data
             - name: datalog
               mountPath: /datalog
+
       volumes:
         - name: config
           configMap:
             name: {{ include "zookeeper.fullname" . }}-config
         - name: datalog
           emptyDir: {}
+
   volumeClaimTemplates:
     - metadata:
         name: data
