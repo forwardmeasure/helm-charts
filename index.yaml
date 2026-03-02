@@ -20,6 +20,20 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.3.tgz
     version: 0.0.3
+  kafka:
+  - apiVersion: v2
+    appVersion: 4.0.0
+    created: "2026-03-01T21:10:22.262751883-05:00"
+    description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
+      mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
+      resources. Requires the Strimzi operator to be installed and watching the target
+      namespace. '
+    digest: 9c0d468a11a583846e4b59f6473cb472bee26e39bed13b4d61f9289f13d3e497
+    name: kafka
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/kafka-deployment-helm-chart/kafka-0.0.2.tgz
+    version: 0.0.2
   karavan:
   - apiVersion: v2
     appVersion: 4.10.2
@@ -342,4 +356,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-01T18:08:52.080867088-05:00"
+generated: "2026-03-01T21:10:22.262377057-05:00"
