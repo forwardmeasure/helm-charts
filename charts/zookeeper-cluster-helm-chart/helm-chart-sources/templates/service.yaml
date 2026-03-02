@@ -1,15 +1,21 @@
+# prettier-ignore
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "zookeeper.fullname" . }}
+  labels:
+    {{- include "zookeeper.labels" . | nindent 4 }}
 spec:
-  type: ClusterIP
+  type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.ports.client }}
-      name: client
-    - port: {{ .Values.service.ports.quorum }}
-      name: quorum
-    - port: {{ .Values.service.ports.election }}
-      name: election
+    - name: client
+      port: {{ .Values.service.ports.client }}
+      targetPort: client
+    - name: quorum
+      port: {{ .Values.service.ports.quorum }}
+      targetPort: quorum
+    - name: election
+      port: {{ .Values.service.ports.election }}
+      targetPort: election
   selector:
-    app: {{ include "zookeeper.name" . }}
+    {{- include "zookeeper.selectorLabels" . | nindent 4 }}
