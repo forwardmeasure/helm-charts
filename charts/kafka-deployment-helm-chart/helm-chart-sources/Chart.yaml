@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kafka
+description: >
+  Deploys a production-grade Apache Kafka cluster using Strimzi KRaft mode.
+  Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser resources.
+  Requires the Strimzi operator to be installed and watching the target namespace.
+type: application
+version: "0.0.2"
+appVersion: "4.0.0"
