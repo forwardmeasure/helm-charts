@@ -328,7 +328,17 @@ entries:
   zookeeper:
   - apiVersion: v2
     appVersion: 3.9.4
-    created: "2026-03-02T08:24:49.853289845-05:00"
+    created: "2026-03-02T08:36:40.384649307-05:00"
+    description: A Helm chart for Apache Zookeeper on Kubernetes
+    digest: 66094e6bc408fd5cd56d9ade70d75327c35a497de9553a9d5766da2c63d7078a
+    name: zookeeper
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.5.tgz
+    version: 1.0.5
+  - apiVersion: v2
+    appVersion: 3.9.4
+    created: "2026-03-02T08:36:40.384479743-05:00"
     description: A Helm chart for Apache Zookeeper on Kubernetes
     digest: 148292dec7a1d49a7de7251d11859625ced4020978ef97a424a9f9f24a3471b6
     name: zookeeper
@@ -338,7 +348,7 @@ entries:
     version: 1.0.4
   - apiVersion: v2
     appVersion: 3.9.4
-    created: "2026-03-02T08:24:49.852471692-05:00"
+    created: "2026-03-02T08:36:40.384336303-05:00"
     description: A Helm chart for Apache Zookeeper on Kubernetes
     digest: 7fbb00b2b58fedcbfcec4ebe4b9ed33a2c5cabac6712ac25da3cf8d7744940b3
     name: zookeeper
@@ -348,7 +358,7 @@ entries:
     version: 1.0.3
   - apiVersion: v2
     appVersion: 3.9.4
-    created: "2026-03-02T08:24:49.852132592-05:00"
+    created: "2026-03-02T08:36:40.384167434-05:00"
     description: A Helm chart for Apache Zookeeper on Kubernetes
     digest: 9685e037bfbf02307800d2524a0c44fa301334b79e528bb99a638461bf58b488
     name: zookeeper
@@ -358,7 +368,7 @@ entries:
     version: 1.0.2
   - apiVersion: v2
     appVersion: 3.9.4
-    created: "2026-03-02T08:24:49.851787695-05:00"
+    created: "2026-03-02T08:36:40.38398962-05:00"
     description: A Helm chart for Apache Zookeeper on Kubernetes
     digest: 747e9e5b5389bb53de3c6a1a300fb4fb18bf2bf3b8eca8f2f57de1e8327f44e2
     name: zookeeper
@@ -366,4 +376,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-02T08:24:49.85130839-05:00"
+generated: "2026-03-02T08:36:40.383746257-05:00"
