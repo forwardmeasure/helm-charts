@@ -1,11 +1,8 @@
-# prettier-ignore
-
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "zookeeper.headlessName" . }}
-  labels:
-    {{- include "zookeeper.labels" . | nindent 4 }}
+  labels: {{ - include "zookeeper.labels" . | nindent 4 }}
 spec:
   clusterIP: None
   publishNotReadyAddresses: true
@@ -19,5 +16,4 @@ spec:
     - name: election
       port: {{ .Values.service.ports.election }}
       targetPort: election
-  selector:
-    {{- include "zookeeper.selectorLabels" . | nindent 4 }}
+  selector: {{ - include "zookeeper.selectorLabels" . | nindent 4 }}
