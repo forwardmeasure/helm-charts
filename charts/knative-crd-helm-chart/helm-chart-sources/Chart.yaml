@@ -1,0 +1,9 @@
+apiVersion: v2
+name: knative
+description: >
+  Deploys KnativeServing and KnativeEventing custom resources via the Knative Operator.
+  Configures net-istio as the Serving network layer and eventing-kafka-broker as the
+  Eventing broker implementation. Requires the Knative Operator to be installed.
+type: application
+version: "0.0.2"
+appVersion: "1.21.0"

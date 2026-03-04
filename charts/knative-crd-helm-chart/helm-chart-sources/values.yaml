@@ -1,0 +1,21 @@
+# ---------------------------------------------------------------------------
+# values.yaml — knative chart defaults
+# ---------------------------------------------------------------------------
+
+knativeVersion: "1.21.0"
+
+serving:
+  namespace: knative-serving
+  # Istio namespace where istio-ingressgateway lives
+  istioNamespace: istio-system
+  config:
+    # DNS domain for Knative services — override per environment
+    domain: ""
+
+eventing:
+  namespace: knative-eventing
+  kafka:
+    bootstrapServers: "kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+    # Auth secret name if Kafka requires credentials (empty = no auth)
+    authSecretName: ""
+    authSecretNamespace: ""
