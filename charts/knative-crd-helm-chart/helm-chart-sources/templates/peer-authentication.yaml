@@ -1,0 +1,18 @@
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: knative-serving-permissive
+  namespace: {{ .Values.serving.namespace }}
+spec:
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: knative-eventing-permissive
+  namespace: {{ .Values.eventing.namespace }}
+spec:
+  mtls:
+    mode: PERMISSIVE
