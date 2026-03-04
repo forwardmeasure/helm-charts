@@ -165,23 +165,20 @@ spec:
             - name: data
               mountPath: /data
           startupProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: http
             initialDelaySeconds: {{ .Values.store.startupProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.store.startupProbe.periodSeconds }}
             timeoutSeconds: 5
             failureThreshold: {{ .Values.store.startupProbe.failureThreshold }}
           readinessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: http
             periodSeconds: {{ .Values.store.readinessProbe.periodSeconds }}
             timeoutSeconds: 5
             failureThreshold: {{ .Values.store.readinessProbe.failureThreshold }}
           livenessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: http
             periodSeconds: {{ .Values.store.livenessProbe.periodSeconds }}
             timeoutSeconds: 5
