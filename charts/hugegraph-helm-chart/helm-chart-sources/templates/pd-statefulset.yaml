@@ -77,16 +77,16 @@ spec:
                 license-path: {{ .Values.pd.license.licensePath }}
 
               grpc:
-                port: {{ .Values.pd.ports.grpc }}
+                port: {{ .Values.pd.ports.grpc | int }}
                 host: 0.0.0.0
 
               server:
-                port: {{ .Values.pd.ports.http }}
+                port: {{ .Values.pd.ports.http | int }}
 
               pd:
                 data-path: /data/pd_data
-                patrol-interval: {{ .Values.pd.patrolInterval }}
-                initial-store-count: {{ .Values.pd.initialStoreCount }}
+                patrol-interval: {{ .Values.pd.patrolInterval | int64 }}
+                initial-store-count: {{ .Values.pd.initialStoreCount | int }}
                 initial-store-list: ${STORE_LIST}
 
               raft:
@@ -120,18 +120,18 @@ spec:
           imagePullPolicy: {{ .Values.pd.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.pd.ports.http }}
+              containerPort: {{ .Values.pd.ports.http | int }}
             - name: grpc
-              containerPort: {{ .Values.pd.ports.grpc }}
+              containerPort: {{ .Values.pd.ports.grpc | int }}
             - name: raft
-              containerPort: {{ .Values.pd.ports.raft }}
+              containerPort: {{ .Values.pd.ports.raft | int }}
           env:
             - name: JAVA_OPTIONS
-              value: {{ .Values.pd.javaOptions | quote }}              
+              value: {{ .Values.pd.javaOptions | quote }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
-                  fieldPath: metadata.name                
+                  fieldPath: metadata.name
           volumeMounts:
             - name: config
               mountPath: /hugegraph-pd/conf/application.yml
