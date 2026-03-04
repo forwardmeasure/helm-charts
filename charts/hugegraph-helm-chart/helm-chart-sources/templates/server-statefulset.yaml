@@ -46,24 +46,32 @@ spec:
       {{- end }}
 
       initContainers:
-        ## Step 1: Wait for all Store nodes to be healthy
+        ## Step 1: Wait for all Store pods to be Ready (per K8s API)
         - name: wait-for-store
-          image: busybox:1.36
+          image: bitnami/kubectl:latest
           command:
             - sh
             - -c
             - |
               set -e
               NS="{{ .Release.Namespace }}"
-              STORE_HTTP="{{ .Values.store.ports.http }}"
-              {{- range $i, $e := until (int .Values.store.replicaCount) }}
-              echo "[wait-for-store] Waiting for hugegraph-store-{{ $i }}..."
-              until wget -qO- "http://hugegraph-store-{{ $i }}.hugegraph-store.${NS}.svc.cluster.local:${STORE_HTTP}/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; do
+              REPLICAS="{{ .Values.store.replicaCount }}"
+
+              echo "[wait-for-store] Waiting for ${REPLICAS} Ready store pods in namespace ${NS}..."
+
+              while true; do
+                READY=$(kubectl get pods -n "${NS}" -l app.kubernetes.io/component=store \
+                  -o jsonpath='{range .items[*]}{.metadata.name} {.status.containerStatuses[?(@.name=="store")].ready}{"\n"}{end}' \
+                  | awk '$2=="true"{c++} END{print c+0}')
+
+                echo "[wait-for-store] Ready store pods: ${READY}/${REPLICAS}"
+
+                if [ "${READY}" -ge "${REPLICAS}" ]; then
+                  echo "[wait-for-store] All Store pods are Ready"
+                  break
+                fi
                 sleep 5
               done
-              echo "[wait-for-store] hugegraph-store-{{ $i }} is UP"
-              {{- end }}
-              echo "[wait-for-store] All Store nodes ready"
 
         ## Step 2: Generate all server config files
         - name: config-gen
@@ -324,24 +332,24 @@ spec:
             - name: log4j2
               mountPath: /hugegraph-server/conf/log4j2.xml
               subPath: log4j2.xml
+
           startupProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: http
             initialDelaySeconds: {{ .Values.server.startupProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.server.startupProbe.periodSeconds }}
             timeoutSeconds: 5
             failureThreshold: {{ .Values.server.startupProbe.failureThreshold }}
+
           readinessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: http
             periodSeconds: {{ .Values.server.readinessProbe.periodSeconds }}
             timeoutSeconds: 5
             failureThreshold: {{ .Values.server.readinessProbe.failureThreshold }}
+
           livenessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: http
             periodSeconds: {{ .Values.server.livenessProbe.periodSeconds }}
             timeoutSeconds: 5
