@@ -18,6 +18,12 @@ pd:
     grpc: 8686
     raft: 8610
 
+  ipAuth:
+    enabled: true
+    whiteList:
+      - 127.0.0.1
+      - 10.72.0.0/16
+
   patrolInterval: 1800
   initialStoreCount: 3
 

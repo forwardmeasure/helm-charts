@@ -86,6 +86,10 @@ spec:
               server:
                 port: {{ .Values.pd.ports.http | int }}
 
+              ip-auth:
+                enabled: {{ .Values.pd.ipAuth.enabled | default true }}
+                ip-white-list: {{ join "," .Values.pd.ipAuth.whiteList }}
+
               pd:
                 data-path: /data/pd_data
                 patrol-interval: {{ .Values.pd.patrolInterval | int64 }}
