@@ -142,8 +142,13 @@ spec:
               value: {{ .Values.keycloak.hostnameDebug | quote }}
             - name: KC_HOSTNAME_STRICT
               value: {{ .Values.keycloak.hostnameStrict | quote }}
+            {{- if .Values.keycloak.proxyHeaders }}
+            - name: KC_PROXY_HEADERS
+              value: {{ .Values.keycloak.proxyHeaders | quote }}
+            {{- else if .Values.keycloak.proxy }}
             - name: KC_PROXY
               value: {{ .Values.keycloak.proxy | quote }}
+            {{- end }}
             - name: KC_HTTP_ENABLED
               value: {{ .Values.keycloak.httpEnabled | quote }}
             - name: KC_HTTP_RELATIVE_PATH
