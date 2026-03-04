@@ -72,6 +72,10 @@ spec:
               logging:
                 config: 'file:./conf/log4j2.xml'
 
+              license:
+                verify-path: {{ .Values.pd.license.verifyPath }}
+                license-path: {{ .Values.pd.license.licensePath }}
+
               grpc:
                 port: {{ .Values.pd.ports.grpc }}
                 host: 0.0.0.0
