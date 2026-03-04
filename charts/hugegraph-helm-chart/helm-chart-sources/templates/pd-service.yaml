@@ -1,0 +1,24 @@
+## Headless — stable DNS per pod: hugegraph-pd-{n}.hugegraph-pd.<ns>.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: hugegraph-pd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hugegraph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pd
+spec:
+  clusterIP: None
+  selector:
+    {{- include "hugegraph.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: pd
+  ports:
+    - name: http
+      port: {{ .Values.pd.ports.http }}
+      targetPort: http
+    - name: grpc
+      port: {{ .Values.pd.ports.grpc }}
+      targetPort: grpc
+    - name: raft
+      port: {{ .Values.pd.ports.raft }}
+      targetPort: raft

@@ -1,0 +1,166 @@
+## ---------------------------------------------------------------------------
+## HugeGraph PD — Placement Driver (3-node Raft cluster)
+##
+## Init container generates application.yml per-pod using:
+##   - POD_NAME for stable DNS self-address
+##   - All peer DNS names computed from replicaCount at render time
+##   - All store gRPC DNS names for initial-store-list
+## ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hugegraph-pd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hugegraph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pd
+spec:
+  serviceName: hugegraph-pd
+  replicas: {{ .Values.pd.replicaCount }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "hugegraph.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: pd
+  template:
+    metadata:
+      labels:
+        {{- include "hugegraph.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: pd
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      initContainers:
+        - name: config-gen
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              NS="{{ .Release.Namespace }}"
+              SELF_DNS="${POD_NAME}.hugegraph-pd.${NS}.svc.cluster.local"
+
+              # Raft peers — all PD pod DNS names at the shared raft port
+              RAFT_PEERS="{{ include "hugegraph.pdRaftPeers" . }}"
+
+              # Store initial-store-list — store gRPC DNS names
+              STORE_LIST="{{ include "hugegraph.storeGrpcList" . }}"
+
+              mkdir -p /config
+              cat > /config/application.yml << EOF
+              spring:
+                application:
+                  name: hugegraph-pd
+
+              management:
+                metrics:
+                  export:
+                    prometheus:
+                      enabled: true
+                endpoints:
+                  web:
+                    exposure:
+                      include: "*"
+
+              logging:
+                config: 'file:./conf/log4j2.xml'
+
+              grpc:
+                port: {{ .Values.pd.ports.grpc }}
+                host: 0.0.0.0
+
+              server:
+                port: {{ .Values.pd.ports.http }}
+
+              pd:
+                data-path: /data/pd_data
+                patrol-interval: {{ .Values.pd.patrolInterval }}
+                initial-store-count: {{ .Values.pd.initialStoreCount }}
+                initial-store-list: ${STORE_LIST}
+
+              raft:
+                address: ${SELF_DNS}:{{ .Values.pd.ports.raft }}
+                peers-list: ${RAFT_PEERS}
+
+              store:
+                max-down-time: {{ .Values.pd.store.maxDownTime }}
+                monitor_data_enabled: {{ .Values.pd.store.monitorDataEnabled }}
+                monitor_data_interval: {{ .Values.pd.store.monitorDataInterval }}
+                monitor_data_retention: {{ .Values.pd.store.monitorDataRetention }}
+                initial-store-count: {{ .Values.pd.store.initialStoreCount }}
+
+              partition:
+                default-shard-count: {{ .Values.pd.partition.defaultShardCount }}
+                store-max-shard-count: {{ .Values.pd.partition.storeMaxShardCount }}
+              EOF
+              echo "[config-gen] Generated application.yml for ${POD_NAME}"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: config
+              mountPath: /config
+
+      containers:
+        - name: pd
+          image: "{{ .Values.pd.image.repository }}:{{ .Values.pd.image.tag }}"
+          imagePullPolicy: {{ .Values.pd.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.pd.ports.http }}
+            - name: grpc
+              containerPort: {{ .Values.pd.ports.grpc }}
+            - name: raft
+              containerPort: {{ .Values.pd.ports.raft }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: config
+              mountPath: /hugegraph-pd/conf/application.yml
+              subPath: application.yml
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.pd.resources | nindent 12 }}
+
+      volumes:
+        - name: config
+          emptyDir: {}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.pd.persistence.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.pd.persistence.size }}

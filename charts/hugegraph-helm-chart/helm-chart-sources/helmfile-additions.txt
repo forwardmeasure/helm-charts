@@ -1,0 +1,106 @@
+## =============================================================================
+## HELMFILE ADDITIONS for Apache HugeGraph
+## =============================================================================
+
+
+## -----------------------------------------------------------------------------
+## 1. helmfile.yaml.gotmpl — add release
+## -----------------------------------------------------------------------------
+- name: hugegraph
+  namespace: hugegraph
+  chart: forwardmeasure/hugegraph
+  version: 0.0.1
+  needs:
+    - external-secrets-operator/platform-secrets
+  values:
+    - values/hugegraph/base.yaml.gotmpl
+
+
+## -----------------------------------------------------------------------------
+## 2. values/hugegraph/base.yaml.gotmpl
+## -----------------------------------------------------------------------------
+imagePullSecrets:
+  - name: docker-io-credentials
+
+serviceAccount:
+  name: hugegraph
+
+pd:
+  replicaCount: 3
+  image:
+    repository: hugegraph/pd
+    tag: latest
+    pullPolicy: Always
+  persistence:
+    storageClass: standard-rwo
+    size: 10Gi
+
+store:
+  replicaCount: 3
+  image:
+    repository: hugegraph/store
+    tag: latest
+    pullPolicy: Always
+  persistence:
+    storageClass: standard-rwo
+    size: 32Gi
+
+server:
+  replicaCount: 3
+  image:
+    repository: hugegraph/server
+    tag: latest
+    pullPolicy: Always
+  auth:
+    enabled: false   # enable once secret is provisioned
+
+hubble:
+  enabled: true
+  image:
+    repository: hugegraph/hubble
+    tag: latest
+    pullPolicy: Always
+
+
+## -----------------------------------------------------------------------------
+## 3. values/platform-secrets/gcp/base.yaml.gotmpl — add secret entry
+## -----------------------------------------------------------------------------
+## (Only needed when server.auth.enabled: true)
+- name: hugegraph-auth
+  namespace: hugegraph
+  data:
+    - secretKey: HUGEGRAPH_ADMIN_PASSWORD
+      remoteRef:
+        key: hugegraph/admin-password
+
+
+## -----------------------------------------------------------------------------
+## 4. workfusion.credentials.yaml.gotmpl — fake store entry
+## -----------------------------------------------------------------------------
+hugegraph/admin-password: "hugegraph-admin"
+
+
+## -----------------------------------------------------------------------------
+## 5. manifests/base/namespaces/namespaces.yaml.tmpl — add namespace variable
+## -----------------------------------------------------------------------------
+hugegraphNamespace: hugegraph
+
+## And in the rendered namespaces block:
+##   - apiVersion: v1
+##     kind: Namespace
+##     metadata:
+##       name: {{ .hugegraphNamespace }}
+
+
+## -----------------------------------------------------------------------------
+## 6. platform-routing — HTTPRoute for Hubble UI
+## -----------------------------------------------------------------------------
+## Add to your platform-routing chart values (exact key names depend on your
+## platform-routing chart's values schema):
+##
+## - name: hugegraph-hubble
+##   namespace: hugegraph
+##   hostname: "datafabric.asvinau.com"
+##   path: /hugegraph
+##   service: hugegraph-hubble
+##   port: 8088
