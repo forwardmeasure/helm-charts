@@ -26,9 +26,6 @@ spec:
       app.kubernetes.io/component: pd
   template:
     metadata:
-      annotations:
-        traffic.sidecar.istio.io/excludeInboundPorts: "8686,8610"
-        traffic.sidecar.istio.io/excludeOutboundPorts: "8686,8610"
       labels:
         {{- include "hugegraph.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: pd
