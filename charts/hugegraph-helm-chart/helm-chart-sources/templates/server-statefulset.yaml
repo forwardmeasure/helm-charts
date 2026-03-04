@@ -81,7 +81,7 @@ spec:
               # ---------------------------------------------------------------
               cat > /config/rest-server.properties << EOF
               # bind url
-              restserver.url=0.0.0.0:${REST_PORT}
+              restserver.url=http://0.0.0.0:${REST_PORT}
               # gremlin server url, must match host/port in gremlin-server.yaml
               gremlinserver.url=127.0.0.1:${GREMLIN_PORT}
 
