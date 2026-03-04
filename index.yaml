@@ -241,7 +241,7 @@ entries:
   knative:
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-03T19:41:53.207200325-05:00"
+    created: "2026-03-03T20:02:40.213984989-05:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -255,7 +255,20 @@ entries:
   knative-crd:
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-03T19:41:53.207395269-05:00"
+    created: "2026-03-03T20:02:40.214264308-05:00"
+    description: 'Deploys KnativeServing and KnativeEventing custom resources via
+      the Knative Operator. Configures net-istio as the Serving network layer and
+      eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
+      Operator to be installed. '
+    digest: 94d92580e2b009d8a09d5a3d5b90ee921c75efc8c4ccbc775ea8f59e74fa1a65
+    name: knative-crd
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.5.tgz
+    version: 0.0.5
+  - apiVersion: v2
+    appVersion: 1.21.0
+    created: "2026-03-03T20:02:40.214169732-05:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -268,7 +281,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-03T19:41:53.207296255-05:00"
+    created: "2026-03-03T20:02:40.214071167-05:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -440,4 +453,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-03T19:41:53.207021682-05:00"
+generated: "2026-03-03T20:02:40.213808367-05:00"
