@@ -1,0 +1,45 @@
+## Headless — stable pod DNS for RPC server-to-server coordination
+apiVersion: v1
+kind: Service
+metadata:
+  name: hugegraph-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hugegraph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  clusterIP: None
+  selector:
+    {{- include "hugegraph.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  ports:
+    - name: http
+      port: {{ .Values.server.ports.http }}
+      targetPort: http
+    - name: gremlin
+      port: {{ .Values.server.ports.gremlin }}
+      targetPort: gremlin
+    - name: rpc
+      port: {{ .Values.server.ports.rpc }}
+      targetPort: rpc
+---
+## ClusterIP — load-balanced REST/Gremlin access for Hubble and external clients
+apiVersion: v1
+kind: Service
+metadata:
+  name: hugegraph-server-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hugegraph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  selector:
+    {{- include "hugegraph.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  ports:
+    - name: http
+      port: {{ .Values.server.ports.http }}
+      targetPort: http
+    - name: gremlin
+      port: {{ .Values.server.ports.gremlin }}
+      targetPort: gremlin

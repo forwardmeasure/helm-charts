@@ -20,6 +20,18 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.3.tgz
     version: 0.0.3
+  hugegraph:
+  - apiVersion: v2
+    appVersion: latest
+    created: "2026-03-04T12:41:40.725192937-05:00"
+    description: Apache HugeGraph distributed graph database (PD + Store + Server
+      + Hubble)
+    digest: f53f736c57c195aef09114dc324f6dc2b1793eea79538e4587d7facac12d6331
+    name: hugegraph
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.2.tgz
+    version: 0.0.2
   kafka:
   - apiVersion: v2
     appVersion: 4.0.0
@@ -472,4 +484,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-03T23:15:32.982253976-05:00"
+generated: "2026-03-04T12:41:40.724831607-05:00"
