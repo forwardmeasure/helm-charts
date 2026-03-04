@@ -1,0 +1,34 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.serving.namespace }}
+  labels:
+    istio-injection: enabled
+---
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: {{ .Values.serving.namespace }}
+spec:
+  version: {{ .Values.knativeVersion }}
+  ingress:
+    istio:
+      enabled: true
+  config:
+    network:
+      ingress-class: "istio.ingress.networking.knative.dev"
+    {{- if .Values.serving.config.domain }}
+    domain:
+      {{ .Values.serving.config.domain }}: ""
+    {{- end }}
+    istio:
+      {{- if ne .Values.serving.istioNamespace "istio-system" }}
+      local-gateways: |
+        - name: knative-local-gateway
+          namespace: {{ .Values.serving.namespace }}
+          service: knative-local-gateway.{{ .Values.serving.istioNamespace }}.svc.cluster.local
+      {{- end }}
+  additionalManifests:
+    - URL: https://github.com/knative/net-istio/releases/download/knative-v{{ .Values.knativeVersion }}/net-istio.yaml

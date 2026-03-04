@@ -238,6 +238,20 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.2.tgz
     version: 0.0.2
+  knative:
+  - apiVersion: v2
+    appVersion: 1.21.0
+    created: "2026-03-03T19:16:56.723709254-05:00"
+    description: 'Deploys KnativeServing and KnativeEventing custom resources via
+      the Knative Operator. Configures net-istio as the Serving network layer and
+      eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
+      Operator to be installed. '
+    digest: f1baa8278eda0d26afada7a72c90e8cf134cdb233f705ab290b35dd96c204d92
+    name: knative
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-0.0.2.tgz
+    version: 0.0.2
   opensearch:
   - apiVersion: v1
     appVersion: 3.1.0
@@ -399,4 +413,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-02T11:04:23.308032457-05:00"
+generated: "2026-03-03T19:16:56.723529837-05:00"
