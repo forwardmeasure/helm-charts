@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.eventing.namespace }}
+  labels:
+    istio-injection: enabled
+---
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeEventing
+metadata:
+  name: knative-eventing
+  namespace: {{ .Values.eventing.namespace }}
+spec:
+  version: {{ .Values.knativeVersion }}
+  additionalManifests:
+    - URL: https://github.com/knative-extensions/eventing-kafka-broker/releases/download/knative-v{{ .Values.knativeVersion }}/eventing-kafka-controller.yaml
+    - URL: https://github.com/knative-extensions/eventing-kafka-broker/releases/download/knative-v{{ .Values.knativeVersion }}/eventing-kafka-broker.yaml
+  config:
+    config-kafka-broker-data-plane:
+      default.topic.partitions: "10"
+      default.topic.replication.factor: "3"
+    config-kafka-broker-eventing:
+      default-broker-class: "Kafka"
+    config-kafka-channel:
+      bootstrap-servers: {{ .Values.eventing.kafka.bootstrapServers | quote }}
+      {{- if .Values.eventing.kafka.authSecretName }}
+      auth-secret-name: {{ .Values.eventing.kafka.authSecretName | quote }}
+      auth-secret-namespace: {{ .Values.eventing.kafka.authSecretNamespace | quote }}
+      {{- end }}
