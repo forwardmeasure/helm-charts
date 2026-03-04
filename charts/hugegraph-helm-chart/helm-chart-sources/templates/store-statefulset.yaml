@@ -96,10 +96,10 @@ spec:
                   max-inbound-message-size: 1000MB
 
               raft:
-                disruptorBufferSize: {{ .Values.store.raft.disruptorBufferSize }}
+                disruptorBufferSize: {{ .Values.store.raft.disruptorBufferSize | int64 }}
                 address: ${SELF_DNS}:{{ .Values.store.ports.raft }}
-                max-log-file-size: {{ .Values.store.raft.maxLogFileSize }}
-                snapshotInterval: {{ .Values.store.raft.snapshotInterval }}
+                max-log-file-size: {{ .Values.store.raft.maxLogFileSize | int64  }}
+                snapshotInterval: {{ .Values.store.raft.snapshotInterval | int64  }}
 
               server:
                 port: {{ .Values.store.ports.http }}
@@ -139,14 +139,14 @@ spec:
           imagePullPolicy: {{ .Values.store.image.pullPolicy }}
           ports:
             - name: grpc
-              containerPort: {{ .Values.store.ports.grpc }}
+              containerPort: {{ .Values.store.ports.grpc | int }}
             - name: raft
-              containerPort: {{ .Values.store.ports.raft }}
+              containerPort: {{ .Values.store.ports.raft | int }}
             - name: http
-              containerPort: {{ .Values.store.ports.http }}
+              containerPort: {{ .Values.store.ports.http | int }}
           env:
             - name: JAVA_OPTIONS
-              value: {{ .Values.store.javaOptions | quote }}              
+              value: {{ .Values.store.javaOptions | quote }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
