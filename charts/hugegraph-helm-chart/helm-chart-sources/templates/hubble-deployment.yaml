@@ -1,0 +1,78 @@
+{{- if .Values.hubble.enabled }}
+## ---------------------------------------------------------------------------
+## HugeGraph Hubble — graph visualization and management UI
+## Points at hugegraph-server-client (load-balanced ClusterIP)
+## ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hugegraph-hubble
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hugegraph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hubble
+spec:
+  replicas: {{ .Values.hubble.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hugegraph.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: hubble
+  template:
+    metadata:
+      labels:
+        {{- include "hugegraph.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: hubble
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: hubble
+          image: "{{ .Values.hubble.image.repository }}:{{ .Values.hubble.image.tag }}"
+          imagePullPolicy: {{ .Values.hubble.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.hubble.ports.http }}
+          env:
+            - name: HUGEGRAPH_HOST
+              value: "hugegraph-server-client.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: HUGEGRAPH_PORT
+              value: "{{ .Values.server.ports.http }}"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.hubble.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hugegraph-hubble
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hugegraph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hubble
+spec:
+  selector:
+    {{- include "hugegraph.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: hubble
+  ports:
+    - name: http
+      port: {{ .Values.hubble.ports.http }}
+      targetPort: http
+{{- end }}

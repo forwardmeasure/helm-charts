@@ -1,0 +1,193 @@
+## ---------------------------------------------------------------------------
+## HugeGraph Store — 3-node Raft + RocksDB storage layer
+##
+## Critical: grpc.host must be POD_IP (not 0.0.0.0 or 127.0.0.1).
+## PD uses this address to route requests back to the store node.
+## The init container injects POD_IP via the Downward API.
+##
+## Startup order: wait-for-pd init container polls all PD /actuator/health
+## before generating config and starting the store process.
+## ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hugegraph-store
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hugegraph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: store
+spec:
+  serviceName: hugegraph-store
+  replicas: {{ .Values.store.replicaCount }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "hugegraph.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: store
+  template:
+    metadata:
+      labels:
+        {{- include "hugegraph.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: store
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      initContainers:
+        ## Step 1: Wait for all PD nodes to report healthy
+        - name: wait-for-pd
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              NS="{{ .Release.Namespace }}"
+              HTTP_PORT="{{ .Values.pd.ports.http }}"
+              {{- range $i, $e := until (int .Values.pd.replicaCount) }}
+              echo "[wait-for-pd] Waiting for hugegraph-pd-{{ $i }}..."
+              until wget -qO- "http://hugegraph-pd-{{ $i }}.hugegraph-pd.${NS}.svc.cluster.local:${HTTP_PORT}/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; do
+                sleep 5
+              done
+              echo "[wait-for-pd] hugegraph-pd-{{ $i }} is UP"
+              {{- end }}
+              echo "[wait-for-pd] All PD nodes ready"
+
+        ## Step 2: Generate application.yml with POD_IP as grpc.host
+        - name: config-gen
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              NS="{{ .Release.Namespace }}"
+              SELF_DNS="${POD_NAME}.hugegraph-store.${NS}.svc.cluster.local"
+
+              # PD gRPC address list
+              PD_ADDRS="{{ include "hugegraph.pdGrpcPeers" . }}"
+
+              mkdir -p /config
+              cat > /config/application.yml << EOF
+              pdserver:
+                address: ${PD_ADDRS}
+
+              management:
+                metrics:
+                  export:
+                    prometheus:
+                      enabled: true
+                endpoints:
+                  web:
+                    exposure:
+                      include: "*"
+
+              grpc:
+                # POD_IP is required — PD uses this to route back to this store node.
+                # 0.0.0.0 or 127.0.0.1 will break cluster formation.
+                host: ${POD_IP}
+                port: {{ .Values.store.ports.grpc }}
+                netty-server:
+                  max-inbound-message-size: 1000MB
+
+              raft:
+                disruptorBufferSize: {{ .Values.store.raft.disruptorBufferSize }}
+                address: ${SELF_DNS}:{{ .Values.store.ports.raft }}
+                max-log-file-size: {{ .Values.store.raft.maxLogFileSize }}
+                snapshotInterval: {{ .Values.store.raft.snapshotInterval }}
+
+              server:
+                port: {{ .Values.store.ports.http }}
+
+              app:
+                data-path: /data/storage
+
+              spring:
+                application:
+                  name: store-node-grpc-server
+                profiles:
+                  active: default
+                  include: pd
+
+              logging:
+                config: 'file:./conf/log4j2.xml'
+                level:
+                  root: info
+              EOF
+              echo "[config-gen] Generated application.yml for ${POD_NAME} (grpc.host=${POD_IP})"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          volumeMounts:
+            - name: config
+              mountPath: /config
+
+      containers:
+        - name: store
+          image: "{{ .Values.store.image.repository }}:{{ .Values.store.image.tag }}"
+          imagePullPolicy: {{ .Values.store.image.pullPolicy }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.store.ports.grpc }}
+            - name: raft
+              containerPort: {{ .Values.store.ports.raft }}
+            - name: http
+              containerPort: {{ .Values.store.ports.http }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          volumeMounts:
+            - name: config
+              mountPath: /hugegraph-store/conf/application.yml
+              subPath: application.yml
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.store.resources | nindent 12 }}
+
+      volumes:
+        - name: config
+          emptyDir: {}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.store.persistence.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.store.persistence.size }}
