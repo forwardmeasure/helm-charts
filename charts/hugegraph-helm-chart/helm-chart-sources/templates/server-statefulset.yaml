@@ -321,22 +321,29 @@ spec:
             - name: log4j2
               mountPath: /hugegraph-server/conf/log4j2.xml
               subPath: log4j2.xml
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ .Values.server.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.server.startupProbe.periodSeconds }}
+            timeoutSeconds: 5
+            failureThreshold: {{ .Values.server.startupProbe.failureThreshold }}
           readinessProbe:
             httpGet:
-              path: /apis/version
+              path: /actuator/health
               port: http
-            initialDelaySeconds: 45
-            periodSeconds: 10
+            periodSeconds: {{ .Values.server.readinessProbe.periodSeconds }}
             timeoutSeconds: 5
-            failureThreshold: 6
+            failureThreshold: {{ .Values.server.readinessProbe.failureThreshold }}
           livenessProbe:
             httpGet:
-              path: /apis/version
+              path: /actuator/health
               port: http
-            initialDelaySeconds: 90
-            periodSeconds: 15
+            periodSeconds: {{ .Values.server.livenessProbe.periodSeconds }}
             timeoutSeconds: 5
-            failureThreshold: 4
+            failureThreshold: {{ .Values.server.livenessProbe.failureThreshold }}
+
           resources:
             {{- toYaml .Values.server.resources | nindent 12 }}
 
