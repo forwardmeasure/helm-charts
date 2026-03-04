@@ -283,11 +283,11 @@ spec:
           imagePullPolicy: {{ .Values.server.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.server.ports.http }}
+              containerPort: {{ .Values.server.ports.http | int }}
             - name: gremlin
-              containerPort: {{ .Values.server.ports.gremlin }}
+              containerPort: {{ .Values.server.ports.gremlin | int }}
             - name: rpc
-              containerPort: {{ .Values.server.ports.rpc }}
+              containerPort: {{ .Values.server.ports.rpc | int }}
           env:
             - name: JAVA_OPTIONS
               value: {{ .Values.server.javaOptions | quote }}                
