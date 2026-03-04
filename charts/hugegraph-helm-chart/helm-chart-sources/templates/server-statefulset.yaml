@@ -257,7 +257,7 @@ spec:
               EOF
 
               echo "[config-gen] Generated all configs for ${POD_NAME} (role=${SERVER_ROLE}, id=${SERVER_ID})"
-          env:
+          env:         
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -289,6 +289,8 @@ spec:
             - name: rpc
               containerPort: {{ .Values.server.ports.rpc }}
           env:
+            - name: JAVA_OPTIONS
+              value: {{ .Values.server.javaOptions | quote }}                
             - name: POD_NAME
               valueFrom:
                 fieldRef:

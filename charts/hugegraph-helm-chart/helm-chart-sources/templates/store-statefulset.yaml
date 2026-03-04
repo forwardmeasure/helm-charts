@@ -145,6 +145,8 @@ spec:
             - name: http
               containerPort: {{ .Values.store.ports.http }}
           env:
+            - name: JAVA_OPTIONS
+              value: {{ .Values.store.javaOptions | quote }}              
             - name: POD_NAME
               valueFrom:
                 fieldRef:
