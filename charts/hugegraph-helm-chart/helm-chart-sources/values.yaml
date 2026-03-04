@@ -56,6 +56,10 @@ pd:
     periodSeconds: 10
     failureThreshold: 6
 
+  license:
+    verifyPath: ./conf/verify-license.json
+    licensePath: ./conf/hugegraph.license
+
 ## ---------------------------------------------------------------------------
 ## Store — 3-node Raft + RocksDB
 ## ---------------------------------------------------------------------------
