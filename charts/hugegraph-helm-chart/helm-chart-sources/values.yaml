@@ -45,6 +45,17 @@ pd:
       memory: 2Gi
   javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
 
+  startupProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    failureThreshold: 20 # 30 + (20 * 15) = 330s max startup window
+  livenessProbe:
+    periodSeconds: 30
+    failureThreshold: 4 # 120s to detect a hung pod once running
+  readinessProbe:
+    periodSeconds: 10
+    failureThreshold: 6
+
 ## ---------------------------------------------------------------------------
 ## Store — 3-node Raft + RocksDB
 ## ---------------------------------------------------------------------------
@@ -77,6 +88,17 @@ store:
       cpu: 4
       memory: 8Gi
   javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
+
+  startupProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    failureThreshold: 20 # same window, store waits for PD first via init container
+  livenessProbe:
+    periodSeconds: 30
+    failureThreshold: 4
+  readinessProbe:
+    periodSeconds: 10
+    failureThreshold: 6
 
 ## ---------------------------------------------------------------------------
 ## Server — stateless REST/Gremlin/Cypher nodes
@@ -126,6 +148,17 @@ server:
       cpu: 4
       memory: 8Gi
   javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
+
+  startupProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    failureThreshold: 24 # slightly longer — waits for store init container too
+  livenessProbe:
+    periodSeconds: 30
+    failureThreshold: 4
+  readinessProbe:
+    periodSeconds: 10
+    failureThreshold: 6
 
 ## ---------------------------------------------------------------------------
 ## Hubble — web UI

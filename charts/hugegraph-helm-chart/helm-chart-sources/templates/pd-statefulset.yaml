@@ -134,22 +134,29 @@ spec:
               subPath: application.yml
             - name: data
               mountPath: /data
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ .Values.pd.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.pd.startupProbe.periodSeconds }}
+            timeoutSeconds: 5
+            failureThreshold: {{ .Values.pd.startupProbe.failureThreshold }}
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: http
-            initialDelaySeconds: 20
-            periodSeconds: 10
+            periodSeconds: {{ .Values.pd.readinessProbe.periodSeconds }}
             timeoutSeconds: 5
-            failureThreshold: 6
+            failureThreshold: {{ .Values.pd.readinessProbe.failureThreshold }}
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: http
-            initialDelaySeconds: 60
-            periodSeconds: 15
+            periodSeconds: {{ .Values.pd.livenessProbe.periodSeconds }}
             timeoutSeconds: 5
-            failureThreshold: 4
+            failureThreshold: {{ .Values.pd.livenessProbe.failureThreshold }}
+            
           resources:
             {{- toYaml .Values.pd.resources | nindent 12 }}
 
