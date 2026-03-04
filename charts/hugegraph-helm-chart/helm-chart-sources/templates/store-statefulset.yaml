@@ -28,9 +28,6 @@ spec:
       app.kubernetes.io/component: store
   template:
     metadata:
-      annotations:
-        traffic.sidecar.istio.io/excludeInboundPorts: "8500,8510"
-        traffic.sidecar.istio.io/excludeOutboundPorts: "8500,8510,8686,8610"
       labels:
         {{- include "hugegraph.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: store
