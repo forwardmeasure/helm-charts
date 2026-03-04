@@ -43,6 +43,7 @@ pd:
     limits:
       cpu: 2
       memory: 2Gi
+  javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
 
 ## ---------------------------------------------------------------------------
 ## Store — 3-node Raft + RocksDB
@@ -75,6 +76,7 @@ store:
     limits:
       cpu: 4
       memory: 8Gi
+  javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
 
 ## ---------------------------------------------------------------------------
 ## Server — stateless REST/Gremlin/Cypher nodes
@@ -123,6 +125,7 @@ server:
     limits:
       cpu: 4
       memory: 8Gi
+  javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
 
 ## ---------------------------------------------------------------------------
 ## Hubble — web UI

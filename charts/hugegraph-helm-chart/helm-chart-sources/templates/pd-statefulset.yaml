@@ -122,10 +122,12 @@ spec:
             - name: raft
               containerPort: {{ .Values.pd.ports.raft }}
           env:
+            - name: JAVA_OPTIONS
+              value: {{ .Values.pd.javaOptions | quote }}              
             - name: POD_NAME
               valueFrom:
                 fieldRef:
-                  fieldPath: metadata.name
+                  fieldPath: metadata.name                
           volumeMounts:
             - name: config
               mountPath: /hugegraph-pd/conf/application.yml
