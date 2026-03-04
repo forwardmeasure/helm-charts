@@ -23,7 +23,18 @@ entries:
   hugegraph:
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T14:44:16.725220413-05:00"
+    created: "2026-03-04T15:17:48.877577371-05:00"
+    description: Apache HugeGraph distributed graph database (PD + Store + Server
+      + Hubble)
+    digest: e2b0b2dc122d1ccd3fb8f41e16a398fbe779562dfbcd6bfa6aa70637f3d9bdfb
+    name: hugegraph
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.6.tgz
+    version: 0.0.6
+  - apiVersion: v2
+    appVersion: latest
+    created: "2026-03-04T15:17:48.877232875-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: 887e42039798a75857436ebca03c81dde6b18ab54d4de37d379a7d4a2d21de46
@@ -34,7 +45,7 @@ entries:
     version: 0.0.5
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T14:44:16.724869067-05:00"
+    created: "2026-03-04T15:17:48.876890575-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: 703ba7e4923cb41437bf28474f4875c6c5150f7da806142094450f1bf92cd351
@@ -45,7 +56,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T14:44:16.724514675-05:00"
+    created: "2026-03-04T15:17:48.876533965-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: 584a1a8fdc449c2d18c3f6931d36209315c65319a3fe967f85dbe28df8ecdd83
@@ -56,7 +67,7 @@ entries:
     version: 0.0.3
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T14:44:16.724164122-05:00"
+    created: "2026-03-04T15:17:48.876167187-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: f53f736c57c195aef09114dc324f6dc2b1793eea79538e4587d7facac12d6331
@@ -517,4 +528,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-04T14:44:16.723760081-05:00"
+generated: "2026-03-04T15:17:48.875798448-05:00"
