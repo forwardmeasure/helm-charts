@@ -1,0 +1,156 @@
+## ---------------------------------------------------------------------------
+## Apache HugeGraph — Helm Chart Values
+## Derived from upstream docker/configs reference configuration
+## ---------------------------------------------------------------------------
+
+## ---------------------------------------------------------------------------
+## PD (Placement Driver) — 3-node Raft cluster
+## ---------------------------------------------------------------------------
+pd:
+  replicaCount: 3
+  image:
+    repository: docker.io/hugegraph/pd
+    tag: latest
+    pullPolicy: Always
+
+  ports:
+    http: 8620
+    grpc: 8686
+    raft: 8610
+
+  patrolInterval: 1800
+  initialStoreCount: 3
+
+  store:
+    maxDownTime: 172800
+    monitorDataEnabled: true
+    monitorDataInterval: "1 minute"
+    monitorDataRetention: "1 day"
+    initialStoreCount: 1
+
+  partition:
+    defaultShardCount: 1
+    storeMaxShardCount: 12
+
+  persistence:
+    storageClass: standard-rwo
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+
+## ---------------------------------------------------------------------------
+## Store — 3-node Raft + RocksDB
+## ---------------------------------------------------------------------------
+store:
+  replicaCount: 3
+  image:
+    repository: docker.io/hugegraph/store
+    tag: latest
+    pullPolicy: Always
+
+  ports:
+    grpc: 8500
+    raft: 8510
+    http: 8520
+
+  raft:
+    disruptorBufferSize: 1024
+    maxLogFileSize: 600000000000
+    snapshotInterval: 1800
+
+  persistence:
+    storageClass: standard-rwo
+    size: 32Gi
+
+  resources:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 4
+      memory: 8Gi
+
+## ---------------------------------------------------------------------------
+## Server — stateless REST/Gremlin/Cypher nodes
+## ---------------------------------------------------------------------------
+server:
+  replicaCount: 3
+  image:
+    repository: docker.io/hugegraph/server
+    tag: latest
+    pullPolicy: Always
+
+  ports:
+    http: 8080 # restserver.url port
+    gremlin: 8181 # gremlinserver.url port (same on all pods, differentiated by pod IP)
+    rpc: 8091 # rpc.server_port base
+    arthasHttp: 8561 # arthas.http_port base
+    arthasTelnet: 8562 # arthas.telnet_port base
+
+  auth:
+    enabled: false
+    ## When enabled, secret must contain key: HUGEGRAPH_ADMIN_PASSWORD
+    ## Uncomment auth.authenticator in rest-server.properties template below
+    credentialsSecret: hugegraph-auth
+    adminPassword: ""
+
+  graph:
+    ## backend must be hstore for distributed PD/Store mode
+    backend: hstore
+    serializer: binary
+    store: hugegraph
+    vertexCacheType: l2
+    edgeCacheType: l2
+
+  task:
+    schedulerType: local
+    schedulePeriod: 10
+    retry: 0
+    waitTimeout: 10
+
+  slowQueryThreshold: 1000
+
+  resources:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 4
+      memory: 8Gi
+
+## ---------------------------------------------------------------------------
+## Hubble — web UI
+## ---------------------------------------------------------------------------
+hubble:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: docker.io/hugegraph/hubble
+    tag: latest
+    pullPolicy: Always
+
+  ports:
+    http: 8088
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+
+## ---------------------------------------------------------------------------
+## Common
+## ---------------------------------------------------------------------------
+imagePullSecrets:
+  - name: docker-io-credentials
+
+serviceAccount:
+  name: hugegraph
