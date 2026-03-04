@@ -161,22 +161,29 @@ spec:
               subPath: application.yml
             - name: data
               mountPath: /data
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ .Values.store.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.store.startupProbe.periodSeconds }}
+            timeoutSeconds: 5
+            failureThreshold: {{ .Values.store.startupProbe.failureThreshold }}
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: http
-            initialDelaySeconds: 30
-            periodSeconds: 10
+            periodSeconds: {{ .Values.store.readinessProbe.periodSeconds }}
             timeoutSeconds: 5
-            failureThreshold: 6
+            failureThreshold: {{ .Values.store.readinessProbe.failureThreshold }}
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: http
-            initialDelaySeconds: 60
-            periodSeconds: 15
+            periodSeconds: {{ .Values.store.livenessProbe.periodSeconds }}
             timeoutSeconds: 5
-            failureThreshold: 4
+            failureThreshold: {{ .Values.store.livenessProbe.failureThreshold }}
+
           resources:
             {{- toYaml .Values.store.resources | nindent 12 }}
 
