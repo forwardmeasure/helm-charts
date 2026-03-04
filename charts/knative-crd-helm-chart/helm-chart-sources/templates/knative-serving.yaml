@@ -1,11 +1,4 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.serving.namespace }}
-  labels:
-    istio-injection: enabled
----
 apiVersion: operator.knative.dev/v1beta1
 kind: KnativeServing
 metadata:
