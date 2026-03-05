@@ -23,7 +23,18 @@ entries:
   hugegraph:
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T20:47:38.746354092-05:00"
+    created: "2026-03-04T21:11:16.574543691-05:00"
+    description: Apache HugeGraph distributed graph database (PD + Store + Server
+      + Hubble)
+    digest: b0b37313bc9a2088ff5a1ecbac488da4f4d8377567aface87f26c13033eb6337
+    name: hugegraph
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.21.tgz
+    version: 0.0.21
+  - apiVersion: v2
+    appVersion: latest
+    created: "2026-03-04T21:11:16.574171721-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: 1495d75a21278819659a1e21f5a6c756304508ebad9cde019797afccd108be7e
@@ -34,7 +45,7 @@ entries:
     version: 0.0.20
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T20:47:38.745696068-05:00"
+    created: "2026-03-04T21:11:16.573818414-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: d84e2eae2721de49397c0a4b9d7fe646a8a5b6938667edc770b759f56b47d007
@@ -45,7 +56,7 @@ entries:
     version: 0.0.19
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T20:47:38.744496137-05:00"
+    created: "2026-03-04T21:11:16.573168152-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: e3901d793e7f0c520c90443ddfec0722948fd25ee68676b85e09f284e021a866
@@ -56,7 +67,7 @@ entries:
     version: 0.0.18
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T20:47:38.744045984-05:00"
+    created: "2026-03-04T21:11:16.572590757-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: d06d4d2caba35be1061ec28c4a5ee9607af34793a1d12d68b1527110c4fc9716
@@ -67,7 +78,7 @@ entries:
     version: 0.0.17
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T20:47:38.74364147-05:00"
+    created: "2026-03-04T21:11:16.571467045-05:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: f8274f0275fdd2334cc0749c6783125d96b0d84a444abf6874f05387ec61eb5d
@@ -528,4 +539,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-04T20:47:38.743137097-05:00"
+generated: "2026-03-04T21:11:16.570886606-05:00"
