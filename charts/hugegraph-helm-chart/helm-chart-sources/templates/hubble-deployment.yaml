@@ -2,6 +2,7 @@
 ## ---------------------------------------------------------------------------
 ## HugeGraph Hubble — graph visualization and management UI
 ## Points at hugegraph-server-client (load-balanced ClusterIP)
+## Server connection and gremlin tuning configured via ConfigMap.
 ## ---------------------------------------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
@@ -35,29 +36,38 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.hubble.ports.http }}
-          env:
-            - name: HUGEGRAPH_HOST
-              value: "hugegraph-server-client.{{ .Release.Namespace }}.svc.cluster.local"
-            - name: HUGEGRAPH_PORT
-              value: "{{ .Values.server.ports.http }}"
+          volumeMounts:
+            - name: hubble-config
+              mountPath: /hugegraph-hubble/conf/hugegraph-hubble.properties
+              subPath: hugegraph-hubble.properties
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: {{ .Values.hubble.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.hubble.startupProbe.periodSeconds }}
+            timeoutSeconds: 5
+            failureThreshold: {{ .Values.hubble.startupProbe.failureThreshold }}
           readinessProbe:
             httpGet:
               path: /
               port: http
-            initialDelaySeconds: 20
-            periodSeconds: 10
+            periodSeconds: {{ .Values.hubble.readinessProbe.periodSeconds }}
             timeoutSeconds: 5
-            failureThreshold: 6
+            failureThreshold: {{ .Values.hubble.readinessProbe.failureThreshold }}
           livenessProbe:
             httpGet:
               path: /
               port: http
-            initialDelaySeconds: 40
-            periodSeconds: 15
+            periodSeconds: {{ .Values.hubble.livenessProbe.periodSeconds }}
             timeoutSeconds: 5
-            failureThreshold: 4
+            failureThreshold: {{ .Values.hubble.livenessProbe.failureThreshold }}
           resources:
             {{- toYaml .Values.hubble.resources | nindent 12 }}
+      volumes:
+        - name: hubble-config
+          configMap:
+            name: hugegraph-hubble-config
 ---
 apiVersion: v1
 kind: Service
