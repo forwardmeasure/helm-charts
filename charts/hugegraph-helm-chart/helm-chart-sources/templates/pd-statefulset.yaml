@@ -2,16 +2,19 @@
 ## HugeGraph PD — Placement Driver (3-node Raft cluster)
 ##
 ## Init container:
-##   1. Gets own IP from Downward API (always available, no DNS needed)
-##   2. For each peer: if the peer FQDN matches our own pod name, use SELF_IP
-##      directly (avoids waiting on our own DNS which isn't resolvable from
-##      within an init container). For all other peers, wait on nslookup.
+##   1. Gets own IP from Downward API (always available immediately)
+##   2. Uses kubectl to poll other PD pods' status.podIP directly from the
+##      Kubernetes API — this works even before pods are Ready and before
+##      headless service DNS records exist.
 ##   3. Writes application.yml using resolved IPs for raft.address and
 ##      raft.peers-list — required because IpAuthHandler builds its allowed
 ##      set via PeerId::getIp which returns the raw peers-list string.
 ##      If peers-list contains hostnames, allowedIps holds hostnames but
 ##      getClientIp() returns numeric IPs → they never match → blocked.
 ##      Using IPs in peers-list fixes this permanently.
+##
+## Requires: Role/RoleBinding granting get/list pods to the ServiceAccount.
+## See templates/rbac.yaml.
 ## ---------------------------------------------------------------------------
 apiVersion: apps/v1
 kind: StatefulSet
@@ -48,7 +51,7 @@ spec:
 
       initContainers:
         - name: config-gen
-          image: busybox:1.36
+          image: bitnami/kubectl:latest
           command:
             - sh
             - -c
@@ -57,40 +60,27 @@ spec:
               NS="{{ .Release.Namespace }}"
 
               # Self IP from Downward API — always available immediately.
-              # Pod DNS records don't exist until Running, so we cannot
-              # nslookup our own FQDN from within an init container.
+              # Pod DNS records don't exist until Running+Ready, so we cannot
+              # nslookup our own or peers' names from within an init container.
               SELF_IP="${POD_IP}"
-              SELF_FQDN="${POD_NAME}.hugegraph-pd.${NS}.svc.cluster.local"
-              echo "[config-gen] Self: ${SELF_FQDN} -> ${SELF_IP} (Downward API)"
+              echo "[config-gen] Self: ${POD_NAME} -> ${SELF_IP} (Downward API)"
 
-              # Resolve a peer DNS name to its pod IP.
-              # Busybox nslookup output:
-              #   Server:    10.96.0.10
-              #   Address 1: 10.96.0.10:53   <- DNS server, skip
-              #   Address 1: 10.72.x.x name  <- pod IP we want
-              resolve_ip() {
-                nslookup "$1" 2>/dev/null \
-                  | awk '/^Address / { print $NF }' \
-                  | grep -v ':53$' \
-                  | head -1
-              }
-
-              # For each peer: skip DNS if it's our own FQDN (use SELF_IP),
-              # otherwise wait until nslookup returns a numeric IP.
+              # For each peer: use own IP from Downward API if it's us,
+              # otherwise poll the Kubernetes API until status.podIP is set.
               {{- range $i := until (.Values.pd.replicaCount | int) }}
-              PEER_DNS_{{ $i }}="hugegraph-pd-{{ $i }}.hugegraph-pd.${NS}.svc.cluster.local"
-              if [ "${PEER_DNS_{{ $i }}}" = "${SELF_FQDN}" ]; then
+              if [ "${POD_NAME}" = "hugegraph-pd-{{ $i }}" ]; then
                 PEER_IP_{{ $i }}="${SELF_IP}"
-                echo "[config-gen] Self peer hugegraph-pd-{{ $i }} -> ${SELF_IP} (Downward API)"
+                echo "[config-gen] Self peer hugegraph-pd-{{ $i }} -> ${SELF_IP}"
               else
+                echo "[config-gen] Waiting for hugegraph-pd-{{ $i }} pod IP via Kubernetes API..."
                 while true; do
-                  IP=$(resolve_ip "${PEER_DNS_{{ $i }}}")
+                  IP=$(kubectl get pod hugegraph-pd-{{ $i }} -n ${NS} \
+                         -o jsonpath='{.status.podIP}' 2>/dev/null || true)
                   if [ -n "$IP" ]; then
                     PEER_IP_{{ $i }}="$IP"
-                    echo "[config-gen] Resolved ${PEER_DNS_{{ $i }}} -> $IP"
+                    echo "[config-gen] hugegraph-pd-{{ $i }} -> $IP"
                     break
                   fi
-                  echo "[config-gen] Waiting for ${PEER_DNS_{{ $i }}} to resolve..."
                   sleep 2
                 done
               fi
