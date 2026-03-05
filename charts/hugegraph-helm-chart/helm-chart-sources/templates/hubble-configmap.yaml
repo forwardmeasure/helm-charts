@@ -1,0 +1,25 @@
+{{- if .Values.hubble.enabled }}
+## ---------------------------------------------------------------------------
+## HugeGraph Hubble — configuration ConfigMap
+## Mounts hugegraph-hubble.properties with server connection details
+## and all gremlin tuning parameters.
+## ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hugegraph-hubble-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "hugegraph.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hubble
+data:
+  hugegraph-hubble.properties: |
+    hubble.host=0.0.0.0
+    hubble.port={{ .Values.hubble.ports.http }}
+    hugegraph.host={{ .Values.hubble.server.host }}
+    hugegraph.port={{ .Values.hubble.server.port }}
+    gremlin.suffix_limit={{ .Values.hubble.gremlin.suffixLimit }}
+    gremlin.vertex_degree_limit={{ .Values.hubble.gremlin.vertexDegreeLimit }}
+    gremlin.edges_total_limit={{ .Values.hubble.gremlin.edgesTotalLimit }}
+    gremlin.batch_query_ids={{ .Values.hubble.gremlin.batchQueryIds }}
+{{- end }}
