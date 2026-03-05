@@ -1,10 +1,15 @@
 ## ---------------------------------------------------------------------------
 ## HugeGraph PD — Placement Driver (3-node Raft cluster)
 ##
-## Init container generates application.yml per-pod using:
-##   - POD_NAME for stable DNS self-address
-##   - All peer DNS names computed from replicaCount at render time
-##   - All store gRPC DNS names for initial-store-list
+## Init container:
+##   1. Waits for all PD peer DNS names to resolve (busybox nslookup)
+##   2. Resolves each peer DNS name to its pod IP
+##   3. Writes application.yml using IP addresses for raft.address and
+##      raft.peers-list — required because IpAuthHandler.configureRaftServerIpWhitelist
+##      calls PeerId::getIp which returns the raw string from peers-list.
+##      If that string is a DNS hostname, it will never match the numeric IP
+##      returned by getClientIp(), so all Raft connections get blocked.
+##      Using IPs in peers-list makes allowedIps contain real pod IPs.
 ## ---------------------------------------------------------------------------
 apiVersion: apps/v1
 kind: StatefulSet
@@ -50,8 +55,44 @@ spec:
               NS="{{ .Release.Namespace }}"
               SELF_DNS="${POD_NAME}.hugegraph-pd.${NS}.svc.cluster.local"
 
-              # Raft peers — all PD pod DNS names at the shared raft port
-              RAFT_PEERS="{{ include "hugegraph.pdRaftPeers" . }}"
+              # Resolve a DNS name to its IP address, retrying until successful.
+              # IpAuthHandler.configureRaftServerIpWhitelist builds its allowed set
+              # via PeerId::getIp — which returns the raw string from peers-list.
+              # If peers-list contains hostnames, allowedIps holds hostnames, but
+              # getClientIp() returns numeric IPs → they never match → blocked.
+              # Using resolved IPs in peers-list fixes this.
+              resolve_ip() {
+                nslookup "$1" 2>/dev/null | awk '/^Address: [0-9]/ { print $2 }' | head -1
+              }
+
+              # Wait for all peers to be DNS-resolvable and resolve to IPs
+              {{- range $i := until (.Values.pd.replicaCount | int) }}
+              PEER_DNS_{{ $i }}="hugegraph-pd-{{ $i }}.hugegraph-pd.${NS}.svc.cluster.local"
+              while true; do
+                IP=$(resolve_ip "${PEER_DNS_{{ $i }}}")
+                if [ -n "$IP" ]; then
+                  PEER_IP_{{ $i }}="$IP"
+                  echo "[config-gen] Resolved ${PEER_DNS_{{ $i }}} -> $IP"
+                  break
+                fi
+                echo "[config-gen] Waiting for ${PEER_DNS_{{ $i }}} to resolve..."
+                sleep 2
+              done
+              {{- end }}
+
+              # Build raft peers list from resolved IPs
+              RAFT_PEERS="{{ range $i := until (.Values.pd.replicaCount | int) }}${PEER_IP_{{ $i }}}:{{ $.Values.pd.ports.raft }}{{ if lt (add1 $i) ($.Values.pd.replicaCount | int) }},{{ end }}{{ end }}"
+
+              # Resolve self IP for raft.address and grpc.host
+              while true; do
+                SELF_IP=$(resolve_ip "${SELF_DNS}")
+                if [ -n "$SELF_IP" ]; then
+                  echo "[config-gen] Resolved self ${SELF_DNS} -> ${SELF_IP}"
+                  break
+                fi
+                echo "[config-gen] Waiting for self DNS ${SELF_DNS} to resolve..."
+                sleep 2
+              done
 
               # Store initial-store-list — store gRPC DNS names
               STORE_LIST="{{ include "hugegraph.storeGrpcList" . }}"
@@ -86,10 +127,6 @@ spec:
               server:
                 port: {{ .Values.pd.ports.http | int }}
 
-              ip-auth:
-                enabled: {{ .Values.pd.ipAuth.enabled | default true }}
-                ip-white-list: {{ join "," .Values.pd.ipAuth.whiteList }}
-
               pd:
                 data-path: /data/pd_data
                 patrol-interval: {{ .Values.pd.patrolInterval | int64 }}
@@ -97,7 +134,7 @@ spec:
                 initial-store-list: ${STORE_LIST}
 
               raft:
-                address: ${SELF_DNS}:{{ .Values.pd.ports.raft }}
+                address: ${SELF_IP}:{{ .Values.pd.ports.raft }}
                 peers-list: ${RAFT_PEERS}
 
               store:
@@ -108,10 +145,10 @@ spec:
                 initial-store-count: {{ .Values.pd.store.initialStoreCount }}
 
               partition:
-                default-shard-count: {{ .Values.pd.partition.defaultShardCount }}
-                store-max-shard-count: {{ .Values.pd.partition.storeMaxShardCount }}
+                default-shard-count: {{ .Values.pd.partition.defaultShardCount | int }}
+                store-max-shard-count: {{ .Values.pd.partition.storeMaxShardCount | int }}
               EOF
-              echo "[config-gen] Generated application.yml for ${POD_NAME}"
+              echo "[config-gen] Generated application.yml for ${POD_NAME} (raft.address=${SELF_IP}:{{ .Values.pd.ports.raft }}, peers=${RAFT_PEERS})"
           env:
             - name: POD_NAME
               valueFrom:
@@ -167,7 +204,6 @@ spec:
             periodSeconds: {{ .Values.pd.livenessProbe.periodSeconds }}
             timeoutSeconds: 5
             failureThreshold: {{ .Values.pd.livenessProbe.failureThreshold }}
-            
           resources:
             {{- toYaml .Values.pd.resources | nindent 12 }}
 
