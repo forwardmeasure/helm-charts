@@ -62,9 +62,9 @@ spec:
               # getClientIp() returns numeric IPs → they never match → blocked.
               # Using resolved IPs in peers-list fixes this.
               resolve_ip() {
-                nslookup "$1" 2>/dev/null | awk '/^Address: [0-9]/ { print $2 }' | head -1
+                nslookup "$1" 2>/dev/null | awk '/^Address / { print $NF }' | grep -v ':53$' | head -1
               }
-
+              
               # Wait for all peers to be DNS-resolvable and resolve to IPs
               {{- range $i := until (.Values.pd.replicaCount | int) }}
               PEER_DNS_{{ $i }}="hugegraph-pd-{{ $i }}.hugegraph-pd.${NS}.svc.cluster.local"
