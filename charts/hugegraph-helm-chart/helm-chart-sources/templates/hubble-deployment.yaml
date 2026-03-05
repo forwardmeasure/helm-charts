@@ -38,7 +38,7 @@ spec:
               containerPort: {{ .Values.hubble.ports.http }}
           volumeMounts:
             - name: hubble-config
-              mountPath: /hugegraph-hubble/conf/hugegraph-hubble.properties
+              mountPath: /hubble/conf/hugegraph-hubble.properties
               subPath: hugegraph-hubble.properties
           startupProbe:
             httpGet:
