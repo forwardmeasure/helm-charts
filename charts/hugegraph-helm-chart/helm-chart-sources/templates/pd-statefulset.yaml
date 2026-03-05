@@ -2,14 +2,14 @@
 ## HugeGraph PD — Placement Driver (3-node Raft cluster)
 ##
 ## Init container:
-##   1. Waits for all PD peer DNS names to resolve (busybox nslookup)
-##   2. Resolves each peer DNS name to its pod IP
-##   3. Writes application.yml using IP addresses for raft.address and
-##      raft.peers-list — required because IpAuthHandler.configureRaftServerIpWhitelist
-##      calls PeerId::getIp which returns the raw string from peers-list.
-##      If that string is a DNS hostname, it will never match the numeric IP
-##      returned by getClientIp(), so all Raft connections get blocked.
-##      Using IPs in peers-list makes allowedIps contain real pod IPs.
+##   1. Gets own IP from Downward API (always available, no DNS needed)
+##   2. Waits for all peer DNS names to resolve to IPs via nslookup
+##   3. Writes application.yml using resolved IPs for raft.address and
+##      raft.peers-list — required because IpAuthHandler builds its allowed
+##      set via PeerId::getIp which returns the raw peers-list string.
+##      If peers-list contains hostnames, allowedIps holds hostnames but
+##      getClientIp() returns numeric IPs → they never match → blocked.
+##      Using IPs in peers-list fixes this permanently.
 ## ---------------------------------------------------------------------------
 apiVersion: apps/v1
 kind: StatefulSet
@@ -53,19 +53,28 @@ spec:
             - |
               set -e
               NS="{{ .Release.Namespace }}"
-              SELF_DNS="${POD_NAME}.hugegraph-pd.${NS}.svc.cluster.local"
 
-              # Resolve a DNS name to its IP address, retrying until successful.
-              # IpAuthHandler.configureRaftServerIpWhitelist builds its allowed set
-              # via PeerId::getIp — which returns the raw string from peers-list.
-              # If peers-list contains hostnames, allowedIps holds hostnames, but
-              # getClientIp() returns numeric IPs → they never match → blocked.
-              # Using resolved IPs in peers-list fixes this.
+              # Self IP from Downward API — always available, no DNS needed.
+              # Pod DNS records don't exist until the pod is Running, so we
+              # cannot nslookup our own name from within an init container.
+              SELF_IP="${POD_IP}"
+              echo "[config-gen] Self IP (Downward API): ${SELF_IP}"
+
+              # Resolve a peer DNS name to its pod IP.
+              # Busybox nslookup output format:
+              #   Server:    10.96.0.10
+              #   Address 1: 10.96.0.10:53        <- DNS server, filter out
+              #   Address 1: 10.72.x.x hostname   <- pod IP we want
               resolve_ip() {
-                nslookup "$1" 2>/dev/null | awk '/^Address / { print $NF }' | grep -v ':53$' | head -1
+                nslookup "$1" 2>/dev/null \
+                  | awk '/^Address / { print $NF }' \
+                  | grep -v ':53$' \
+                  | head -1
               }
-              
-              # Wait for all peers to be DNS-resolvable and resolve to IPs
+
+              # Wait for each peer DNS name to resolve to an IP.
+              # With Parallel pod management all pods start simultaneously,
+              # so peers may not be DNS-resolvable immediately.
               {{- range $i := until (.Values.pd.replicaCount | int) }}
               PEER_DNS_{{ $i }}="hugegraph-pd-{{ $i }}.hugegraph-pd.${NS}.svc.cluster.local"
               while true; do
@@ -80,21 +89,11 @@ spec:
               done
               {{- end }}
 
-              # Build raft peers list from resolved IPs
+              # Build comma-separated IP-based raft peers list
               RAFT_PEERS="{{ range $i := until (.Values.pd.replicaCount | int) }}${PEER_IP_{{ $i }}}:{{ $.Values.pd.ports.raft }}{{ if lt (add1 $i) ($.Values.pd.replicaCount | int) }},{{ end }}{{ end }}"
 
-              # Resolve self IP for raft.address and grpc.host
-              while true; do
-                SELF_IP=$(resolve_ip "${SELF_DNS}")
-                if [ -n "$SELF_IP" ]; then
-                  echo "[config-gen] Resolved self ${SELF_DNS} -> ${SELF_IP}"
-                  break
-                fi
-                echo "[config-gen] Waiting for self DNS ${SELF_DNS} to resolve..."
-                sleep 2
-              done
-
-              # Store initial-store-list — store gRPC DNS names
+              # Store initial-store-list — store gRPC DNS names (DNS is fine here,
+              # store uses gRPC not sofa-bolt, no IpAuthHandler involved)
               STORE_LIST="{{ include "hugegraph.storeGrpcList" . }}"
 
               mkdir -p /config
@@ -154,6 +153,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           volumeMounts:
             - name: config
               mountPath: /config
@@ -176,6 +179,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           volumeMounts:
             - name: config
               mountPath: /hugegraph-pd/conf/application.yml
