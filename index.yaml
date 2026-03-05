@@ -1,564 +1,495 @@
 apiVersion: v1
 entries:
   docling-serve:
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-02-27T12:01:16.9603743-05:00"
-    description: Helm chart for deploying Docling Serve with PVC-backed cache and
-      configurable backend models.
-    digest: dea10fc8aabcf7d61c361044bfd83a5af8f0fea5ce7b15f27b970f45ffca34b4
-    keywords:
-    - docling
-    - NLP
-    - model-serving
-    - PVC
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: docling-serve
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.3.tgz
-    version: 0.0.3
+    - apiVersion: v2
+      appVersion: latest
+      created: "2026-02-27T12:01:16.9603743-05:00"
+      description:
+        Helm chart for deploying Docling Serve with PVC-backed cache and
+        configurable backend models.
+      digest: dea10fc8aabcf7d61c361044bfd83a5af8f0fea5ce7b15f27b970f45ffca34b4
+      keywords:
+        - docling
+        - NLP
+        - model-serving
+        - PVC
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: docling-serve
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.3.tgz
+      version: 0.0.3
   hugegraph:
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T22:51:24.097194851-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: 2c6c8aa4a8abac2500676fb9dc98dd4c0f9c8ba5d738a6b6a5c805187e7d56f4
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.23.tgz
-    version: 0.0.23
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T22:51:24.09675024-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: 200f49ec0d0975eecf7d03c143b9f742bdf6ee66b46a87d7b82a895fa2e135ed
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.22.tgz
-    version: 0.0.22
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T22:51:24.096318172-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: b0b37313bc9a2088ff5a1ecbac488da4f4d8377567aface87f26c13033eb6337
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.21.tgz
-    version: 0.0.21
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T22:51:24.095868147-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: 1495d75a21278819659a1e21f5a6c756304508ebad9cde019797afccd108be7e
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.20.tgz
-    version: 0.0.20
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T22:51:24.095421731-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: d84e2eae2721de49397c0a4b9d7fe646a8a5b6938667edc770b759f56b47d007
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.19.tgz
-    version: 0.0.19
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T22:51:24.094976733-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: e3901d793e7f0c520c90443ddfec0722948fd25ee68676b85e09f284e021a866
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.18.tgz
-    version: 0.0.18
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T22:51:24.094588513-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: d06d4d2caba35be1061ec28c4a5ee9607af34793a1d12d68b1527110c4fc9716
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.17.tgz
-    version: 0.0.17
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T22:51:24.093687666-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: f8274f0275fdd2334cc0749c6783125d96b0d84a444abf6874f05387ec61eb5d
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.16.tgz
-    version: 0.0.16
+    - apiVersion: v2
+      appVersion: latest
+      created: "2026-03-04T22:51:24.097194851-05:00"
+      description:
+        Apache HugeGraph distributed graph database (PD + Store + Server
+        + Hubble)
+      digest: 2c6c8aa4a8abac2500676fb9dc98dd4c0f9c8ba5d738a6b6a5c805187e7d56f4
+      name: hugegraph
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.23.tgz
+      version: 0.0.23
   kafka:
-  - apiVersion: v2
-    appVersion: 4.0.0
-    created: "2026-03-02T10:53:19.157015124-05:00"
-    description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
-      mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
-      resources. Requires the Strimzi operator to be installed and watching the target
-      namespace. '
-    digest: dd7829b86fb72eadbc16cbbfaae5e0d2869bafb595f4a55a8a8fef2ff0e08269
-    name: kafka
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/kafka-deployment-helm-chart/kafka-0.0.3.tgz
-    version: 0.0.3
-  - apiVersion: v2
-    appVersion: 4.0.0
-    created: "2026-03-02T10:53:19.156903265-05:00"
-    description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
-      mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
-      resources. Requires the Strimzi operator to be installed and watching the target
-      namespace. '
-    digest: 9c0d468a11a583846e4b59f6473cb472bee26e39bed13b4d61f9289f13d3e497
-    name: kafka
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/kafka-deployment-helm-chart/kafka-0.0.2.tgz
-    version: 0.0.2
+    - apiVersion: v2
+      appVersion: 4.0.0
+      created: "2026-03-02T10:53:19.157015124-05:00"
+      description:
+        "Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
+        mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
+        resources. Requires the Strimzi operator to be installed and watching the target
+        namespace. "
+      digest: dd7829b86fb72eadbc16cbbfaae5e0d2869bafb595f4a55a8a8fef2ff0e08269
+      name: kafka
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/kafka-deployment-helm-chart/kafka-0.0.3.tgz
+      version: 0.0.3
+    - apiVersion: v2
+      appVersion: 4.0.0
+      created: "2026-03-02T10:53:19.156903265-05:00"
+      description:
+        "Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
+        mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
+        resources. Requires the Strimzi operator to be installed and watching the target
+        namespace. "
+      digest: 9c0d468a11a583846e4b59f6473cb472bee26e39bed13b4d61f9289f13d3e497
+      name: kafka
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/kafka-deployment-helm-chart/kafka-0.0.2.tgz
+      version: 0.0.2
   karavan:
-  - apiVersion: v2
-    appVersion: 4.10.2
-    created: "2026-02-27T11:57:12.268999921-05:00"
-    description: Chart Helm for deploy Karavan
-    digest: 26379f4d0bfa78491f640f772e8909d4ddab78ceb42e37349eaf42b3987d580c
-    name: karavan
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.1.tgz
-    version: 1.0.1
-  - apiVersion: v2
-    appVersion: 4.10.2
-    created: "2026-02-27T11:57:12.267992298-05:00"
-    description: Chart Helm for deploy Karavan
-    digest: b76a4fe25e47af615ea81945966e63d4b05b0a253e676837596daf31991203f7
-    name: karavan
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.0.tgz
-    version: 1.0.0
+    - apiVersion: v2
+      appVersion: 4.10.2
+      created: "2026-02-27T11:57:12.268999921-05:00"
+      description: Chart Helm for deploy Karavan
+      digest: 26379f4d0bfa78491f640f772e8909d4ddab78ceb42e37349eaf42b3987d580c
+      name: karavan
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.1.tgz
+      version: 1.0.1
+    - apiVersion: v2
+      appVersion: 4.10.2
+      created: "2026-02-27T11:57:12.267992298-05:00"
+      description: Chart Helm for deploy Karavan
+      digest: b76a4fe25e47af615ea81945966e63d4b05b0a253e676837596daf31991203f7
+      name: karavan
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/camel-karavan-helm-chart/karavan-1.0.0.tgz
+      version: 1.0.0
   keycloak:
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.982965894-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 6f3f9c41f409470a3831fd222facb0335c1edc1628e226d6ca45fcc52cad373b
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.11.tgz
-    version: 0.0.11
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.982655173-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 5138fce2ff4167c260144ab1d1a78337fee68f96b3ceb92578f6f2c3c28293a0
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.10.tgz
-    version: 0.0.10
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.98537385-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 0a708d9cbe5ce0b35c15f667be2d330b67c2f828fcae71b91c0edbd9fbb9263f
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.9.tgz
-    version: 0.0.9
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.985051577-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: aaffaffd7ac091a247efcde2397cc68c16104a4fb8d28f459d3703507700ef67
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.8.tgz
-    version: 0.0.8
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.984770614-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 689b09b8cd222bc283fa3282e793dfd8d767751b87ae6af9c96eed600c31626d
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.7.tgz
-    version: 0.0.7
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.98446501-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: efa535f94147356cfbb43ab7064951a445e6d6a82862692ecdf463df0709e458
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.6.tgz
-    version: 0.0.6
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.984187646-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 9b33b029f3e55373b3f1f9592894a04fb4fc6cf1fb3f689f13d2cea905426d47
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.5.tgz
-    version: 0.0.5
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.983896653-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 71bb9d6e18dc8a18a4e4cb3e676396f23fa4fb325461a6c2a45d7284e06288fb
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.4.tgz
-    version: 0.0.4
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.983589747-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 0a475190cd1c40c8e9d68743428f33756edc4d9e7ab0fc9d74427ecbfbe73b3f
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.3.tgz
-    version: 0.0.3
-  - apiVersion: v2
-    appVersion: "26.5"
-    created: "2026-03-03T23:15:32.983312466-05:00"
-    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
-      database support.
-    digest: 26b76dd997f486a73b862060ba50bf5e5c010ace508c8f558014dddd2b15bf48
-    keywords:
-    - keycloak
-    - iam
-    - authentication
-    - authorization
-    maintainers:
-    - email: pn@forwardmeasure.com
-      name: Prashanth Nandavanam
-    name: keycloak
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.2.tgz
-    version: 0.0.2
-  knative:
-  - apiVersion: v2
-    appVersion: 1.21.0
-    created: "2026-03-03T20:02:40.213984989-05:00"
-    description: 'Deploys KnativeServing and KnativeEventing custom resources via
-      the Knative Operator. Configures net-istio as the Serving network layer and
-      eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
-      Operator to be installed. '
-    digest: f1baa8278eda0d26afada7a72c90e8cf134cdb233f705ab290b35dd96c204d92
-    name: knative
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-0.0.2.tgz
-    version: 0.0.2
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.982965894-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 6f3f9c41f409470a3831fd222facb0335c1edc1628e226d6ca45fcc52cad373b
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.11.tgz
+      version: 0.0.11
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.982655173-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 5138fce2ff4167c260144ab1d1a78337fee68f96b3ceb92578f6f2c3c28293a0
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.10.tgz
+      version: 0.0.10
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.98537385-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 0a708d9cbe5ce0b35c15f667be2d330b67c2f828fcae71b91c0edbd9fbb9263f
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.9.tgz
+      version: 0.0.9
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.985051577-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: aaffaffd7ac091a247efcde2397cc68c16104a4fb8d28f459d3703507700ef67
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.8.tgz
+      version: 0.0.8
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.984770614-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 689b09b8cd222bc283fa3282e793dfd8d767751b87ae6af9c96eed600c31626d
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.7.tgz
+      version: 0.0.7
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.98446501-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: efa535f94147356cfbb43ab7064951a445e6d6a82862692ecdf463df0709e458
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.6.tgz
+      version: 0.0.6
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.984187646-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 9b33b029f3e55373b3f1f9592894a04fb4fc6cf1fb3f689f13d2cea905426d47
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.5.tgz
+      version: 0.0.5
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.983896653-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 71bb9d6e18dc8a18a4e4cb3e676396f23fa4fb325461a6c2a45d7284e06288fb
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.4.tgz
+      version: 0.0.4
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.983589747-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 0a475190cd1c40c8e9d68743428f33756edc4d9e7ab0fc9d74427ecbfbe73b3f
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.3.tgz
+      version: 0.0.3
+    - apiVersion: v2
+      appVersion: "26.5"
+      created: "2026-03-03T23:15:32.983312466-05:00"
+      description:
+        Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+        database support.
+      digest: 26b76dd997f486a73b862060ba50bf5e5c010ace508c8f558014dddd2b15bf48
+      keywords:
+        - keycloak
+        - iam
+        - authentication
+        - authorization
+      maintainers:
+        - email: pn@forwardmeasure.com
+          name: Prashanth Nandavanam
+      name: keycloak
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.2.tgz
+      version: 0.0.2
   knative-crd:
-  - apiVersion: v2
-    appVersion: 1.21.0
-    created: "2026-03-03T20:02:40.214264308-05:00"
-    description: 'Deploys KnativeServing and KnativeEventing custom resources via
-      the Knative Operator. Configures net-istio as the Serving network layer and
-      eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
-      Operator to be installed. '
-    digest: 94d92580e2b009d8a09d5a3d5b90ee921c75efc8c4ccbc775ea8f59e74fa1a65
-    name: knative-crd
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.5.tgz
-    version: 0.0.5
-  - apiVersion: v2
-    appVersion: 1.21.0
-    created: "2026-03-03T20:02:40.214169732-05:00"
-    description: 'Deploys KnativeServing and KnativeEventing custom resources via
-      the Knative Operator. Configures net-istio as the Serving network layer and
-      eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
-      Operator to be installed. '
-    digest: 819ed6c6ac6e4097d19c849d5cbb83b5a500148779e714be2f0045125b7bbebb
-    name: knative-crd
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.4.tgz
-    version: 0.0.4
-  - apiVersion: v2
-    appVersion: 1.21.0
-    created: "2026-03-03T20:02:40.214071167-05:00"
-    description: 'Deploys KnativeServing and KnativeEventing custom resources via
-      the Knative Operator. Configures net-istio as the Serving network layer and
-      eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
-      Operator to be installed. '
-    digest: e1304ad01b73aa2be5b8f55392ce44a9f47ab0197bbbd09f775eafc6bec0c16e
-    name: knative-crd
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.3.tgz
-    version: 0.0.3
+    - apiVersion: v2
+      appVersion: 1.21.0
+      created: "2026-03-03T20:02:40.214264308-05:00"
+      description:
+        "Deploys KnativeServing and KnativeEventing custom resources via
+        the Knative Operator. Configures net-istio as the Serving network layer and
+        eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
+        Operator to be installed. "
+      digest: 94d92580e2b009d8a09d5a3d5b90ee921c75efc8c4ccbc775ea8f59e74fa1a65
+      name: knative-crd
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.5.tgz
+      version: 0.0.5
+    - apiVersion: v2
+      appVersion: 1.21.0
+      created: "2026-03-03T20:02:40.214169732-05:00"
+      description:
+        "Deploys KnativeServing and KnativeEventing custom resources via
+        the Knative Operator. Configures net-istio as the Serving network layer and
+        eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
+        Operator to be installed. "
+      digest: 819ed6c6ac6e4097d19c849d5cbb83b5a500148779e714be2f0045125b7bbebb
+      name: knative-crd
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.4.tgz
+      version: 0.0.4
+    - apiVersion: v2
+      appVersion: 1.21.0
+      created: "2026-03-03T20:02:40.214071167-05:00"
+      description:
+        "Deploys KnativeServing and KnativeEventing custom resources via
+        the Knative Operator. Configures net-istio as the Serving network layer and
+        eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
+        Operator to be installed. "
+      digest: e1304ad01b73aa2be5b8f55392ce44a9f47ab0197bbbd09f775eafc6bec0c16e
+      name: knative-crd
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.3.tgz
+      version: 0.0.3
   opensearch:
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2026-02-27T11:57:12.270958601-05:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 67e87de6f4e6b18245bdcccda597265bb822962f7dfa0e41663a6bccf9e477dc
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.21.tgz
-    version: 1.0.21
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2026-02-27T11:57:12.270576206-05:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 1008dcd9e37b99d589e2a239cae56f92bef8e94af657e16f3db45984775b8f23
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.20.tgz
-    version: 1.0.20
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2026-02-27T11:57:12.2702346-05:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: cc65647770278f7c5048ed6fef3671e75589ba2ada8ac43f8c09f35e7b7dce72
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.17.tgz
-    version: 1.0.17
-  - apiVersion: v1
-    appVersion: 3.1.0
-    created: "2026-02-27T11:57:12.269893988-05:00"
-    description: A Helm chart for OpenSearch Cluster deployment
-    digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
-    name: opensearch
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
-    version: 1.0.16
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2026-02-27T11:57:12.270958601-05:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: 67e87de6f4e6b18245bdcccda597265bb822962f7dfa0e41663a6bccf9e477dc
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.21.tgz
+      version: 1.0.21
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2026-02-27T11:57:12.270576206-05:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: 1008dcd9e37b99d589e2a239cae56f92bef8e94af657e16f3db45984775b8f23
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.20.tgz
+      version: 1.0.20
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2026-02-27T11:57:12.2702346-05:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: cc65647770278f7c5048ed6fef3671e75589ba2ada8ac43f8c09f35e7b7dce72
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.17.tgz
+      version: 1.0.17
+    - apiVersion: v1
+      appVersion: 3.1.0
+      created: "2026-02-27T11:57:12.269893988-05:00"
+      description: A Helm chart for OpenSearch Cluster deployment
+      digest: 7d521e8aa7432f8ba09a4d092d3b68019336d7901290a3ac97d808cc03389e72
+      name: opensearch
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-1.0.16.tgz
+      version: 1.0.16
   platform-routing:
-  - apiVersion: v2
-    appVersion: 1.0.0
-    created: "2026-03-01T11:30:09.811306507-05:00"
-    description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
-      platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
-      Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
-      and DestinationRule resources. '
-    digest: 81c41ca807bc62768da77405da3c39f95c193b5bc5dcdebfd4e7cb36eb179ed8
-    name: platform-routing
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/platform-routing-helm-chart/platform-routing-0.0.2.tgz
-    version: 0.0.2
+    - apiVersion: v2
+      appVersion: 1.0.0
+      created: "2026-03-01T11:30:09.811306507-05:00"
+      description:
+        "Manages all Istio/Gateway API routing resources for the Data Fabric
+        platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
+        Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
+        and DestinationRule resources. "
+      digest: 81c41ca807bc62768da77405da3c39f95c193b5bc5dcdebfd4e7cb36eb179ed8
+      name: platform-routing
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/platform-routing-helm-chart/platform-routing-0.0.2.tgz
+      version: 0.0.2
   platform-secrets:
-  - apiVersion: v2
-    created: "2026-03-01T18:08:52.08126118-05:00"
-    description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
-      (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
-      AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
-      chain. '
-    digest: fb9ab931497761539605b0aa9a147906b6b7598b6b685974a75192adb381b0cc
-    name: platform-secrets
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.4.tgz
-    version: 0.1.4
-  - apiVersion: v2
-    created: "2026-03-01T18:08:52.081176185-05:00"
-    description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
-      (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
-      AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
-      chain. '
-    digest: c7edb86da9b2f19f9d26ad16e88283bbb3599b9e05ae9c5b94cec6c8f61a47a2
-    name: platform-secrets
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.3.tgz
-    version: 0.1.3
-  - apiVersion: v2
-    created: "2026-03-01T18:08:52.081098052-05:00"
-    description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
-      (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
-      AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
-      chain. '
-    digest: a0a7c9241c7827059da0a17c41888e522dfb11a71066fb993022206bc594a83c
-    name: platform-secrets
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.2.tgz
-    version: 0.1.2
-  - apiVersion: v2
-    created: "2026-03-01T18:08:52.081015763-05:00"
-    description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
-      (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
-      AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
-      chain. '
-    digest: 0bbc713e2eea7ce47031f9cbc7133e8e3690882f62116eac62319829b93e1fa6
-    name: platform-secrets
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.1.tgz
-    version: 0.1.1
+    - apiVersion: v2
+      created: "2026-03-01T18:08:52.08126118-05:00"
+      description:
+        "ESO ExternalSecret resources for platform-wide secrets. Common secrets
+        (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
+        AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
+        chain. "
+      digest: fb9ab931497761539605b0aa9a147906b6b7598b6b685974a75192adb381b0cc
+      name: platform-secrets
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.4.tgz
+      version: 0.1.4
+    - apiVersion: v2
+      created: "2026-03-01T18:08:52.081176185-05:00"
+      description:
+        "ESO ExternalSecret resources for platform-wide secrets. Common secrets
+        (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
+        AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
+        chain. "
+      digest: c7edb86da9b2f19f9d26ad16e88283bbb3599b9e05ae9c5b94cec6c8f61a47a2
+      name: platform-secrets
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.3.tgz
+      version: 0.1.3
+    - apiVersion: v2
+      created: "2026-03-01T18:08:52.081098052-05:00"
+      description:
+        "ESO ExternalSecret resources for platform-wide secrets. Common secrets
+        (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
+        AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
+        chain. "
+      digest: a0a7c9241c7827059da0a17c41888e522dfb11a71066fb993022206bc594a83c
+      name: platform-secrets
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.2.tgz
+      version: 0.1.2
+    - apiVersion: v2
+      created: "2026-03-01T18:08:52.081015763-05:00"
+      description:
+        "ESO ExternalSecret resources for platform-wide secrets. Common secrets
+        (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
+        AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
+        chain. "
+      digest: 0bbc713e2eea7ce47031f9cbc7133e8e3690882f62116eac62319829b93e1fa6
+      name: platform-secrets
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.1.tgz
+      version: 0.1.1
   zookeeper:
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-03-02T11:04:23.309807928-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 63957a82954963e53fd17c51fc225721fb2f8f4abeaba6f4dc6cffa004899479
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.6.tgz
-    version: 1.0.6
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-03-02T11:04:23.309637923-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 66094e6bc408fd5cd56d9ade70d75327c35a497de9553a9d5766da2c63d7078a
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.5.tgz
-    version: 1.0.5
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-03-02T11:04:23.309472651-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 148292dec7a1d49a7de7251d11859625ced4020978ef97a424a9f9f24a3471b6
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.4.tgz
-    version: 1.0.4
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-03-02T11:04:23.308963562-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 7fbb00b2b58fedcbfcec4ebe4b9ed33a2c5cabac6712ac25da3cf8d7744940b3
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.3.tgz
-    version: 1.0.3
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-03-02T11:04:23.308669885-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 9685e037bfbf02307800d2524a0c44fa301334b79e528bb99a638461bf58b488
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.2.tgz
-    version: 1.0.2
-  - apiVersion: v2
-    appVersion: 3.9.4
-    created: "2026-03-02T11:04:23.308411832-05:00"
-    description: A Helm chart for Apache Zookeeper on Kubernetes
-    digest: 747e9e5b5389bb53de3c6a1a300fb4fb18bf2bf3b8eca8f2f57de1e8327f44e2
-    name: zookeeper
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
-    version: 1.0.1
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-03-02T11:04:23.309807928-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 63957a82954963e53fd17c51fc225721fb2f8f4abeaba6f4dc6cffa004899479
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.6.tgz
+      version: 1.0.6
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-03-02T11:04:23.309637923-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 66094e6bc408fd5cd56d9ade70d75327c35a497de9553a9d5766da2c63d7078a
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.5.tgz
+      version: 1.0.5
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-03-02T11:04:23.309472651-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 148292dec7a1d49a7de7251d11859625ced4020978ef97a424a9f9f24a3471b6
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.4.tgz
+      version: 1.0.4
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-03-02T11:04:23.308963562-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 7fbb00b2b58fedcbfcec4ebe4b9ed33a2c5cabac6712ac25da3cf8d7744940b3
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.3.tgz
+      version: 1.0.3
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-03-02T11:04:23.308669885-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 9685e037bfbf02307800d2524a0c44fa301334b79e528bb99a638461bf58b488
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.2.tgz
+      version: 1.0.2
+    - apiVersion: v2
+      appVersion: 3.9.4
+      created: "2026-03-02T11:04:23.308411832-05:00"
+      description: A Helm chart for Apache Zookeeper on Kubernetes
+      digest: 747e9e5b5389bb53de3c6a1a300fb4fb18bf2bf3b8eca8f2f57de1e8327f44e2
+      name: zookeeper
+      type: application
+      urls:
+        - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
+      version: 1.0.1
 generated: "2026-03-04T22:51:24.093149613-05:00"
