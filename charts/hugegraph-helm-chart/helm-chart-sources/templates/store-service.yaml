@@ -1,4 +1,3 @@
-## Headless — stable DNS per pod: hugegraph-store-{n}.hugegraph-store.<ns>.svc.cluster.local
 apiVersion: v1
 kind: Service
 metadata:
