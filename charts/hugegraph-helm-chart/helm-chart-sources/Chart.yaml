@@ -2,5 +2,6 @@ apiVersion: v2
 name: hugegraph
 description: Apache HugeGraph distributed graph database (PD + Store + Server + Hubble)
 type: application
-version: "0.0.24"
+version: "0.0.25"
 appVersion: "latest"
+icon: "https://hugegraph.apache.org"

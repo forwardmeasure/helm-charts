@@ -1,17 +1,43 @@
 ## ---------------------------------------------------------------------------
 ## Apache HugeGraph — Helm Chart Values
-## Derived from upstream docker/configs reference configuration
 ## ---------------------------------------------------------------------------
+
+global:
+  istio:
+    enabled: true
+    peerAuthentication:
+      enabled: true
+      mtlsMode: PERMISSIVE
 
 ## ---------------------------------------------------------------------------
 ## PD (Placement Driver) — 3-node Raft cluster
 ## ---------------------------------------------------------------------------
 pd:
   replicaCount: 3
+
   image:
-    repository: docker.io/hugegraph/pd
+    repository: forwardmeasure/hugegraph-pd
+    tag: "1.7.0"
+    pullPolicy: Always
+
+  initImage:
+    repository: docker.io/eclipsefdn/kubectl
     tag: latest
     pullPolicy: Always
+
+  peerDiscovery:
+    pollSeconds: 2
+    timeoutSeconds: 300
+
+  istio:
+    excludePorts:
+      enabled: true
+      inbound:
+        - 8686
+        - 8610
+      outbound:
+        - 8686
+        - 8610
 
   ports:
     http: 8620
@@ -34,6 +60,8 @@ pd:
 
   persistence:
     storageClass: standard-rwo
+    accessModes:
+      - ReadWriteOnce
     size: 10Gi
 
   resources:
@@ -43,15 +71,18 @@ pd:
     limits:
       cpu: 2
       memory: 2Gi
+
   javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
 
   startupProbe:
     initialDelaySeconds: 30
     periodSeconds: 15
-    failureThreshold: 20 # 30 + (20 * 15) = 330s max startup window
+    failureThreshold: 20
+
   livenessProbe:
     periodSeconds: 30
-    failureThreshold: 4 # 120s to detect a hung pod once running
+    failureThreshold: 4
+
   readinessProbe:
     periodSeconds: 10
     failureThreshold: 6
@@ -61,14 +92,36 @@ pd:
     licensePath: ./conf/hugegraph.license
 
 ## ---------------------------------------------------------------------------
-## Store — 3-node Raft + RocksDB
+## Store — placeholder for next step
 ## ---------------------------------------------------------------------------
 store:
   replicaCount: 3
+
   image:
-    repository: docker.io/hugegraph/store
+    repository: forwardmeasure/hugegraph-store
+    tag: "1.7.0"
+    pullPolicy: Always
+
+  initImage:
+    repository: docker.io/eclipsefdn/kubectl
     tag: latest
     pullPolicy: Always
+
+  waitForPd:
+    pollSeconds: 5
+    timeoutSeconds: 300
+
+  istio:
+    excludePorts:
+      enabled: true
+      inbound:
+        - 8500
+        - 8510
+      outbound:
+        - 8500
+        - 8510
+        - 8686
+        - 8610
 
   ports:
     grpc: 8500
@@ -82,6 +135,8 @@ store:
 
   persistence:
     storageClass: standard-rwo
+    accessModes:
+      - ReadWriteOnce
     size: 32Gi
 
   resources:
@@ -91,56 +146,81 @@ store:
     limits:
       cpu: 4
       memory: 8Gi
+
   javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
 
   startupProbe:
     initialDelaySeconds: 30
     periodSeconds: 15
-    failureThreshold: 20 # same window, store waits for PD first via init container
+    failureThreshold: 20
+
   livenessProbe:
     periodSeconds: 30
     failureThreshold: 4
+
   readinessProbe:
     periodSeconds: 10
     failureThreshold: 6
 
 ## ---------------------------------------------------------------------------
-## Server — stateless REST/Gremlin/Cypher nodes
+## Server — placeholder for next step
 ## ---------------------------------------------------------------------------
 server:
-  replicaCount: 3
+  replicaCount: 1
   image:
-    repository: docker.io/hugegraph/server
-    tag: latest
+    repository: forwardmeasure/hugegraph-server
+    tag: "1.7.0"
     pullPolicy: Always
 
+  initImage:
+    repository: docker.io/eclipsefdn/kubectl
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  securityContext:
+    runAsUser: 10013
+    runAsGroup: 10013
+
+  waitForDependencies:
+    pollSeconds: 5
+    timeoutSeconds: 300
+
+  istio:
+    excludePorts:
+      enabled: true
+      inbound:
+        - 8181
+        - 8091
+      outbound:
+        - 8686
+        - 8610
+        - 8500
+        - 8510
+        - 8091
+
   ports:
-    http: 8080 # restserver.url port
-    gremlin: 8181 # gremlinserver.url port (same on all pods, differentiated by pod IP)
-    rpc: 8091 # rpc.server_port base
-    arthasHttp: 8561 # arthas.http_port base
-    arthasTelnet: 8562 # arthas.telnet_port base
+    http: 8080
+    gremlin: 8181
+    rpc: 8091
+
+  role:
+    master: master
+    worker: worker
+
+  task:
+    schedulerType: distributed
 
   auth:
     enabled: false
-    ## When enabled, secret must contain key: HUGEGRAPH_ADMIN_PASSWORD
-    ## Uncomment auth.authenticator in rest-server.properties template below
     credentialsSecret: hugegraph-auth
     adminPassword: ""
 
   graph:
-    ## backend must be hstore for distributed PD/Store mode
     backend: hstore
     serializer: binary
     store: hugegraph
     vertexCacheType: l2
     edgeCacheType: l2
-
-  task:
-    schedulerType: local
-    schedulePeriod: 10
-    retry: 0
-    waitTimeout: 10
 
   slowQueryThreshold: 1000
 
@@ -151,28 +231,31 @@ server:
     limits:
       cpu: 4
       memory: 8Gi
+
   javaOptions: "-Xms512m -Xmx1g -XX:+HeapDumpOnOutOfMemoryError"
 
   startupProbe:
-    initialDelaySeconds: 30
+    initialDelaySeconds: 40
     periodSeconds: 15
-    failureThreshold: 24 # slightly longer — waits for store init container too
-  livenessProbe:
-    periodSeconds: 30
-    failureThreshold: 4
+    failureThreshold: 20
+
   readinessProbe:
     periodSeconds: 10
     failureThreshold: 6
 
+  livenessProbe:
+    periodSeconds: 30
+    failureThreshold: 4
+
 ## ---------------------------------------------------------------------------
-## Hubble — web UI
+## Hubble — placeholder for next step
 ## ---------------------------------------------------------------------------
 hubble:
   enabled: true
   replicaCount: 1
   image:
-    repository: docker.io/hugegraph/hubble
-    tag: latest
+    repository: forwardmeasure/hugegraph-hubble
+    tag: "1.7.0"
     pullPolicy: Always
 
   ports:
