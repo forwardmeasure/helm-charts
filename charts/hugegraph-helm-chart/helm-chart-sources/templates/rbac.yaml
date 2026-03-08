@@ -1,9 +1,3 @@
-## ---------------------------------------------------------------------------
-## RBAC — allows the hugegraph ServiceAccount to read pod IPs.
-## Required by the PD init container which uses kubectl to resolve peer pod
-## IPs before DNS is available (StatefulSet headless DNS only works once
-## pods are Ready, but pods are still in init containers at that point).
-## ---------------------------------------------------------------------------
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

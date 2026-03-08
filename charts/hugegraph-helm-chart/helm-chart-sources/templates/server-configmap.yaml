@@ -1,43 +1,19 @@
-## Static log4j2.xml — identical across all server pods, no substitution needed
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hugegraph-server-log4j2
+  name: hugegraph-server-config
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "hugegraph.labels" . | nindent 4 }}
     app.kubernetes.io/component: server
 data:
   log4j2.xml: |
-    <?xml version="1.0" encoding="UTF-8"?>
-    <!-- Config will be auto loaded every 60s -->
-    <configuration status="error" monitorInterval="60">
-        <properties>
-            <property name="LOG_PATH">logs</property>
-            <property name="FILE_NAME">hugegraph-server</property>
-        </properties>
-
-        <appenders>
-            <Console name="console" target="SYSTEM_OUT">
-                <ThresholdFilter level="DEBUG" onMatch="ACCEPT" onMismatch="DENY"/>
-                <PatternLayout pattern="%-d{yyyy-MM-dd HH:mm:ss} [%t] [%p] %c{1.} - %m%n"/>
-            </Console>
-            <RollingFile name="file" fileName="${LOG_PATH}/${FILE_NAME}.log"
-                         filePattern="${LOG_PATH}/${FILE_NAME}-%d{yyyy-MM-dd}-%i.log">
-                <ThresholdFilter level="DEBUG" onMatch="ACCEPT" onMismatch="DENY"/>
-                <PatternLayout pattern="%-d{yyyy-MM-dd HH:mm:ss} [%t] [%p] %c{1.} - %m%n"/>
-                <Policies>
-                    <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
-                    <SizeBasedTriggeringPolicy size="100 MB"/>
-                </Policies>
-                <DefaultRolloverStrategy max="5"/>
-            </RollingFile>
-        </appenders>
-
-        <loggers>
-            <root level="INFO">
-                <appender-ref ref="console"/>
-                <appender-ref ref="file"/>
-            </root>
-        </loggers>
-    </configuration>
+{{ .Files.Get "files/server/log4j2.xml" | indent 4 }}
+  config-gen.sh: |
+{{ .Files.Get "files/server/config-gen.sh" | indent 4 }}
+  gremlin-server.yaml.tpl: |
+{{ .Files.Get "files/server/gremlin-server.yaml.tpl" | indent 4 }}
+  rest-server.properties.tpl: |
+{{ .Files.Get "files/server/rest-server.properties.tpl" | indent 4 }}
+  hugegraph.properties.tpl: |
+{{ .Files.Get "files/server/hugegraph.properties.tpl" | indent 4 }}
