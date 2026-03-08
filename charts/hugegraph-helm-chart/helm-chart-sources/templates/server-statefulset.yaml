@@ -1,17 +1,3 @@
-## ---------------------------------------------------------------------------
-## HugeGraph Server — REST/Gremlin/Cypher API layer
-##
-## Per-pod config generation (init container) produces:
-##   conf/rest-server.properties  — restserver.url, gremlinserver.url, server.id,
-##                                   server.role (ordinal 0 = master, rest = worker),
-##                                   rpc.server_port, arthas ports
-##   conf/gremlin-server.yaml     — host: 0.0.0.0, port fixed
-##   conf/graphs/hugegraph.properties — pd.peers with full DNS list
-##
-## log4j2.xml is static and mounted from a ConfigMap.
-##
-## Startup order: waits for all Store /actuator/health before starting.
-## ---------------------------------------------------------------------------
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -23,7 +9,7 @@ metadata:
 spec:
   serviceName: hugegraph-server
   replicas: {{ .Values.server.replicaCount }}
-  podManagementPolicy: Parallel
+  podManagementPolicy: OrderedReady
   updateStrategy:
     type: RollingUpdate
   selector:
@@ -32,9 +18,11 @@ spec:
       app.kubernetes.io/component: server
   template:
     metadata:
+      {{- if and .Values.global.istio.enabled .Values.server.istio.excludePorts.enabled }}
       annotations:
-        traffic.sidecar.istio.io/excludeInboundPorts: "8181,8091"
-        traffic.sidecar.istio.io/excludeOutboundPorts: "8686,8610,8500,8510,8091"      
+        traffic.sidecar.istio.io/excludeInboundPorts: "{{ join "," .Values.server.istio.excludePorts.inbound }}"
+        traffic.sidecar.istio.io/excludeOutboundPorts: "{{ join "," .Values.server.istio.excludePorts.outbound }}"
+      {{- end }}
       labels:
         {{- include "hugegraph.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: server
@@ -47,200 +35,13 @@ spec:
 
       initContainers:
         - name: config-gen
-          image: busybox:1.36
+          image: "{{ .Values.server.initImage.repository }}:{{ .Values.server.initImage.tag }}"
+          imagePullPolicy: {{ .Values.server.initImage.pullPolicy }}
           command:
-            - sh
-            - -c
-            - |
-              set -e
-              NS="{{ .Release.Namespace }}"
-
-              # Derive ordinal from pod name: hugegraph-server-0, hugegraph-server-1, ...
-              ORDINAL="${POD_NAME##*-}"
-
-              # Ordinal 0 is master; all others are workers
-              if [ "$ORDINAL" = "0" ]; then
-                SERVER_ROLE="master"
-              else
-                SERVER_ROLE="worker"
-              fi
-
-              SERVER_ID="server-${ORDINAL}"
-
-              # Ports are fixed per pod (each pod has its own IP in K8s)
-              REST_PORT="{{ .Values.server.ports.http }}"
-              GREMLIN_PORT="{{ .Values.server.ports.gremlin }}"
-              RPC_PORT="{{ .Values.server.ports.rpc }}"
-              ARTHAS_HTTP="{{ .Values.server.ports.arthasHttp }}"
-              ARTHAS_TELNET="{{ .Values.server.ports.arthasTelnet }}"
-
-              # PD gRPC peer list for hugegraph.properties
-              PD_PEERS="{{ include "hugegraph.pdGrpcPeers" . }}"
-
-              mkdir -p /config/graphs
-
-              # ---------------------------------------------------------------
-              # rest-server.properties
-              # ---------------------------------------------------------------
-              cat > /config/rest-server.properties << EOF
-              # bind url
-              restserver.url=http://0.0.0.0:${REST_PORT}
-              # gremlin server url, must match host/port in gremlin-server.yaml
-              gremlinserver.url=127.0.0.1:${GREMLIN_PORT}
-
-              graphs=./conf/graphs
-
-              # arthas configuration
-              arthas.telnet_port=${ARTHAS_TELNET}
-              arthas.http_port=${ARTHAS_HTTP}
-              arthas.ip=127.0.0.1
-              arthas.disabled_commands=jad
-
-              {{- if .Values.server.auth.enabled }}
-              # authentication
-              auth.authenticator=org.apache.hugegraph.auth.StandardAuthenticator
-              auth.admin_pa=\${HUGEGRAPH_ADMIN_PASSWORD}
-              {{- end }}
-
-              # rpc server — used for server-to-server coordination
-              rpc.server_host=0.0.0.0
-              rpc.server_port=${RPC_PORT}
-
-              # server identity and role
-              server.id=${SERVER_ID}
-              server.role=${SERVER_ROLE}
-
-              # slow query log (master only)
-              log.slow_query_threshold={{ .Values.server.slowQueryThreshold }}
-              EOF
-
-              # ---------------------------------------------------------------
-              # gremlin-server.yaml
-              # host must be 0.0.0.0 so it binds on the pod's network interface
-              # gremlinserver.url in rest-server.properties uses 127.0.0.1
-              # because gremlin and rest-server are in the same process/pod
-              # ---------------------------------------------------------------
-              cat > /config/gremlin-server.yaml << 'GREMLIN_EOF'
-              host: 0.0.0.0
-              port: {{ .Values.server.ports.gremlin }}
-              evaluationTimeout: 30000
-              channelizer: org.apache.tinkerpop.gremlin.server.channel.WsAndHttpChannelizer
-              graphs: {}
-              scriptEngines:
-                gremlin-groovy:
-                  staticImports:
-                    - org.opencypher.gremlin.process.traversal.CustomPredicates.*
-                    - org.opencypher.gremlin.traversal.CustomFunctions.*
-                  plugins:
-                    org.apache.hugegraph.plugin.HugeGraphGremlinPlugin: {}
-                    org.apache.tinkerpop.gremlin.server.jsr223.GremlinServerGremlinPlugin: {}
-                    org.apache.tinkerpop.gremlin.jsr223.ImportGremlinPlugin:
-                      classImports:
-                        - java.lang.Math
-                        - org.apache.hugegraph.backend.id.IdGenerator
-                        - org.apache.hugegraph.type.define.Directions
-                        - org.apache.hugegraph.type.define.NodeRole
-                        - org.apache.hugegraph.masterelection.GlobalMasterInfo
-                        - org.apache.hugegraph.util.DateUtil
-                        - org.apache.hugegraph.traversal.algorithm.CollectionPathsTraverser
-                        - org.apache.hugegraph.traversal.algorithm.CountTraverser
-                        - org.apache.hugegraph.traversal.algorithm.CustomizedCrosspointsTraverser
-                        - org.apache.hugegraph.traversal.algorithm.CustomizePathsTraverser
-                        - org.apache.hugegraph.traversal.algorithm.FusiformSimilarityTraverser
-                        - org.apache.hugegraph.traversal.algorithm.HugeTraverser
-                        - org.apache.hugegraph.traversal.algorithm.JaccardSimilarTraverser
-                        - org.apache.hugegraph.traversal.algorithm.KneighborTraverser
-                        - org.apache.hugegraph.traversal.algorithm.KoutTraverser
-                        - org.apache.hugegraph.traversal.algorithm.MultiNodeShortestPathTraverser
-                        - org.apache.hugegraph.traversal.algorithm.NeighborRankTraverser
-                        - org.apache.hugegraph.traversal.algorithm.PathsTraverser
-                        - org.apache.hugegraph.traversal.algorithm.PersonalRankTraverser
-                        - org.apache.hugegraph.traversal.algorithm.SameNeighborTraverser
-                        - org.apache.hugegraph.traversal.algorithm.ShortestPathTraverser
-                        - org.apache.hugegraph.traversal.algorithm.SingleSourceShortestPathTraverser
-                        - org.apache.hugegraph.traversal.algorithm.SubGraphTraverser
-                        - org.apache.hugegraph.traversal.algorithm.TemplatePathsTraverser
-                        - org.apache.hugegraph.traversal.algorithm.steps.EdgeStep
-                        - org.apache.hugegraph.traversal.algorithm.steps.RepeatEdgeStep
-                        - org.apache.hugegraph.traversal.algorithm.steps.WeightedEdgeStep
-                        - org.apache.hugegraph.traversal.optimize.ConditionP
-                        - org.apache.hugegraph.traversal.optimize.Text
-                        - org.apache.hugegraph.traversal.optimize.TraversalUtil
-                        - org.opencypher.gremlin.traversal.CustomFunctions
-                        - org.opencypher.gremlin.traversal.CustomPredicate
-                      methodImports:
-                        - java.lang.Math#*
-                        - org.opencypher.gremlin.traversal.CustomPredicate#*
-                        - org.opencypher.gremlin.traversal.CustomFunctions#*
-                    org.apache.tinkerpop.gremlin.jsr223.ScriptFileGremlinPlugin:
-                      files:
-                        - scripts/empty-sample.groovy
-              serializers:
-                - className: org.apache.tinkerpop.gremlin.driver.ser.GraphBinaryMessageSerializerV1
-                  config:
-                    serializeResultToString: false
-                    ioRegistries:
-                      - org.apache.hugegraph.io.HugeGraphIoRegistry
-                - className: org.apache.tinkerpop.gremlin.driver.ser.GraphSONMessageSerializerV1d0
-                  config:
-                    serializeResultToString: false
-                    ioRegistries:
-                      - org.apache.hugegraph.io.HugeGraphIoRegistry
-                - className: org.apache.tinkerpop.gremlin.driver.ser.GraphSONMessageSerializerV2d0
-                  config:
-                    serializeResultToString: false
-                    ioRegistries:
-                      - org.apache.hugegraph.io.HugeGraphIoRegistry
-                - className: org.apache.tinkerpop.gremlin.driver.ser.GraphSONMessageSerializerV3d0
-                  config:
-                    serializeResultToString: false
-                    ioRegistries:
-                      - org.apache.hugegraph.io.HugeGraphIoRegistry
-              metrics:
-                consoleReporter: {enabled: false, interval: 180000}
-                csvReporter: {enabled: false, interval: 180000, fileName: ./metrics/gremlin-server-metrics.csv}
-                jmxReporter: {enabled: false}
-                slf4jReporter: {enabled: false, interval: 180000}
-              maxInitialLineLength: 4096
-              maxHeaderSize: 8192
-              maxChunkSize: 8192
-              maxContentLength: 65536
-              maxAccumulationBufferComponents: 1024
-              resultIterationBatchSize: 64
-              writeBufferLowWaterMark: 32768
-              writeBufferHighWaterMark: 65536
-              ssl:
-                enabled: false
-              GREMLIN_EOF
-
-              # ---------------------------------------------------------------
-              # graphs/hugegraph.properties
-              # pd.peers must list all PD gRPC DNS addresses
-              # ---------------------------------------------------------------
-              cat > /config/graphs/hugegraph.properties << EOF
-              # auth config: org.apache.hugegraph.auth.HugeFactoryAuthProxy
-              gremlin.graph=org.apache.hugegraph.HugeFactory
-
-              # cache config
-              vertex.cache_type={{ .Values.server.graph.vertexCacheType }}
-              edge.cache_type={{ .Values.server.graph.edgeCacheType }}
-
-              store={{ .Values.server.graph.store }}
-              backend={{ .Values.server.graph.backend }}
-              serializer={{ .Values.server.graph.serializer }}
-
-              # pd config — all PD gRPC endpoints
-              pd.peers=${PD_PEERS}
-
-              # task config
-              task.scheduler_type={{ .Values.server.task.schedulerType }}
-              task.schedule_period={{ .Values.server.task.schedulePeriod }}
-              task.retry={{ .Values.server.task.retry }}
-              task.wait_timeout={{ .Values.server.task.waitTimeout }}
-              EOF
-
-              echo "[config-gen] Generated all configs for ${POD_NAME} (role=${SERVER_ROLE}, id=${SERVER_ID})"
-          env:         
+            - /bin/sh
+          args:
+            - /scripts/config-gen.sh
+          env:
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -249,62 +50,105 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            {{- if .Values.server.auth.enabled }}
-            - name: HUGEGRAPH_ADMIN_PASSWORD
+            - name: POD_NAMESPACE
               valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.server.auth.credentialsSecret }}
-                  key: HUGEGRAPH_ADMIN_PASSWORD
-            {{- end }}
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+            - name: HTTP_PORT
+              value: {{ .Values.server.ports.http | quote }}
+            - name: GREMLIN_PORT
+              value: {{ .Values.server.ports.gremlin | quote }}
+            - name: RPC_PORT
+              value: {{ .Values.server.ports.rpc | quote }}
+
+            - name: PD_HTTP_PORT
+              value: {{ .Values.pd.ports.http | quote }}
+            - name: PD_REPLICA_COUNT
+              value: {{ .Values.pd.replicaCount | quote }}
+
+            - name: STORE_HTTP_PORT
+              value: {{ .Values.store.ports.http | quote }}
+            - name: STORE_REPLICA_COUNT
+              value: {{ .Values.store.replicaCount | quote }}
+
+            - name: WAIT_POLL_SECONDS
+              value: {{ .Values.server.waitForDependencies.pollSeconds | quote }}
+            - name: WAIT_TIMEOUT_SECONDS
+              value: {{ .Values.server.waitForDependencies.timeoutSeconds | quote }}
+
+            - name: PD_ADDRS
+              value: "{{ include "hugegraph.pdGrpcPeers" . }}"
+
+            - name: SERVER_ROLE_MASTER
+              value: {{ .Values.server.role.master | quote }}
+            - name: SERVER_ROLE_WORKER
+              value: {{ .Values.server.role.worker | quote }}
+            - name: TASK_SCHEDULER_TYPE
+              value: {{ .Values.server.task.schedulerType | quote }}
+
+            - name: GRAPH_BACKEND
+              value: {{ .Values.server.graph.backend | quote }}
+            - name: GRAPH_SERIALIZER
+              value: {{ .Values.server.graph.serializer | quote }}
+            - name: GRAPH_STORE
+              value: {{ .Values.server.graph.store | quote }}
+            - name: VERTEX_CACHE_TYPE
+              value: {{ .Values.server.graph.vertexCacheType | quote }}
+            - name: EDGE_CACHE_TYPE
+              value: {{ .Values.server.graph.edgeCacheType | quote }}
+            - name: AUTH_ENABLED
+              value: {{ ternary "true" "false" .Values.server.auth.enabled | quote }}
+            - name: SLOW_QUERY_THRESHOLD
+              value: {{ .Values.server.slowQueryThreshold | quote }}
+
           volumeMounts:
-            - name: config
+            - name: server-config
+              mountPath: /templates/gremlin-server.yaml.tpl
+              subPath: gremlin-server.yaml.tpl
+            - name: server-config
+              mountPath: /templates/rest-server.properties.tpl
+              subPath: rest-server.properties.tpl
+            - name: server-config
+              mountPath: /templates/hugegraph.properties.tpl
+              subPath: hugegraph.properties.tpl
+            - name: server-config
+              mountPath: /scripts/config-gen.sh
+              subPath: config-gen.sh
+            - name: generated-config
               mountPath: /config
 
       containers:
         - name: server
           image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
           imagePullPolicy: {{ .Values.server.image.pullPolicy }}
+          securityContext:
+            runAsUser: {{ .Values.server.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.server.securityContext.runAsGroup }}
+            allowPrivilegeEscalation: false
           ports:
             - name: http
-              containerPort: {{ .Values.server.ports.http | int }}
+              containerPort: {{ .Values.server.ports.http }}
             - name: gremlin
-              containerPort: {{ .Values.server.ports.gremlin | int }}
+              containerPort: {{ .Values.server.ports.gremlin }}
             - name: rpc
-              containerPort: {{ .Values.server.ports.rpc | int }}
+              containerPort: {{ .Values.server.ports.rpc }}
           env:
             - name: JAVA_OPTIONS
-              value: {{ .Values.server.javaOptions | quote }}                
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            {{- if .Values.server.auth.enabled }}
-            - name: HUGEGRAPH_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.server.auth.credentialsSecret }}
-                  key: HUGEGRAPH_ADMIN_PASSWORD
-            {{- end }}
+              value: {{ .Values.server.javaOptions | quote }}
           volumeMounts:
-            ## Generated configs from init container
-            - name: config
-              mountPath: /hugegraph-server/conf/rest-server.properties
+            - name: generated-config
+              mountPath: /opt/hugegraph/conf/rest-server.properties
               subPath: rest-server.properties
-            - name: config
-              mountPath: /hugegraph-server/conf/gremlin-server.yaml
+            - name: generated-config
+              mountPath: /opt/hugegraph/conf/gremlin-server.yaml
               subPath: gremlin-server.yaml
-            - name: config
-              mountPath: /hugegraph-server/conf/graphs/hugegraph.properties
-              subPath: graphs/hugegraph.properties
-            ## Static log4j2 config from ConfigMap
-            - name: log4j2
-              mountPath: /hugegraph-server/conf/log4j2.xml
+            - name: generated-config
+              mountPath: /opt/hugegraph/conf/graphs
+              subPath: graphs
+            - name: server-config
+              mountPath: /opt/hugegraph/conf/log4j2.xml
               subPath: log4j2.xml
-
           startupProbe:
             tcpSocket:
               port: http
@@ -312,27 +156,25 @@ spec:
             periodSeconds: {{ .Values.server.startupProbe.periodSeconds }}
             timeoutSeconds: 5
             failureThreshold: {{ .Values.server.startupProbe.failureThreshold }}
-
           readinessProbe:
             tcpSocket:
               port: http
             periodSeconds: {{ .Values.server.readinessProbe.periodSeconds }}
             timeoutSeconds: 5
             failureThreshold: {{ .Values.server.readinessProbe.failureThreshold }}
-
           livenessProbe:
             tcpSocket:
               port: http
             periodSeconds: {{ .Values.server.livenessProbe.periodSeconds }}
             timeoutSeconds: 5
             failureThreshold: {{ .Values.server.livenessProbe.failureThreshold }}
-
           resources:
             {{- toYaml .Values.server.resources | nindent 12 }}
 
       volumes:
-        - name: config
-          emptyDir: {}
-        - name: log4j2
+        - name: server-config
           configMap:
-            name: hugegraph-server-log4j2
+            name: hugegraph-server-config
+            defaultMode: 0755
+        - name: generated-config
+          emptyDir: {}
