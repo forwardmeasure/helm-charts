@@ -1,75 +1,88 @@
-name: demo
+name: data-fabric
+auth: true
 
 cassandra:
-  version: "5.0.6"
+  clusterName: data-fabric
+  serverVersion: "5.0.6"
 
-  image:
+  serverImage:
+    enabled: true
     registry: docker.io
     repository: k8ssandra/cass-management-api
     tag: "5.0.6-ubi"
+    name: ""
+    pullPolicy: IfNotPresent
+    pullSecretRef: ""
 
-  jmxInitContainerImage:
-    registry: docker.io
-    repository: k8ssandra/cass-management-api
-    tag: "5.0.6-ubi"
+  defaults:
+    storageClassName: standard
+    storageSize: 48Gi
+    softPodAntiAffinity: false
 
-  storageClassName: standard
-  storageSize: 32Gi
+    resources:
+      requests:
+        cpu: "1"
+        memory: 4Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
 
-  # Cluster‑wide default JVM
-  jvm:
-    heap:
-      size: "8G"
-    gc:
-      type: "g1"
+    jvm:
+      gc: G1GC
+      heapInitialSize: 2Gi
+      heapMaxSize: 2Gi
 
-  # Cluster‑wide default resources
-  resources:
-    requests:
-      cpu: "1"
-      memory: "4Gi"
-    limits:
-      cpu: "2"
-      memory: "8Gi"
+  rackTemplate:
+    namePrefix: rack
+    startAt: 1
 
   datacenters:
     - name: dc1
       size: 3
-      racks:
-        - name: rack1
-        - name: rack2
-      # Optional per‑DC overrides:
-      # resources:
-      #   requests:
-      #     cpu: "2"
-      #     memory: "8Gi"
-      #   limits:
-      #     cpu: "4"
-      #     memory: "16Gi"
-      # jvm:
-      #   heap:
-      #     size: "12G"
-      #   gc:
-      #     type: "zgc"
+      rackCount: 3
 
-# Stargate configuration
-stargate:
-  enabled: true
-  size: 1
-  # Optional future overrides:
-  # image:
-  #   registry: docker.io
-  #   repository: k8ssandra/stargate-3_11
-  #   tag: "vX.Y.Z"
-  # resources:
-  #   requests:
-  #     cpu: "500m"
-  #     memory: "1Gi"
-  #   limits:
-  #     cpu: "1"
-  #     memory: "2Gi"
+      storageClassName: standard
+      storageSize: 48Gi
+      softPodAntiAffinity: false
 
-# Reaper configuration
+      resources:
+        requests:
+          cpu: "1"
+          memory: 4Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+
+      jvm:
+        gc: G1GC
+        heapInitialSize: 2Gi
+        heapMaxSize: 2Gi
+
 reaper:
   enabled: true
-  mode: "STANDALONE"
+
+  containerImage:
+    enabled: true
+    registry: docker.io
+    repository: k8ssandra/reaper
+    tag: "3.3.4"
+    name: ""
+    pullPolicy: IfNotPresent
+    pullSecretRef: ""
+
+  deploymentMode: PER_DC
+  heapSize: 2Gi
+
+  httpManagement:
+    enabled: true
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  autoScheduling:
+    enabled: true
