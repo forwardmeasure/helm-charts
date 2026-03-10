@@ -3,47 +3,96 @@ kind: K8ssandraCluster
 metadata:
   name: {{ .Values.name }}
 spec:
+  auth: {{ .Values.auth | default true }}
+
   cassandra:
-    # Cassandra version as understood by the operator
-    version: {{ .Values.cassandra.version | quote }}
+    clusterName: {{ .Values.cassandra.clusterName | default .Values.name | quote }}
+    serverVersion: {{ .Values.cassandra.serverVersion | quote }}
 
-    # Image override for Cassandra 5
-    image:
-      registry: {{ .Values.cassandra.image.registry }}
-      repository: {{ .Values.cassandra.image.repository }}
-      tag: {{ .Values.cassandra.image.tag }}
-
-    # Optional JMX/init image override (only if your operator version expects it)
-    jmxInitContainerImage:
-      registry: {{ .Values.cassandra.jmxInitContainerImage.registry }}
-      repository: {{ .Values.cassandra.jmxInitContainerImage.repository }}
-      tag: {{ .Values.cassandra.jmxInitContainerImage.tag }}
+    {{- $serverImage := include "k8ssandra.cassandraServerImage" . | trim }}
+    {{- if $serverImage }}
+    serverImage: {{ $serverImage | quote }}
+    {{- end }}
 
     datacenters:
+{{- range $dc := .Values.cassandra.datacenters }}
       - metadata:
-          name: dc1
-        size: {{ .Values.cassandra.nodes }}
+          name: {{ $dc.name }}
+        size: {{ $dc.size }}
+        softPodAntiAffinity: {{ $dc.softPodAntiAffinity | default $.Values.cassandra.defaults.softPodAntiAffinity | default false }}
+
         storageConfig:
           cassandraDataVolumeClaimSpec:
-            storageClassName: {{ .Values.cassandra.storageClassName }}
             accessModes:
               - ReadWriteOnce
             resources:
               requests:
-                storage: {{ .Values.cassandra.storageSize }}
-        resources:
-{{- if .Values.cassandra.resources }}
-          {{- toYaml .Values.cassandra.resources | nindent 10 }}
+                storage: {{ $dc.storageSize | default $.Values.cassandra.defaults.storageSize }}
+            storageClassName: {{ $dc.storageClassName | default $.Values.cassandra.defaults.storageClassName }}
+
+        {{- $defaultJvm := $.Values.cassandra.defaults.jvm | default dict }}
+        {{- $dcJvm := $dc.jvm | default dict }}
+        config:
+          jvmOptions:
+            gc: {{ (get $dcJvm "gc" | default (get $defaultJvm "gc") | default "G1GC") | quote }}
+            heap_initial_size: {{ (get $dcJvm "heapInitialSize" | default (get $defaultJvm "heapInitialSize") | default "2Gi") | quote }}
+            heap_max_size: {{ (get $dcJvm "heapMaxSize" | default (get $defaultJvm "heapMaxSize") | default "2Gi") | quote }}
+
+        {{- $dcResources := $dc.resources | default dict }}
+        {{- $defaultResources := $.Values.cassandra.defaults.resources | default dict }}
+        containers:
+          - name: cassandra
+            {{- if $serverImage }}
+            image: {{ $serverImage | quote }}
+            {{- if $.Values.cassandra.serverImage.pullPolicy }}
+            imagePullPolicy: {{ $.Values.cassandra.serverImage.pullPolicy | quote }}
+            {{- end }}
+            {{- end }}
+            resources:
+{{- if $dcResources }}
+{{ toYaml $dcResources | nindent 14 }}
+{{- else }}
+{{ toYaml $defaultResources | nindent 14 }}
 {{- end }}
 
-  stargate:
-    enabled: {{ .Values.stargate.enabled }}
-{{- if .Values.stargate.enabled }}
-    size: {{ .Values.stargate.size }}
+{{ include "k8ssandra.renderGeneratedRacks" (dict "dc" $dc "root" $) | nindent 8 }}
 {{- end }}
 
+  {{- if .Values.reaper.enabled }}
   reaper:
-    enabled: {{ .Values.reaper.enabled }}
-{{- if .Values.reaper.enabled }}
-    mode: {{ .Values.reaper.mode | quote }}
-{{- end }}
+    deploymentMode: {{ .Values.reaper.deploymentMode | default "PER_DC" | quote }}
+    heapSize: {{ .Values.reaper.heapSize | default "2Gi" | quote }}
+
+    {{- if .Values.reaper.httpManagement }}
+    httpManagement:
+      enabled: {{ .Values.reaper.httpManagement.enabled | default true }}
+    {{- end }}
+
+    {{- if and .Values.reaper.containerImage .Values.reaper.containerImage.enabled }}
+    containerImage:
+      {{- if .Values.reaper.containerImage.name }}
+      name: {{ .Values.reaper.containerImage.name | quote }}
+      {{- else }}
+      registry: {{ .Values.reaper.containerImage.registry | quote }}
+      repository: {{ .Values.reaper.containerImage.repository | quote }}
+      tag: {{ .Values.reaper.containerImage.tag | quote }}
+      {{- end }}
+      {{- if .Values.reaper.containerImage.pullPolicy }}
+      pullPolicy: {{ .Values.reaper.containerImage.pullPolicy | quote }}
+      {{- end }}
+      {{- if .Values.reaper.containerImage.pullSecretRef }}
+      pullSecretRef:
+        name: {{ .Values.reaper.containerImage.pullSecretRef | quote }}
+      {{- end }}
+    {{- end }}
+
+    {{- with .Values.reaper.resources }}
+    resources:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
+
+    {{- if .Values.reaper.autoScheduling }}
+    autoScheduling:
+      enabled: {{ .Values.reaper.autoScheduling.enabled | default true }}
+    {{- end }}
+  {{- end }}
