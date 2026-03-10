@@ -1,4 +1,4 @@
-## Headless — stable pod DNS for RPC server-to-server coordination
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -23,7 +23,6 @@ spec:
       port: {{ .Values.server.ports.rpc }}
       targetPort: rpc
 ---
-## ClusterIP — load-balanced REST/Gremlin access for Hubble and external clients
 apiVersion: v1
 kind: Service
 metadata:
@@ -33,6 +32,7 @@ metadata:
     {{- include "hugegraph.labels" . | nindent 4 }}
     app.kubernetes.io/component: server
 spec:
+  type: ClusterIP
   selector:
     {{- include "hugegraph.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: server
@@ -43,3 +43,6 @@ spec:
     - name: gremlin
       port: {{ .Values.server.ports.gremlin }}
       targetPort: gremlin
+    - name: rpc
+      port: {{ .Values.server.ports.rpc }}
+      targetPort: rpc
