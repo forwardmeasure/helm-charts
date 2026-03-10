@@ -64,8 +64,8 @@ reaper:
   containerImage:
     enabled: true
     registry: docker.io
-    repository: k8ssandra/reaper
-    tag: "3.3.4"
+    repository: thelastpickle/reaper
+    tag: "4.2.0"
     name: ""
     pullPolicy: IfNotPresent
     pullSecretRef: ""
