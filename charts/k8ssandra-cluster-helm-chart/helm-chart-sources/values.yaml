@@ -64,7 +64,7 @@ reaper:
   containerImage:
     enabled: true
     registry: docker.io
-    repository: thelastpickle/reaper
+    repository: thelastpickle/cassandra-reaper
     tag: "4.2.0"
     name: ""
     pullPolicy: IfNotPresent
