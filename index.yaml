@@ -46,7 +46,17 @@ entries:
   k8ssandra-cluster:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-10T12:21:01.092192816-04:00"
+    created: "2026-03-10T17:14:45.24906563-04:00"
+    description: K8ssandraCluster instance for the k8ssandra-operator
+    digest: 62f2bddb5d0d7619f99271e7d212b69865ccb98f676be9abe7569b40b4b58eac
+    name: k8ssandra-cluster
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/k8ssandra-cluster-helm-chart/k8ssandra-cluster-0.1.2.tgz
+    version: 0.1.2
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-10T17:14:45.248871753-04:00"
     description: K8ssandraCluster instance for the k8ssandra-operator
     digest: cc05e5726c606437c48a205cfec03c87fa345242653e184aa8d797005c9a85fb
     name: k8ssandra-cluster
@@ -492,4 +502,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-10T12:21:01.091988729-04:00"
+generated: "2026-03-10T17:14:45.248682902-04:00"
