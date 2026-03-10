@@ -46,7 +46,17 @@ entries:
   k8ssandra-cluster:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-10T17:18:15.572166211-04:00"
+    created: "2026-03-10T17:45:20.418382905-04:00"
+    description: K8ssandraCluster instance for the k8ssandra-operator
+    digest: ba6ea3afd440950a3dfab20a18ecbb13ffadaeb6f4e67fb391fa392bec81c160
+    name: k8ssandra-cluster
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/k8ssandra-cluster-helm-chart/k8ssandra-cluster-0.1.5.tgz
+    version: 0.1.5
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-10T17:45:20.418204135-04:00"
     description: K8ssandraCluster instance for the k8ssandra-operator
     digest: 3977746358d6a8f061c622652242f64904096a9df60f1a4ff492802bdebca653
     name: k8ssandra-cluster
@@ -56,7 +66,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-10T17:18:15.571896398-04:00"
+    created: "2026-03-10T17:45:20.418024494-04:00"
     description: K8ssandraCluster instance for the k8ssandra-operator
     digest: deab08b08cd4bf24ea818be9a6b83a787be88440148c612c523a6ceaf3e8294c
     name: k8ssandra-cluster
@@ -66,7 +76,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-10T17:18:15.571629112-04:00"
+    created: "2026-03-10T17:45:20.417865505-04:00"
     description: K8ssandraCluster instance for the k8ssandra-operator
     digest: cc05e5726c606437c48a205cfec03c87fa345242653e184aa8d797005c9a85fb
     name: k8ssandra-cluster
@@ -512,4 +522,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-10T17:18:15.57134447-04:00"
+generated: "2026-03-10T17:45:20.417679777-04:00"
