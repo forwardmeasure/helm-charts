@@ -51,8 +51,30 @@ wait_http_up() {
   echo "[wait] Waiting for ${name} at ${url}"
   start_ts="$(date +%s)"
   while true; do
-    if wget -qO- "${url}" >/dev/null 2>&1; then
-      echo "[wait] ${name} is reachable"
+    if wget -qO- "${url}" 2>/dev/null | grep -q '"status":"UP"'; then
+      echo "[wait] ${name} is UP"
+      return 0
+    fi
+
+    now="$(date +%s)"
+    if [ $((now - start_ts)) -ge "${WAIT_TIMEOUT_SECONDS}" ]; then
+      echo "[wait] Timed out waiting for ${name}" >&2
+      exit 1
+    fi
+
+    sleep "${WAIT_POLL_SECONDS}"
+  done
+}
+
+wait_tcp_up() {
+  name="$1"
+  host="$2"
+  port="$3"
+  echo "[wait] Waiting for ${name} at ${host}:${port}"
+  start_ts="$(date +%s)"
+  while true; do
+    if nc -z "${host}" "${port}" >/dev/null 2>&1; then
+      echo "[wait] ${name} is reachable on ${host}:${port}"
       return 0
     fi
 
@@ -79,8 +101,8 @@ echo "[wait] Waiting for STORE..."
 i=0
 while [ "$i" -lt "$STORE_REPLICA_COUNT" ]; do
   STORE_NAME="hugegraph-store-${i}"
-  STORE_URL="http://${STORE_NAME}.hugegraph-store.${NS}.svc.cluster.local:${STORE_HTTP_PORT}/actuator/health"
-  wait_http_up "${STORE_NAME}" "${STORE_URL}"
+  STORE_HOST="${STORE_NAME}.hugegraph-store.${NS}.svc.cluster.local"
+  wait_tcp_up "${STORE_NAME}" "${STORE_HOST}" "${STORE_HTTP_PORT}"
   i=$((i + 1))
 done
 
