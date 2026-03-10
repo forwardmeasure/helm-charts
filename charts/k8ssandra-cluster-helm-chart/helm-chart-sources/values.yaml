@@ -1,0 +1,75 @@
+name: demo
+
+cassandra:
+  version: "5.0.6"
+
+  image:
+    registry: docker.io
+    repository: k8ssandra/cass-management-api
+    tag: "5.0.6-ubi"
+
+  jmxInitContainerImage:
+    registry: docker.io
+    repository: k8ssandra/cass-management-api
+    tag: "5.0.6-ubi"
+
+  storageClassName: standard
+  storageSize: 32Gi
+
+  # Cluster‑wide default JVM
+  jvm:
+    heap:
+      size: "8G"
+    gc:
+      type: "g1"
+
+  # Cluster‑wide default resources
+  resources:
+    requests:
+      cpu: "1"
+      memory: "4Gi"
+    limits:
+      cpu: "2"
+      memory: "8Gi"
+
+  datacenters:
+    - name: dc1
+      size: 3
+      racks:
+        - name: rack1
+        - name: rack2
+      # Optional per‑DC overrides:
+      # resources:
+      #   requests:
+      #     cpu: "2"
+      #     memory: "8Gi"
+      #   limits:
+      #     cpu: "4"
+      #     memory: "16Gi"
+      # jvm:
+      #   heap:
+      #     size: "12G"
+      #   gc:
+      #     type: "zgc"
+
+# Stargate configuration
+stargate:
+  enabled: true
+  size: 1
+  # Optional future overrides:
+  # image:
+  #   registry: docker.io
+  #   repository: k8ssandra/stargate-3_11
+  #   tag: "vX.Y.Z"
+  # resources:
+  #   requests:
+  #     cpu: "500m"
+  #     memory: "1Gi"
+  #   limits:
+  #     cpu: "1"
+  #     memory: "2Gi"
+
+# Reaper configuration
+reaper:
+  enabled: true
+  mode: "STANDALONE"

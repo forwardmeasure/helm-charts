@@ -1,0 +1,49 @@
+apiVersion: k8ssandra.io/v1alpha1
+kind: K8ssandraCluster
+metadata:
+  name: {{ .Values.name }}
+spec:
+  cassandra:
+    # Cassandra version as understood by the operator
+    version: {{ .Values.cassandra.version | quote }}
+
+    # Image override for Cassandra 5
+    image:
+      registry: {{ .Values.cassandra.image.registry }}
+      repository: {{ .Values.cassandra.image.repository }}
+      tag: {{ .Values.cassandra.image.tag }}
+
+    # Optional JMX/init image override (only if your operator version expects it)
+    jmxInitContainerImage:
+      registry: {{ .Values.cassandra.jmxInitContainerImage.registry }}
+      repository: {{ .Values.cassandra.jmxInitContainerImage.repository }}
+      tag: {{ .Values.cassandra.jmxInitContainerImage.tag }}
+
+    datacenters:
+      - metadata:
+          name: dc1
+        size: {{ .Values.cassandra.nodes }}
+        storageConfig:
+          cassandraDataVolumeClaimSpec:
+            storageClassName: {{ .Values.cassandra.storageClassName }}
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: {{ .Values.cassandra.storageSize }}
+        resources:
+{{- if .Values.cassandra.resources }}
+          {{- toYaml .Values.cassandra.resources | nindent 10 }}
+{{- end }}
+
+  stargate:
+    enabled: {{ .Values.stargate.enabled }}
+{{- if .Values.stargate.enabled }}
+    size: {{ .Values.stargate.size }}
+{{- end }}
+
+  reaper:
+    enabled: {{ .Values.reaper.enabled }}
+{{- if .Values.reaper.enabled }}
+    mode: {{ .Values.reaper.mode | quote }}
+{{- end }}
