@@ -1,0 +1,59 @@
+===========================================================================
+OpenSearch Cluster – Post-install checklist
+===========================================================================
+
+1. ADMIN CREDENTIALS
+   Managed by External Secrets Operator.
+   ClusterSecretStore : {{ .Values.externalSecret.clusterSecretStore }}
+   Target Secret      : {{ .Values.externalSecret.targetSecretName }}
+
+   Check sync status:
+     kubectl get externalsecret {{ include "opensearch-wrapper.externalSecretName" . }} \
+       -n {{ include "opensearch-wrapper.namespace" . }}
+     # READY should be True
+
+2. CERTIFICATES
+   Both certificates must be READY before the cluster can form.
+
+     kubectl get certificates -n {{ include "opensearch-wrapper.namespace" . }}
+
+   Node cert  : {{ .Values.certificates.node.name }} → {{ .Values.certificates.node.secretName }}
+   Admin cert : {{ .Values.certificates.admin.name }} → {{ .Values.certificates.admin.secretName }}
+
+   If ca.crt is missing from the node secret, transport TLS will fail:
+     kubectl get secret {{ .Values.certificates.node.secretName }} \
+       -n {{ include "opensearch-wrapper.namespace" . }} \
+       -o jsonpath='{.data.ca\.crt}' | base64 -d
+
+3. SECURITY INITIALISATION JOB
+   The security init Job runs post-install and post-upgrade via helm hook.
+   Check its status:
+
+     kubectl get job {{ include "opensearch-wrapper.initJobName" . }} \
+       -n {{ include "opensearch-wrapper.namespace" . }}
+
+     kubectl logs -l app.kubernetes.io/component=security-init \
+       -n {{ include "opensearch-wrapper.namespace" . }}
+
+4. CLUSTER HEALTH
+   Once all pods are running:
+
+     kubectl get pods -n {{ include "opensearch-wrapper.namespace" . }}
+
+     kubectl port-forward svc/{{ .Values.opensearch.clusterName }}-master \
+       -n {{ include "opensearch-wrapper.namespace" . }} 9200:9200
+
+     curl -k -u admin:<password> https://localhost:9200/_cluster/health?pretty
+
+5. PORT REFERENCE
+   9200  REST / HTTP API  (TLS: cert-manager)
+   9300  Transport        (TLS: cert-manager)
+   9400  gRPC
+   9600  Performance Analyzer
+
+6. ISTIO
+   Ports 9200, 9300, 9400, 9600 are excluded from Istio sidecar interception.
+   PeerAuthentication mode : {{ .Values.istio.peerAuthentication.mode }}
+   Namespace               : {{ include "opensearch-wrapper.namespace" . }}
+
+===========================================================================
