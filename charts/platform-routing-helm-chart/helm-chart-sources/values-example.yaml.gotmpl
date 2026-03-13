@@ -83,12 +83,12 @@ routes:
               value: /
         backend:
           name: opensearch-dashboards
-          namespace: {{ .Values.opensearchNamespace | quote }}
+          namespace: {{ .Values.opensearchClusterNamespace | quote }}
           port: 5601
     destinationRule:
       enabled: true
-      host: "opensearch-cluster-master.{{ .Values.opensearchNamespace }}.svc.cluster.local"
-      namespace: {{ .Values.opensearchNamespace | quote }}
+      host: "opensearch-cluster-master.{{ .Values.opensearchClusterNamespace }}.svc.cluster.local"
+      namespace: {{ .Values.opensearchClusterNamespace | quote }}
       tls:
         mode: SIMPLE
         sni: {{ .Values.opensearchClusterDnsName | quote }}
@@ -107,7 +107,7 @@ routes:
           path: /
         backend:
           name: opensearch-cluster-master
-          namespace: {{ .Values.opensearchNamespace | quote }}
+          namespace: {{ .Values.opensearchClusterNamespace | quote }}
           port: 9200
 
   # ---------------------------------------------------------------------------
