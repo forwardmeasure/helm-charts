@@ -1,0 +1,96 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "opensearch-wrapper.initJobName" . }}
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.securityInit.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "opensearch-wrapper.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: security-init
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      volumes:
+        - name: init-script
+          configMap:
+            name: {{ include "opensearch-wrapper.initScriptConfigMap" . }}
+            defaultMode: 0755
+        - name: opensearch-tls
+          secret:
+            secretName: {{ .Values.certificates.node.secretName }}
+        - name: opensearch-admin-tls
+          secret:
+            secretName: {{ .Values.certificates.admin.secretName }}
+        - name: opensearch-security-config
+          secret:
+            secretName: opensearch-security-config
+      containers:
+        - name: security-init
+          image: {{ include "opensearch-wrapper.initImage" . }}
+          imagePullPolicy: {{ .Values.securityInit.image.pullPolicy }}
+          command:
+            - /scripts/init-security.sh
+          env:
+            - name: OPENSEARCH_HOST
+              value: {{ printf "%s-master-headless.%s.svc.cluster.local"
+                          .Values.opensearch.clusterName
+                          (include "opensearch-wrapper.namespace" .) }}
+            - name: OPENSEARCH_HTTP_PORT
+              value: {{ .Values.opensearch.httpPort | quote }}
+            - name: RETRIES
+              value: {{ .Values.securityInit.retries | quote }}
+            - name: RETRY_INTERVAL
+              value: {{ .Values.securityInit.retryIntervalSeconds | quote }}
+          resources:
+            {{- toYaml .Values.securityInit.resources | nindent 12 }}
+          volumeMounts:
+            - name: init-script
+              mountPath: /scripts
+              readOnly: true
+            - name: opensearch-tls
+              mountPath: /usr/share/opensearch/config/certs
+              readOnly: true
+            - name: opensearch-admin-tls
+              mountPath: /usr/share/opensearch/config/certs/admin
+              readOnly: true
+            - name: opensearch-security-config
+              mountPath: /usr/share/opensearch/config/opensearch-security/config.yml
+              subPath: config.yml
+              readOnly: true
+            - name: opensearch-security-config
+              mountPath: /usr/share/opensearch/config/opensearch-security/internal_users.yml
+              subPath: internal_users.yml
+              readOnly: true
+            - name: opensearch-security-config
+              mountPath: /usr/share/opensearch/config/opensearch-security/roles.yml
+              subPath: roles.yml
+              readOnly: true
+            - name: opensearch-security-config
+              mountPath: /usr/share/opensearch/config/opensearch-security/roles_mapping.yml
+              subPath: roles_mapping.yml
+              readOnly: true
+            - name: opensearch-security-config
+              mountPath: /usr/share/opensearch/config/opensearch-security/tenants.yml
+              subPath: tenants.yml
+              readOnly: true
+            - name: opensearch-security-config
+              mountPath: /usr/share/opensearch/config/opensearch-security/action_groups.yml
+              subPath: action_groups.yml
+              readOnly: true
+            - name: opensearch-security-config
+              mountPath: /usr/share/opensearch/config/opensearch-security/nodes_dn.yml
+              subPath: nodes_dn.yml
+              readOnly: true

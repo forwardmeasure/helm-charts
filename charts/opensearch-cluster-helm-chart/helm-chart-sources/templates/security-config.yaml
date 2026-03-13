@@ -1,0 +1,151 @@
+# prettier-ignore
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opensearch-security-config
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+stringData:
+  config.yml: |
+    _meta:
+      type: "config"
+      config_version: 2
+    config:
+      dynamic:
+        http:
+          anonymous_auth_enabled: false
+        authc:
+          basic_internal_auth_domain:
+            http_enabled: true
+            transport_enabled: true
+            order: 0
+            http_authenticator:
+              type: basic
+              challenge: true
+            authentication_backend:
+              type: internal
+        authz: {}
+        do_not_fail_on_forbidden: false
+        do_not_fail_on_forbidden_empty: false
+        hosts_resolver_mode: ip-only
+        filtered_alias_mode: warn
+        multi_rolespan_enabled: true
+        kibana:
+          multitenancy_enabled: true
+          server_username: "datafabric"
+          index: ".opensearch_dashboards"
+        license: null
+        disable_rest_auth: false
+        disable_intertransport_auth: false
+        auth_failure_listeners: {}
+        transport_userrname_attribute: null
+        on_behalf_of: {}
+
+  internal_users.yml: |
+    _meta:
+      type: "internalusers"
+      config_version: 2
+    datafabric:
+      hash: "$2y$12$MaV7oeL162lpD1QHjf/FyukinWOtOef7maOZCitvvnT3hxpUaW9SS"
+      reserved: true
+      backend_roles:
+        - admin
+    reader:
+      hash: "$2y$12$MaV7oeL162lpD1QHjf/FyukinWOtOef7maOZCitvvnT3hxpUaW9SS"
+      backend_roles:
+        - readaccess
+
+  roles.yml: |
+    _meta:
+      type: "roles"
+      config_version: 2
+
+    datafabric:
+      reserved: false
+      hidden: false
+      cluster_permissions:
+        - "*"
+        - "cluster_all"
+      index_permissions:
+        - index_patterns:
+            - "*"
+          allowed_actions:
+            - "*"
+            - "indices_all"
+            - "indices:admin/get"
+      tenant_permissions:
+        - tenant_patterns:
+            - "*"
+          allowed_actions:
+            - "kibana_all_read"
+            - "kibana_all_write"
+
+    readonly:
+      reserved: false
+      hidden: false
+      cluster_permissions:
+        - cluster_composite_ops_ro
+      index_permissions:
+        - index_patterns:
+            - "*"
+          allowed_actions:
+            - read
+      tenant_permissions:
+        - tenant_patterns:
+            - "*"
+          allowed_actions:
+            - "kibana_all_read"
+
+  roles_mapping.yml: |
+    _meta:
+      type: "rolesmapping"
+      config_version: 2
+
+    datafabric:
+      backend_roles:
+        - "admin"
+      users:
+        - "datafabric"
+    readonly:
+      backend_roles:
+        - "readaccess"
+      users:
+        - "reader"
+
+  tenants.yml: |
+    _meta:
+      type: "tenants"
+      config_version: 2
+
+    datafabric_tenant:
+      description: "Datafabric tenant"
+
+  action_groups.yml: |
+    _meta:
+      type: "actiongroups"
+      config_version: 2
+
+    ALL:
+      allowed_actions:
+        - "*"
+        - "indices_all"
+        - "cluster_all"
+        - "indices:admin/get"
+
+    READ:
+      allowed_actions:
+        - "indices:data/read/*"
+        - "indices:admin/mappings/get"
+
+  nodes_dn.yml: |
+    _meta:
+      type: "nodesdn"
+      config_version: 2
+
+    config:
+      nodes_dn:
+        - "CN={{ required `certificates.node.dnsName must be set` .Values.certificates.node.dnsName }}"
+        - "CN=opensearch-cluster-master"
+        - "CN=opensearch-cluster-master.{{ include `opensearch-wrapper.namespace` . }}.svc.cluster.local"
