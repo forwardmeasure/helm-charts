@@ -1,0 +1,27 @@
+{{/*
+Istio resources – PeerAuthentication only.
+Routing is handled by the Kubernetes Gateway API (see gateway.yaml).
+
+──────────────────────────────────────────────────────────────────────────────
+Why PeerAuthentication is still needed
+──────────────────────────────────────────────────────────────────────────────
+Even with pod-level port exclusion annotations, Istio can still enforce mTLS
+at the *policy* level in STRICT mode.  PERMISSIVE mode tells Istio to accept
+both Istio-mTLS and plain/other-TLS, so OpenSearch's own certificates are not
+rejected by the policy engine.
+*/}}
+{{- if .Values.istio.peerAuthentication.enabled }}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: {{ include "opensearch-wrapper.name" . }}
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opensearch
+  mtls:
+    mode: {{ .Values.istio.peerAuthentication.mode }}
+{{- end }}

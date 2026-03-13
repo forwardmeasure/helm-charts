@@ -1,0 +1,69 @@
+# prettier-ignore
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opensearch-wrapper.initScriptConfigMap" . }}
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  init-security.sh: |
+    #!/bin/bash
+
+    set -eo pipefail
+
+    OPENSEARCH_HOST="${OPENSEARCH_HOST:-localhost}"
+    OPENSEARCH_HTTP_PORT="${OPENSEARCH_HTTP_PORT:-9200}"
+    RETRIES="${RETRIES:-20}"
+    RETRY_INTERVAL="${RETRY_INTERVAL:-15}"
+
+    SECURITYADMIN=/usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
+    SECURITY_CONFIG_DIR=/usr/share/opensearch/config/opensearch-security
+    CA_CERT=/usr/share/opensearch/config/certs/ca.crt
+    ADMIN_CERT=/usr/share/opensearch/config/certs/admin/tls.crt
+    ADMIN_KEY=/usr/share/opensearch/config/certs/admin/tls.key
+
+    # --------------------------------------------------------------------------
+    # Wait for OpenSearch to accept HTTP connections.
+    # Check for any response code other than 000 (no connection).
+    # 401/403 are expected before the security index is initialised.
+    # --------------------------------------------------------------------------
+    echo "[INFO] Waiting for OpenSearch at ${OPENSEARCH_HOST}:${OPENSEARCH_HTTP_PORT} ..."
+
+    HTTP_CODE_FMT="%{http_code}"
+    attempt=0
+    until [[ "$(curl --silent --insecure --max-time 5 -o /dev/null -w "${HTTP_CODE_FMT}" \
+      "https://${OPENSEARCH_HOST}:${OPENSEARCH_HTTP_PORT}")" != "000" ]]; do
+      attempt=$(( attempt + 1 ))
+      if [[ "${attempt}" -ge "${RETRIES}" ]]; then
+        echo "[ERROR] OpenSearch did not become ready after ${RETRIES} attempts. Giving up."
+        exit 1
+      fi
+      echo "[INFO] Attempt ${attempt}/${RETRIES} — not ready yet, retrying in ${RETRY_INTERVAL}s ..."
+      sleep "${RETRY_INTERVAL}"
+    done
+
+    echo "[INFO] OpenSearch is accepting connections."
+
+    # --------------------------------------------------------------------------
+    # Apply security configuration via REST API on port 9200.
+    # In OpenSearch 3.x securityadmin.sh uses the REST API, not transport.
+    # --------------------------------------------------------------------------
+    echo "[INFO] Running securityadmin.sh ..."
+
+    "${SECURITYADMIN}" \
+      -cd "${SECURITY_CONFIG_DIR}" \
+      -icl \
+      -nhnv \
+      -cacert "${CA_CERT}" \
+      -cert   "${ADMIN_CERT}" \
+      -key    "${ADMIN_KEY}" \
+      -h      "${OPENSEARCH_HOST}" \
+      -p      "${OPENSEARCH_HTTP_PORT}"
+
+    echo "[INFO] Security configuration applied successfully."

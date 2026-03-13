@@ -1,0 +1,104 @@
+{{- include "opensearch-wrapper.validateNodeDnsName" . }}
+{{- include "opensearch-wrapper.validateAdminDnsName" . }}
+---
+# Self-signed bootstrapping issuer — used only to issue the root CA
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: opensearch-selfsigned
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+# Root CA — stored in a Secret and used by the CA issuer below
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opensearch-root-ca
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+spec:
+  isCA: true
+  secretName: opensearch-root-ca
+  commonName: opensearch.local
+  duration: {{ .Values.certificates.ca.duration }}
+  renewBefore: {{ .Values.certificates.ca.renewBefore }}
+  issuerRef:
+    name: opensearch-selfsigned
+    kind: Issuer
+  privateKey:
+    algorithm: {{ .Values.certificates.node.privateKey.algorithm }}
+    encoding: {{ .Values.certificates.node.privateKey.encoding }}
+    size: {{ .Values.certificates.node.privateKey.size }}
+---
+# CA issuer backed by the root CA above — issues all OpenSearch certs
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: opensearch-ca-issuer
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+spec:
+  ca:
+    secretName: opensearch-root-ca
+---
+# Node certificate — issued by internal CA, includes internal Kubernetes SANs
+# required for transport TLS between nodes.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certificates.node.name }}
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.certificates.node.secretName }}
+  duration: {{ .Values.certificates.node.duration }}
+  renewBefore: {{ .Values.certificates.node.renewBefore }}
+  issuerRef:
+    name: opensearch-ca-issuer
+    kind: Issuer
+  commonName: {{ .Values.certificates.node.dnsName }}
+  dnsNames:
+    - {{ .Values.certificates.node.dnsName }}
+    - opensearch-cluster-master
+    - opensearch-cluster-master.{{ include "opensearch-wrapper.namespace" . }}.svc.cluster.local
+    - opensearch-cluster-master-headless
+    - opensearch-cluster-master-headless.{{ include "opensearch-wrapper.namespace" . }}.svc.cluster.local
+  privateKey:
+    algorithm: {{ .Values.certificates.node.privateKey.algorithm }}
+    encoding: {{ .Values.certificates.node.privateKey.encoding }}
+    size: {{ .Values.certificates.node.privateKey.size }}
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+    - client auth
+---
+# Admin certificate — issued by the same internal CA as the node cert so that
+# OpenSearch trusts it for securityadmin.sh authentication.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certificates.admin.name }}
+  namespace: {{ include "opensearch-wrapper.namespace" . }}
+  labels:
+    {{- include "opensearch-wrapper.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.certificates.admin.secretName }}
+  issuerRef:
+    name: opensearch-ca-issuer
+    kind: Issuer
+  commonName: {{ .Values.certificates.admin.dnsName }}
+  dnsNames:
+    - {{ .Values.certificates.admin.dnsName }}
+  privateKey:
+    algorithm: {{ .Values.certificates.admin.privateKey.algorithm }}
+    encoding: {{ .Values.certificates.admin.privateKey.encoding }}
+    size: {{ .Values.certificates.admin.privateKey.size }}
+  usages:
+    - client auth

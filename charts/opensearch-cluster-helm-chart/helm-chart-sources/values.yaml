@@ -1,110 +1,331 @@
-replicaCount: 1
+# ==============================================================================
+# Wrapper chart values
+# All keys at the top level of this file are specific to this wrapper chart.
+# Subchart values are passed through under the "opensearch:" key below.
+# ==============================================================================
 
-clusterName: "opensearch-cluster"
-nodeName: "opensearch-node-1"
+# ------------------------------------------------------------------------------
+# Namespace
+# ------------------------------------------------------------------------------
+namespaceOverride: ""
 
-# Toggle OpenSearch security and TLS features
-security:
-  disable: true
+# ------------------------------------------------------------------------------
+# cert-manager Certificate CRs
+# ------------------------------------------------------------------------------
+certificates:
+  # ClusterIssuer to use for external certs if needed in future
+  clusterIssuer: letsencrypt-gcp-dns
 
-  http:
-    tls:
-      enabled: false # TLS on HTTP disabled
+  # Self-signed root CA — used internally to issue both node and admin certs.
+  # All certs must be issued by the same CA so OpenSearch trusts them.
+  ca:
+    duration: 87600h # 10 years
+    renewBefore: 720h
 
-image:
-  repository: opensearchproject/opensearch
-  tag: "3.1.0"
-  pullPolicy: Always
+  # Certificate for node-to-node transport TLS and HTTP TLS.
+  # Issued by the internal self-signed CA so that internal Kubernetes
+  # SANs can be included.
+  node:
+    name: opensearch-cert
+    secretName: opensearch-tls
+    # Fully-qualified public DNS name for this OpenSearch cluster
+    # e.g. opensearch.datafabric.asvinau.com
+    dnsName: ""
+    duration: 2160h
+    renewBefore: 360h
+    privateKey:
+      algorithm: RSA
+      encoding: PKCS8
+      size: 2048
 
-adminSecret:
-  name: opensearch-initial-admin-secret
-  key: OPENSEARCH_INITIAL_ADMIN_PASSWORD
-  value: "ChangeMe123!"
+  # Certificate for the admin client used by securityadmin.sh.
+  # Must be issued by the same internal CA as the node cert so that
+  # OpenSearch trusts it.
+  admin:
+    name: opensearch-admin-cert
+    secretName: opensearch-admin-tls
+    # Fully-qualified DNS name for the admin client
+    # e.g. opensearch-admin.datafabric.asvinau.com
+    dnsName: ""
+    privateKey:
+      algorithm: RSA
+      encoding: PKCS8
+      size: 2048
 
-service:
-  type: ClusterIP
-  ports:
-    http: 9200
-    transport: 9300
-    metrics: 9600
+# ------------------------------------------------------------------------------
+# External Secrets Operator
+# ------------------------------------------------------------------------------
+externalSecret:
+  clusterSecretStore: fake-secret-store
+  refreshInterval: 1h
+  # Target Kubernetes Secret that will hold the admin credentials.
+  # This name is also referenced in extraEnvs below.
+  targetSecretName: opensearch-admin-credentials
+  keys:
+    username:
+      remoteKey: /opensearch/admin/username
+      property: username
+    password:
+      remoteKey: /opensearch/admin/password
+      property: password
+    cookie:
+      remoteKey: /opensearch/admin/cookie
+      property: cookie
 
-persistence:
-  accessMode: ReadWriteOnce
-  size: 30Gi
-  storageClass: standard
-
-resources:
-  limits:
-    cpu: "2"
-    memory: "4Gi"
-  requests:
-    cpu: "500m"
-    memory: "2Gi"
-
-jvm:
-  heap:
-    min: "2g"
-    max: "2g"
-  options: "-XX:+UseG1GC -XX:+AlwaysPreTouch -Dlog4j2.formatMsgNoLookups=true"
-
-opensearch:
-  host: explore.datafabric.asvinau.com
-  pathPrefix: "/api"
-
-dashboards:
-  replicaCount: 1
+# ------------------------------------------------------------------------------
+# Security initialisation Job (helm hook: post-install only)
+# Runs once after first install to initialise the .opendistro_security index.
+# securityadmin.sh persists config in the index so this never needs to
+# run again unless you explicitly re-trigger it.
+# ------------------------------------------------------------------------------
+securityInit:
+  backoffLimit: 5
+  retries: 20
+  retryIntervalSeconds: 15
   image:
-    repository: opensearchproject/opensearch-dashboards
-    tag: "3.1.0"
-    pullPolicy: Always
-  opensearchHosts: "http://opensearch-opensearch.opensearch-cluster.svc.cluster.local:9200"
-  disableSecurityPlugin: true
-  service:
-    type: ClusterIP
-    port: 80
-  host: explore.datafabric.asvinau.com
-  pathPrefix: "/"
+    repository: opensearchproject/opensearch
+    tag: "" # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
   resources:
     requests:
-      cpu: "100m"
-      memory: "256Mi"
+      cpu: 100m
+      memory: 256Mi
     limits:
-      cpu: "500m"
-      memory: "512Mi"
-  ssl:
-    verificationMode: none
-  istio:
-    disableMTLS: true
+      cpu: 500m
+      memory: 512Mi
+
+# ------------------------------------------------------------------------------
+# Istio
+# ------------------------------------------------------------------------------
+istio:
+  peerAuthentication:
+    enabled: true
+    # PERMISSIVE allows both plaintext and mTLS so that OpenSearch's own TLS
+    # on the excluded ports is not double-wrapped by Istio
+    mode: PERMISSIVE
+
+# ==============================================================================
+# Subchart values — passed through to opensearch-project/opensearch
+# ==============================================================================
+opensearch:
+  clusterName: opensearch-cluster
+  nodeGroup: master
+  singleNode: false
+  masterService: opensearch-cluster-master
+
+  roles:
+    - master
+    - ingest
+    - data
+    - remote_cluster_client
+
+  replicas: 3
+
+  image:
+    repository: opensearchproject/opensearch
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  opensearchJavaOpts: "-Xmx2G -Xms2G"
+
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "4Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+
+  persistence:
+    enabled: true
+    enableInitChown: true
+    accessModes:
+      - ReadWriteOnce
+    size: 30Gi
+
+  # Istio sidecar annotations — excludes OpenSearch ports from Istio
+  # interception so that OpenSearch's own TLS handles them directly.
   podAnnotations:
-    traffic.sidecar.istio.io/includeIPRanges: "*"
+    traffic.sidecar.istio.io/includeInboundPorts: "*"
+    traffic.sidecar.istio.io/excludeInboundPorts: "9200,9300,9400,9600"
+    traffic.sidecar.istio.io/excludeOutboundPorts: "9200,9300,9400,9600"
 
-gateway:
-  name: data-fabric-gateway
-  namespace: istio-system
+  opensearchAnnotations:
+    traffic.sidecar.istio.io/includeInboundPorts: "*"
+    traffic.sidecar.istio.io/excludeInboundPorts: "9200,9300,9400,9600"
+    traffic.sidecar.istio.io/excludeOutboundPorts: "9200,9300,9400,9600"
 
-certificates:
-  enabled: true
-  r3Url: https://letsencrypt.org/certs/lets-encrypt-r3.pem
+  protocol: https
+  httpPort: 9200
+  transportPort: 9300
+  metricsPort: 9600
 
-  issuer:
-    name: letsencrypt-gcp-dns
-    kind: ClusterIssuer
+  service:
+    type: ClusterIP
 
-  node:
-    secretName: opensearch-node-secret
-    mountPath: /certs
-    certFile: tls.crt
-    keyFile: tls.key
-    caFile: ca.crt
+  antiAffinity: soft
+  podManagementPolicy: Parallel
 
-# Optional extra config passed to opensearch.yml
-extraConfig:
-  # Enable transport layer TLS (required for inter-node communication)
-  "plugins.security.ssl.transport.enabled": "true"
-  "plugins.security.ssl.transport.pemcert_filepath": "/usr/share/opensearch/config/certs/tls.crt"
-  "plugins.security.ssl.transport.pemkey_filepath": "/usr/share/opensearch/config/certs/tls.key"
-  "plugins.security.ssl.transport.pemtrustedcas_filepath": "/usr/share/opensearch/config/certs/ca.crt"
-  "plugins.security.ssl.transport.enforce_hostname_verification": "false"
+  podSecurityContext:
+    fsGroup: 1000
+    runAsUser: 1000
 
-  # Enable security index bootstrapping
-  "plugins.security.allow_default_init_securityindex": "true"
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    runAsUser: 1000
+
+  # Admin password injected from the ESO-managed secret.
+  # POD_NAMESPACE is injected via the downward API and used by the
+  # security-init init container to construct the OpenSearch headless
+  # service FQDN without hardcoding the namespace.
+  extraEnvs:
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: password
+
+  # TLS certificate volumes — mounted into the container so that
+  # opensearch.yml can reference them by filepath.
+  # The node cert secret (opensearch-tls) is issued by the internal CA
+  # and contains tls.crt, tls.key, and ca.crt.
+  extraVolumes:
+    - name: opensearch-tls
+      secret:
+        secretName: opensearch-tls
+    - name: opensearch-admin-tls
+      secret:
+        secretName: opensearch-admin-tls
+
+  extraVolumeMounts:
+    - name: opensearch-tls
+      mountPath: /usr/share/opensearch/config/certs
+      readOnly: true
+    - name: opensearch-admin-tls
+      mountPath: /usr/share/opensearch/config/certs/admin
+      readOnly: true
+
+  # opensearch.yml — certificate paths must match extraVolumeMounts above.
+  # DNS names are overridden in values/opensearch-cluster/base.yaml.gotmpl.
+  config:
+    opensearch.yml: |
+      cluster.name: opensearch-cluster
+      network.host: 0.0.0.0
+      plugins:
+        security:
+          ssl:
+            transport:
+              enabled: true
+              pemcert_filepath: /usr/share/opensearch/config/certs/tls.crt
+              pemkey_filepath: /usr/share/opensearch/config/certs/tls.key
+              pemtrustedcas_filepath: /usr/share/opensearch/config/certs/ca.crt
+              enforce_hostname_verification: false
+              resolve_hostname: false
+            http:
+              enabled: true
+              pemcert_filepath: /usr/share/opensearch/config/certs/tls.crt
+              pemkey_filepath: /usr/share/opensearch/config/certs/tls.key
+              pemtrustedcas_filepath: /usr/share/opensearch/config/certs/ca.crt
+              clientauth_mode: OPTIONAL
+          nodes_dn:
+            - "CN=opensearch-cluster-master"
+            - "CN=opensearch-cluster-master.opensearch-cluster.svc.cluster.local"
+          authcz:
+            admin_dn:
+              - "CN=opensearch-admin.datafabric.asvinau.com"
+
+  # Security plugin configuration — the Secret is managed by this wrapper
+  # chart (see templates/security-config.yaml) and referenced here by name.
+  securityConfig:
+    enabled: true
+    path: /usr/share/opensearch/config/opensearch-security
+    config:
+      securityConfigSecret: opensearch-security-config
+
+  # Disruption budget
+  maxUnavailable: 1
+
+  # Liveness / readiness
+  startupProbe:
+    tcpSocket:
+      port: 9200
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 30
+
+  readinessProbe:
+    tcpSocket:
+      port: 9200
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  sysctlInit:
+    enabled: true
+
+  rbac:
+    create: false
+    automountServiceAccountToken: false
+
+  ingress:
+    enabled: false
+
+# ==============================================================================
+# Dashboards subchart values — passed through to opensearch-project/opensearch-dashboards
+# ==============================================================================
+opensearch-dashboards:
+  replicaCount: 1
+
+  image:
+    repository: opensearchproject/opensearch-dashboards
+    tag: "" # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+
+  # Points dashboards at the OpenSearch cluster service
+  opensearchHosts: "https://opensearch-cluster-master:9200"
+
+  # Credentials — references the same ESO-managed secret as the OpenSearch cluster
+  opensearchAccount:
+    secret: opensearch-admin-credentials
+    keyPassphrase:
+      enabled: false
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # Istio sidecar annotations — exclude dashboards port from interception
+  podAnnotations:
+    traffic.sidecar.istio.io/includeInboundPorts: "*"
+    traffic.sidecar.istio.io/excludeInboundPorts: "5601"
+    traffic.sidecar.istio.io/excludeOutboundPorts: "9200"
+
+  service:
+    type: ClusterIP
+    port: 5601
+
+  # opensearch_dashboards.yml configuration
+  config:
+    opensearch_dashboards.yml: |
+      server.host: "0.0.0.0"
+      server.ssl.enabled: false
+      opensearch.ssl.verificationMode: none
+      opensearch.requestHeadersAllowlist: ["securitytenant", "Authorization"]
+      opensearch_security.multitenancy.enabled: true
+      opensearch_security.multitenancy.tenants.preferred: ["Private", "Global"]
+      opensearch_security.readonly_mode.roles: ["kibana_read_only"]
+      opensearch_security.cookie.secure: false
+
+  ingress:
+    enabled: false
+
+  rbac:
+    create: false
