@@ -84,7 +84,7 @@ echo "🧪 IMAGE_TAG=$IMAGE_TAG"
 
 # === Lint ===
 echo "🔍 Linting Helm chart..."
-if ! helm lint "${CHART_SOURCE_DIR}"; then
+if ! helm lint --strict "${CHART_SOURCE_DIR}"; then
   echo "❌ Lint failed. Fix the errors above and retry."
   exit 1
 fi
