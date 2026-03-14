@@ -1,0 +1,22 @@
+{{- include "model-cache.validatePersistentVolume" . }}
+{{- if .Values.persistentVolume.create }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "model-cache.pvName" . }}
+  labels:
+    {{- include "model-cache.labels" . | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .Values.persistentVolume.size }}
+  volumeMode: Filesystem
+  accessModes:
+    - {{ .Values.persistentVolume.accessMode }}
+  persistentVolumeReclaimPolicy: {{ .Values.storageClass.reclaimPolicy }}
+  storageClassName: {{ .Values.storageClass.name }}
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: {{ .Values.persistentVolumeClaim.name }}
+  csi:
+    {{- toYaml .Values.persistentVolume.csi | nindent 4 }}
+{{- end }}
