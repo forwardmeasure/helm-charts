@@ -1,15 +1,11 @@
 {{- /*
   PersistentVolumeClaim for docling-serve model cache.
 
-  When externalModelCache is true, the PVC is created by the model-cache chart
-  and this template renders nothing.
-
-  When externalModelCache is false:
-  - persistence.existingClaim is set → PVC already exists externally, skip creation
-  - persistence.create is true → create a standalone PVC for dev/standalone use
-  - persistence.create is false → no PVC created, user manages storage entirely
+  Only rendered when persistence.existingClaim is NOT set and
+  persistence.create is true. When existingClaim is set the PVC is assumed
+  to already exist externally (e.g. created by the model-cache chart).
 */ -}}
-{{- if and (not .Values.externalModelCache) .Values.persistence.create (not .Values.persistence.existingClaim) }}
+{{- if and (not .Values.persistence.existingClaim) .Values.persistence.create }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

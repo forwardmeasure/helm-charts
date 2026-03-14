@@ -37,26 +37,41 @@ cache:
   mountPath: /cache
 
 # ---------------------------------------------------------------------------
-# External model cache
+# Persistence
 #
-# When externalModelCache is true:
-#   - SA, PV, and PVC are NOT created by this chart
-#   - The chart assumes they already exist, created by the model-cache chart
-#   - persistence and serviceAccount blocks below are ignored
-#   - cache.pvcName and serviceAccount.externalName are used instead
+# Two valid configurations:
 #
-# When externalModelCache is false (default):
-#   - SA, PV, and PVC are created by this chart using the persistence
-#     and serviceAccount blocks below
-#   - Suitable for standalone/dev deployments without model-cache chart
+# 1. existingClaim is set — use a pre-existing PVC (e.g. from model-cache
+#    chart). No PV or PVC is created by this chart.
+#
+# 2. existingClaim is empty and create: true — this chart creates its own
+#    PV and PVC. Used for standalone/dev deployments.
+#
+# Note: existingClaim takes precedence over create. Setting create: true
+# alongside existingClaim is ignored.
 # ---------------------------------------------------------------------------
-externalModelCache: false
+persistence:
+  # Set to reference a pre-existing PVC (e.g. model-cache-pvc).
+  # When set, create is ignored and no PV/PVC is created.
+  existingClaim: ""
+  # Set to true for standalone/dev deployments without model-cache chart.
+  create: true
+  accessMode: ReadWriteOnce
+  size: 64Gi
+  storageClass: ""
 
-# Well-known names used when externalModelCache is true.
-# These must match the names configured in the model-cache chart.
-modelCache:
-  pvcName: model-cache-pvc
-  serviceAccountName: model-cache-sa
+# ---------------------------------------------------------------------------
+# ServiceAccount
+#
+# create: true  — this chart creates its own SA using name and annotations.
+# create: false — use a pre-existing SA (e.g. model-cache-sa from the
+#                 model-cache chart). name must still be set so the
+#                 Deployment references the correct SA.
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: model-cache-sa
+  annotations: {}
 
 initContainer:
   image: alpine:3.20
@@ -217,17 +232,3 @@ models:
   extras: []
   checksumManifest: ".model-manifest.sha256"
   resources: {}
-
-# Used when externalModelCache is false
-persistence:
-  existingClaim: ""
-  create: false
-  accessMode: ReadWriteOnce
-  size: 64Gi
-  storageClass: ""
-
-# Used when externalModelCache is false
-serviceAccount:
-  create: true
-  name: model-cache-sa
-  annotations: {}
