@@ -3,6 +3,11 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
+# Storage size — single source of truth for both PV and PVC.
+# ------------------------------------------------------------------------------
+size: 200Gi
+
+# ------------------------------------------------------------------------------
 # StorageClass
 # Cluster-scoped. Set create: false if the StorageClass already exists in the
 # cluster (e.g. created by Terraform or another chart).
@@ -11,19 +16,15 @@ storageClass:
   create: true
   name: model-cache-sc
   # Provisioner is cloud-specific — override in your cloud values file.
-  # GCP:        gcsfuse.csi.storage.gke.io
-  # AWS EFS:    efs.csi.aws.com
-  # AWS S3:     s3.csi.aws.com
-  # NFS:        nfs.csi.k8s.io
+  # GCP:     gcsfuse.csi.storage.gke.io
+  # AWS EFS: efs.csi.aws.com
+  # AWS S3:  s3.csi.aws.com
+  # NFS:     nfs.csi.k8s.io
   provisioner: ""
   reclaimPolicy: Retain
   volumeBindingMode: Immediate
   allowVolumeExpansion: false
   # Cloud-specific parameters — override in your cloud values file.
-  # GCP example:
-  #   gcsfuseVolumeAttributes:
-  #     bucketName: my-model-cache-bucket
-  #     mountOptions: "implicit-dirs"
   parameters: {}
 
 # ------------------------------------------------------------------------------
@@ -34,8 +35,6 @@ storageClass:
 # ------------------------------------------------------------------------------
 persistentVolume:
   create: true
-  # Storage size — must match persistentVolumeClaim.size
-  size: 200Gi
   accessMode: ReadWriteMany
   # Cloud-specific CSI block — override in your cloud values file.
   # GCP example:
@@ -53,7 +52,6 @@ persistentVolume:
 # ------------------------------------------------------------------------------
 persistentVolumeClaim:
   name: model-cache-pvc
-  size: 200Gi
   accessMode: ReadWriteMany
 
 # ------------------------------------------------------------------------------
