@@ -18,6 +18,10 @@ spec:
       labels:
         {{- include "docling-serve.selectorLabels" . | nindent 8 }}
         docling-serve/profile: {{ .Values.profile | quote }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       # SA created by this chart (serviceAccount.create: true) or
       # pre-existing (serviceAccount.create: false, e.g. from model-cache chart)
