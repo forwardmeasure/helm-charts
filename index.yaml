@@ -400,6 +400,35 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.3.tgz
     version: 0.0.3
+  model-cache:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-14T11:25:45.901234317-04:00"
+    description: 'Provisions the shared model cache infrastructure for model-serving
+      workloads. Creates a StorageClass, PersistentVolume, PersistentVolumeClaim,
+      and ServiceAccount in the release namespace. Designed to be deployed as a dependency
+      before any workload that needs access to the shared model cache (docling-serve,
+      Triton, etc.).  Cloud backends are configured via storageClass.provisioner and
+      persistentVolume.csi — override these in your cloud-specific values file. On
+      GCP this uses the GCS FUSE CSI driver. On AWS use S3 Mountpoint or EFS. On bare
+      metal use NFS or local storage.  Deploy once per workload namespace that needs
+      model cache access. '
+    digest: d55c95bba6e1949637f04750651fd4a826a576beaba83540bd4ea939f47fb0a5
+    keywords:
+    - model-cache
+    - storage
+    - pvc
+    - object-storage
+    - model-serving
+    - machine-learning
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: model-cache
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/model-cache-helm-chart/model-cache-0.1.1.tgz
+    version: 0.1.1
   opensearch-cluster:
   - apiVersion: v2
     appVersion: 3.5.0
@@ -557,4 +586,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-14T11:24:40.191061778-04:00"
+generated: "2026-03-14T11:25:45.900916552-04:00"
