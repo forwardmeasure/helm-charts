@@ -1,5 +1,7 @@
 {{- $p := index .Values.profiles .Values.profile -}}
 {{- $gpuEnabled := or $p.gpu (and .Values.gpu .Values.gpu.enabled) -}}
+{{- $pvcName := ternary .Values.modelCache.pvcName (ternary .Values.persistence.existingClaim (printf "%s-cache" (include "docling-serve.fullname" .)) (not (empty .Values.persistence.existingClaim))) .Values.externalModelCache -}}
+{{- $saName := ternary .Values.modelCache.serviceAccountName .Values.serviceAccount.name .Values.externalModelCache -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,8 +21,7 @@ spec:
         {{- include "docling-serve.selectorLabels" . | nindent 8 }}
         docling-serve/profile: {{ .Values.profile | quote }}
     spec:
-      # Workload Identity service account for GCS FUSE access
-      serviceAccountName: {{ .Values.serviceAccount.name | default "model-cache-sa" }}
+      serviceAccountName: {{ $saName }}
 
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -41,11 +42,7 @@ spec:
       volumes:
         - name: model-cache
           persistentVolumeClaim:
-            {{- if .Values.persistence.existingClaim }}
-            claimName: {{ .Values.persistence.existingClaim }}
-            {{- else }}
-            claimName: {{ include "docling-serve.fullname" . }}-cache
-            {{- end }}
+            claimName: {{ $pvcName }}
         - name: model-download-lib
           configMap:
             name: model-download-lib
