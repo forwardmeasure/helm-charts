@@ -1,4 +1,5 @@
 # prettier-ignore
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -13,4 +14,4 @@ spec:
   volumeName: {{ include "model-cache.pvName" . }}
   resources:
     requests:
-      storage: {{ .Values.persistentVolumeClaim.size }}
+      storage: {{ .Values.size }}
