@@ -1,20 +1,19 @@
 {{- /*
-  PersistentVolumeClaim template for docling-serve model cache.
+  PersistentVolumeClaim for docling-serve model cache.
 
-  Two modes:
-  1. persistence.existingClaim is set → PVC references the named claim.
-     The PV is still created by this chart (pv.yaml) and pre-bound to
-     this PVC via claimRef. The existingClaim name must match.
+  When externalModelCache is true, the PVC is created by the model-cache chart
+  and this template renders nothing.
 
-  2. persistence.existingClaim is empty AND persistence.create = true →
-     standalone PVC for local/dev deployments without the shared model
-     cache infrastructure. PV is still created by pv.yaml.
+  When externalModelCache is false:
+  - persistence.existingClaim is set → PVC already exists externally, skip creation
+  - persistence.create is true → create a standalone PVC for dev/standalone use
+  - persistence.create is false → no PVC created, user manages storage entirely
 */ -}}
-{{- if or .Values.persistence.existingClaim .Values.persistence.create }}
+{{- if and (not .Values.externalModelCache) .Values.persistence.create (not .Values.persistence.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .Values.persistence.existingClaim | default (printf "%s-cache" (include "docling-serve.fullname" .)) }}
+  name: {{ printf "%s-cache" (include "docling-serve.fullname" .) }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "docling-serve.labels" . | nindent 4 }}
@@ -23,9 +22,7 @@ spec:
   accessModes:
     - {{ .Values.persistence.accessMode }}
   storageClassName: {{ .Values.persistence.storageClass }}
-  {{- if .Values.persistence.existingClaim }}
   volumeName: {{ .Release.Namespace }}-model-cache-pv
-  {{- end }} 
   resources:
     requests:
       storage: {{ .Values.persistence.size }}

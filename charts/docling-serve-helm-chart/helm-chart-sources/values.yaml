@@ -12,35 +12,20 @@ fullnameOverride: ""
 #                Production-grade quality without GPU infrastructure.
 #   gpu-full   - CUDA image, granite_vision 2B, GPU node scheduling,
 #                batch processing enabled. Best throughput and quality.
-#
-# Profile values are defaults. Individual keys in values.yaml (and Kustomize
-# --set overrides) take precedence over profile-derived values where the
-# template supports it.
 # ---------------------------------------------------------------------------
 profile: cpu-light
 
 image:
   repository: quay.io/docling-project/docling-serve
-  # NOTE: Pin to a specific tag or SHA digest in production, e.g.:
-  #   tag: "0.4.0"
-  #   tag: "sha256:abc123..."
   tag: latest
   pullPolicy: IfNotPresent
-
-# imagePullSecrets:
-#   - name: my-registry-secret
 
 containerPort: 5001
 
 env:
   HF_HOME: /cache/huggingface
   HF_HUB_CACHE: /cache/huggingface
-  # DOCLING_SERVE_ARTIFACTS_PATH is the correct env var recognised by docling-serve.
-  # DOCLING_ARTIFACTS_PATH is NOT recognised and will be silently ignored, causing
-  # the serve container to fall back to its internal default path.
   DOCLING_SERVE_ARTIFACTS_PATH: /cache/docling/models
-  # Requires hf_transfer to be installed in the container image.
-  # Verify the docling-serve image includes it before enabling.
   HF_HUB_ENABLE_HF_TRANSFER: "1"
   DOCLING_REPO_TYPE: model
   DOCLING_SERVE_ENABLE_UI: "1"
@@ -50,6 +35,28 @@ env:
 
 cache:
   mountPath: /cache
+
+# ---------------------------------------------------------------------------
+# External model cache
+#
+# When externalModelCache is true:
+#   - SA, PV, and PVC are NOT created by this chart
+#   - The chart assumes they already exist, created by the model-cache chart
+#   - persistence and serviceAccount blocks below are ignored
+#   - cache.pvcName and serviceAccount.externalName are used instead
+#
+# When externalModelCache is false (default):
+#   - SA, PV, and PVC are created by this chart using the persistence
+#     and serviceAccount blocks below
+#   - Suitable for standalone/dev deployments without model-cache chart
+# ---------------------------------------------------------------------------
+externalModelCache: false
+
+# Well-known names used when externalModelCache is true.
+# These must match the names configured in the model-cache chart.
+modelCache:
+  pvcName: model-cache-pvc
+  serviceAccountName: model-cache-sa
 
 initContainer:
   image: alpine:3.20
@@ -63,23 +70,11 @@ initContainer:
 
 # ---------------------------------------------------------------------------
 # GPU configuration - only active when profile=gpu-full or gpu.enabled=true.
-#
-# gpu.type sets nvidia.com/gpu.product nodeSelector (cloud-agnostic, requires
-# NVIDIA GPU Operator). Override gpu.nodeSelector directly for clouds that do
-# not use the GPU Operator label convention.
-#
-# Default nodeSelector includes the GKE accelerator label. Override this in
-# your cloud-specific Kustomize overlay, e.g. for EKS:
-#   --set 'gpu.nodeSelector.cloud\.google\.com/gke-accelerator=null'
-#   --set 'gpu.nodeSelector.karpenter\.k8s\.aws/instance-gpu-name=l4'
 # ---------------------------------------------------------------------------
 gpu:
   enabled: false
-  # GPU model - maps to nvidia.com/gpu.product label via NVIDIA GPU Operator.
-  # Common values: NVIDIA-L4, NVIDIA-A100-SXM4-80GB, Tesla-T4
   type: "NVIDIA-L4"
   count: 1
-  # GKE-specific accelerator label. Override per cloud in your Kustomize overlay.
   nodeSelector:
     cloud.google.com/gke-accelerator: nvidia-l4
   tolerations:
@@ -91,7 +86,6 @@ gpu:
     tag: main
     pullPolicy: IfNotPresent
 
-# GPU-specific environment variables - only injected when gpu.enabled=true.
 gpuEnv:
   DOCLING_DEVICE: "cuda:0"
   NVIDIA_VISIBLE_DEVICES: "all"
@@ -103,9 +97,6 @@ gpuEnv:
 
 # ---------------------------------------------------------------------------
 # Per-profile configuration bundles.
-# These are consumed by the deployment template via the profile key above.
-# To override a specific value for your environment, use Kustomize --set on
-# the top-level key (e.g. resources.limits.memory) rather than editing here.
 # ---------------------------------------------------------------------------
 profiles:
   cpu-light:
@@ -133,7 +124,7 @@ profiles:
       limits:
         cpu: 2000m
         memory: 4Gi
-    startupProbeFailureThreshold: 10 # 10 * 30s = 5 min budget
+    startupProbeFailureThreshold: 10
     livenessInitialDelaySeconds: 60
     readinessInitialDelaySeconds: 30
     gpu: false
@@ -150,7 +141,7 @@ profiles:
       - rapidocr
       - granite_vision
       - smoldocling
-      - smolvlm # UI default; kept so Gradio interface works without model override
+      - smolvlm
     resources:
       requests:
         cpu: 500m
@@ -165,7 +156,7 @@ profiles:
       limits:
         cpu: 2000m
         memory: 6Gi
-    startupProbeFailureThreshold: 20 # 20 * 30s = 10 min budget
+    startupProbeFailureThreshold: 20
     livenessInitialDelaySeconds: 180
     readinessInitialDelaySeconds: 120
     gpu: false
@@ -182,7 +173,7 @@ profiles:
       - rapidocr
       - granite_vision
       - smoldocling
-      - smolvlm # UI default; kept so Gradio interface works without model override
+      - smolvlm
     resources:
       requests:
         cpu: 500m
@@ -197,7 +188,7 @@ profiles:
       limits:
         cpu: 2000m
         memory: 6Gi
-    startupProbeFailureThreshold: 6 # 6 * 30s = 3 min budget (GPU loads fast)
+    startupProbeFailureThreshold: 6
     livenessInitialDelaySeconds: 60
     readinessInitialDelaySeconds: 30
     gpu: true
@@ -222,38 +213,20 @@ models:
     repository: quay.io/docling-project/docling-serve-cpu
     tag: main
     pullPolicy: IfNotPresent
-  # Named model tokens passed to: docling-tools models download --output-dir=...
-  # Full token list (current docling-tools version):
-  #   layout, tableformer, code_formula, picture_classifier,
-  #   smolvlm, granitedocling, granitedocling_mlx, smoldocling, smoldocling_mlx,
-  #   granite_vision, granite_chart_extraction, rapidocr, easyocr
-  # NOTE: This list is driven by the active profile. Edit profiles.<n>.models
-  # above to change the model set for a given profile.
   list: []
-  # HuggingFace repos downloaded directly via: docling-tools models download-hf-repo
-  # Only needed for models not available as named tokens above.
   extras: []
   checksumManifest: ".model-manifest.sha256"
   resources: {}
 
+# Used when externalModelCache is false
 persistence:
-  # Set existingClaim to use the shared model-cache-pvc (standard for GCS FUSE
-  # model cache deployments). When set, create is ignored and no PVC is created
-  # by this chart -- the pre-existing shared PVC is used instead.
-  existingClaim: model-cache-pvc
-  # Set create: true and clear existingClaim for standalone/dev deployments
-  # that don't use the shared model cache infrastructure.
+  existingClaim: ""
   create: false
-  accessMode: ReadWriteMany
-  size: 200Gi
-  storageClass: model-cache-sc
+  accessMode: ReadWriteOnce
+  size: 64Gi
+  storageClass: ""
 
-# ---------------------------------------------------------------------------
-# ServiceAccount
-# Creates the model-cache-sa KSA used to access the shared GCS FUSE PVC.
-# The Workload Identity annotation (iam.gke.io/gcp-service-account) is
-# injected by the GCP Kustomize overlay -- do not set it here.
-# ---------------------------------------------------------------------------
+# Used when externalModelCache is false
 serviceAccount:
   create: true
   name: model-cache-sa
