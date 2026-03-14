@@ -14,7 +14,7 @@ description: |
 
   Deploy once per workload namespace that needs model cache access.
 type: application
-version: "0.1.1"
+version: "0.1.2"
 appVersion: "1.0.0"
 keywords:
   - model-cache
