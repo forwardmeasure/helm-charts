@@ -1,17 +1,11 @@
 {{- /*
   PersistentVolume for docling-serve model cache.
 
-  When externalModelCache is true, the PV is created by the model-cache chart
-  and this template renders nothing.
-
-  When externalModelCache is false and persistence.create is true, this chart
-  creates its own PV. The CSI block is cloud-specific and should be patched
-  in by your cloud overlay.
-
-  When externalModelCache is false and persistence.existingClaim is set, the
-  PV is assumed to already exist externally — this template renders nothing.
+  Only rendered when persistence.existingClaim is NOT set and
+  persistence.create is true. When existingClaim is set the PV is assumed
+  to already exist externally (e.g. created by the model-cache chart).
 */ -}}
-{{- if and (not .Values.externalModelCache) .Values.persistence.create (not .Values.persistence.existingClaim) }}
+{{- if and (not .Values.persistence.existingClaim) .Values.persistence.create }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -32,5 +26,4 @@ spec:
     namespace: {{ .Release.Namespace }}
     name: {{ printf "%s-cache" (include "docling-serve.fullname" .) }}
   # csi block is patched in by the cloud-specific overlay.
-  # Do not add cloud-specific fields here.
 {{- end }}
