@@ -1,0 +1,16 @@
+# prettier-ignore
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.persistentVolumeClaim.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "model-cache.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistentVolumeClaim.accessMode }}
+  storageClassName: {{ .Values.storageClass.name }}
+  volumeName: {{ include "model-cache.pvName" . }}
+  resources:
+    requests:
+      storage: {{ .Values.persistentVolumeClaim.size }}
