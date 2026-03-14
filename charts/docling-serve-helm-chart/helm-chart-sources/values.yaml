@@ -2,6 +2,8 @@ replicaCount: 1
 nameOverride: ""
 fullnameOverride: ""
 
+podAnnotations: {}
+
 # ---------------------------------------------------------------------------
 # Profile selects a pre-defined resource/model/image configuration bundle.
 #
