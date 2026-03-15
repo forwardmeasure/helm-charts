@@ -1,4 +1,5 @@
 ---
+# prettier-ignore
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
@@ -8,6 +9,7 @@ spec:
   mtls:
     mode: PERMISSIVE
 ---
+# prettier-ignore
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
