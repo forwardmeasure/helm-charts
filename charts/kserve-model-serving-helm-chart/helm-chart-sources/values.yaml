@@ -62,12 +62,15 @@ huggingFace:
 # downloads models directly from HuggingFace Hub at pod start.
 # ------------------------------------------------------------------------------
 externalModelCache: false
+deploymentMode: Serverless
 
 modelCache:
   pvcName: model-cache-pvc
   serviceAccountName: model-cache-sa
   mountPath: /mnt/models/cache
   skipManifestVerification: false
+  # Enforce readOnly mounts for serving container; mainly required for Serverless
+  readOnlyForServing: true
 
 # ------------------------------------------------------------------------------
 # Model download init container
