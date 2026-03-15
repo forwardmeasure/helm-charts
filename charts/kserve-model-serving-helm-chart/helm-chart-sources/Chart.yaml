@@ -1,0 +1,27 @@
+apiVersion: v2
+name: kserve-model-serving
+description: |
+  Generic model serving chart for KServe InferenceService deployments.
+  Deploys one or more models per release, each backed by a configurable
+  KServe ServingRuntime (vLLM, HuggingFace, Triton, etc.).
+
+  Designed to be deployed once per model family (e.g. granite-serving,
+  gemma-serving, phi-serving) with model-specific resource configuration
+  per entry in the models list.
+
+  Integrates with the model-cache chart for GCS-backed model weight storage,
+  with optional manifest verification bypass for fast on-demand scaling.
+type: application
+version: "0.1.1"
+appVersion: "1.0.0"
+keywords:
+  - kserve
+  - inference
+  - llm
+  - model-serving
+  - vllm
+  - triton
+  - huggingface
+maintainers:
+  - name: Prashanth Nandavanam
+    email: pn@forwardmeasure.com
