@@ -1,0 +1,50 @@
+===========================================================================
+KServe Model Serving — {{ .Release.Name }}
+===========================================================================
+
+{{- $enabledModels := list }}
+{{- range .Values.models }}
+{{- if .enabled }}
+{{- $enabledModels = append $enabledModels . }}
+{{- end }}
+{{- end }}
+
+{{ len $enabledModels }} model(s) deployed in namespace {{ .Release.Namespace }}:
+
+{{- range $enabledModels }}
+  • {{ .name }}
+      Runtime  : {{ .runtime }}
+      Model    : {{ .huggingFaceRepo }}
+      GPU      : {{ .gpu | default 0 }}
+      Replicas : {{ .scaling.minReplicas | default 0 }} - {{ .scaling.maxReplicas | default 1 }}
+{{- end }}
+
+{{- if .Values.vllmRuntime.enabled }}
+
+vLLM ClusterServingRuntime deployed: kserve-vllmserver
+{{- end }}
+
+{{- if .Values.externalModelCache }}
+
+Model cache: PVC {{ .Values.modelCache.pvcName }} (external, from model-cache chart)
+  Manifest verification: {{ if .Values.modelCache.skipManifestVerification }}DISABLED (fast startup){{ else }}enabled{{ end }}
+{{- else }}
+
+Model storage: KServe storage initializer (HuggingFace Hub direct download)
+{{- end }}
+
+Check InferenceService status:
+  kubectl get inferenceservice -n {{ .Release.Namespace }}
+
+Check model readiness:
+  kubectl get inferenceservice -n {{ .Release.Namespace }} -o wide
+
+Test OpenAI-compatible endpoint (once ready):
+{{- range $enabledModels }}
+{{- if or (eq .runtime "vllm") (eq .runtime "huggingface") }}
+  kubectl port-forward svc/{{ .name }}-predictor -n {{ $.Release.Namespace }} 8080:80
+  curl http://localhost:8080/openai/v1/models
+{{- end }}
+{{- end }}
+
+===========================================================================

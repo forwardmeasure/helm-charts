@@ -1,0 +1,65 @@
+{{- if .Values.vllmRuntime.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-vllmserver
+  labels:
+    {{- include "kserve-model-serving.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/path: /metrics
+  supportedModelFormats:
+    - name: vllm
+      version: "1"
+      autoSelect: true
+      priority: 1
+    - name: huggingface
+      version: "1"
+      autoSelect: true
+      priority: 3
+  protocolVersions:
+    - v2
+    - grpc-v2
+  containers:
+    - name: kserve-container
+      image: {{ .Values.vllmRuntime.image.repository }}:{{ .Values.vllmRuntime.image.tag }}
+      imagePullPolicy: {{ .Values.vllmRuntime.image.pullPolicy }}
+      command:
+        - python3
+        - -m
+        - vllm.entrypoints.openai.api_server
+      args:
+        - --port=8080
+        - --model=/mnt/models/cache/{{ "{{" }}.Name{{ "}}" }}
+        - --served-model-name={{ "{{" }}.Name{{ "}}" }}
+      env:
+        - name: HF_HOME
+          value: /mnt/models/cache
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: 60
+        periodSeconds: 30
+        timeoutSeconds: 5
+        failureThreshold: 3
+{{- end }}

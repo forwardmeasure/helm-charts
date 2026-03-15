@@ -1,0 +1,120 @@
+# ==============================================================================
+# kserve-model-serving chart values
+# ==============================================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ------------------------------------------------------------------------------
+# ServiceAccount
+#
+# create: true  — this chart creates its own SA using name and annotations.
+# create: false — use a pre-existing SA (e.g. from model-cache chart when
+#                 externalModelCache is true). name must still be set.
+#
+# On GCP with externalModelCache: true, set create: false and name to the
+# model-cache SA which already has Workload Identity for GCS access.
+# On GCP with externalModelCache: false, set create: true and annotate with
+# Workload Identity if GCS access is needed for other purposes.
+# ------------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: kserve-serving-sa
+  annotations: {}
+  # GCP Workload Identity example:
+  # annotations:
+  #   iam.gke.io/gcp-service-account: <sa-name>@<project>.iam.gserviceaccount.com
+
+# ------------------------------------------------------------------------------
+# Image pull secrets
+# Referenced on the ServiceAccount so all pods in the namespace
+# can pull from private registries without per-pod configuration.
+# ------------------------------------------------------------------------------
+imagePullSecrets: []
+# Example:
+# imagePullSecrets:
+#   - name: my-registry-secret
+
+# ------------------------------------------------------------------------------
+# HuggingFace token
+# Required for gated models (Gemma, some Phi variants).
+# Public models (Granite, most Phi) do not need a token.
+#
+# secretName: name of an existing Kubernetes Secret containing the token.
+#             Created externally via ESO/platform-secrets.
+# secretKey:  key within the secret that holds the token value.
+#
+# When secretName is empty, no token is injected.
+# ------------------------------------------------------------------------------
+huggingFace:
+  token:
+    secretName: ""
+    secretKey: token
+
+# ------------------------------------------------------------------------------
+# Model cache integration
+#
+# When externalModelCache is true, models are loaded from the shared GCS-backed
+# PVC created by the model-cache chart. The init container downloads model
+# weights before the inference container starts.
+#
+# When externalModelCache is false, KServe's built-in storage initializer
+# downloads models directly from HuggingFace Hub at pod start.
+# ------------------------------------------------------------------------------
+externalModelCache: false
+
+modelCache:
+  pvcName: model-cache-pvc
+  serviceAccountName: model-cache-sa
+  mountPath: /mnt/models/cache
+  skipManifestVerification: false
+
+# ------------------------------------------------------------------------------
+# Model download init container
+# Only used when externalModelCache is true.
+# ------------------------------------------------------------------------------
+modelDownload:
+  image:
+    repository: quay.io/docling-project/docling-serve-cpu
+    tag: main
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 6Gi
+
+# ------------------------------------------------------------------------------
+# vLLM ClusterServingRuntime
+# Set enabled: true only for the first model family release (granite-serving).
+# ClusterServingRuntime is cluster-scoped — only needs deploying once.
+# ------------------------------------------------------------------------------
+vllmRuntime:
+  enabled: true
+  image:
+    repository: vllm/vllm-openai
+    tag: latest
+    pullPolicy: IfNotPresent
+
+# ------------------------------------------------------------------------------
+# Models
+#
+# Each entry deploys one KServe InferenceService.
+#
+# Fields:
+#   name            — DNS-safe name for the InferenceService
+#   enabled         — false skips without removing from values
+#   runtime         — vllm | huggingface | triton
+#   huggingFaceRepo — HuggingFace model repo (org/model)
+#   args            — extra args passed to the serving container
+#   env             — extra environment variables (map)
+#   gpu             — number of GPUs (0 for CPU-only)
+#   resources       — requests/limits for CPU and memory
+#   scaling         — minReplicas / maxReplicas
+#   modelCache      — per-model overrides for pvcName, serviceAccountName,
+#                     skipManifestVerification
+#   modelDownload   — per-model override for download init container image/resources
+# ------------------------------------------------------------------------------
+models: []
