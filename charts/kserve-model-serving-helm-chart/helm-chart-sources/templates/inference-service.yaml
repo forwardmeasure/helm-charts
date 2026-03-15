@@ -18,6 +18,11 @@ metadata:
 {{- with $.Values.podAnnotations }}
     {{- toYaml . | nindent 4 }}
 {{- end }}
+{{- if $.Values.externalModelCache }}
+{{- with $.Values.modelCachePodAnnotations }}
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+{{- end }}
 spec:
   predictor:
     serviceAccountName: {{ if $.Values.externalModelCache }}{{ include "kserve-model-serving.serviceAccountName" (dict "model" . "Values" $.Values) }}{{ else }}{{ $.Values.serviceAccount.name }}{{ end }}
