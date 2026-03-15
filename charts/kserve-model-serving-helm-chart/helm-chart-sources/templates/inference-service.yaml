@@ -23,6 +23,7 @@ spec:
     serviceAccountName: {{ if $.Values.externalModelCache }}{{ include "kserve-model-serving.serviceAccountName" (dict "model" . "Values" $.Values) }}{{ else }}{{ $.Values.serviceAccount.name }}{{ end }}
     minReplicas: {{ .scaling.minReplicas | default 0 }}
     maxReplicas: {{ .scaling.maxReplicas | default 1 }}
+    timeout: {{ .scaling.timeoutSeconds | default 1800 }}
 {{- if $.Values.externalModelCache }}
     volumes:
       - name: model-cache
