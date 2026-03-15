@@ -60,10 +60,8 @@ spec:
           - |
             set -eu
             . /scripts/model-download-lib.sh
-
             WORKLOAD="{{ $.Release.Name }}-{{ .name }}"
             CACHE_DIR="{{ $.Values.modelCache.mountPath }}"
-
 {{- if include "kserve-model-serving.skipVerification" (dict "model" . "Values" $.Values) | eq "true" }}
             echo "[INFO] Manifest verification skipped (skipManifestVerification=true)"
 {{- else }}
@@ -72,13 +70,10 @@ spec:
               exit 0
             fi
 {{- end }}
-
             echo "[INFO] Downloading model {{ .huggingFaceRepo }} ..."
             model_download_hf_repo "{{ .huggingFaceRepo }}" "${CACHE_DIR}" "${WORKLOAD}"
-
             model_write_manifest "${CACHE_DIR}" "${WORKLOAD}" \
               $(ls "${CACHE_DIR}" | grep -v '^\.' | tr '\n' ' ')
-
             echo "[INFO] Download complete."
         volumeMounts:
           - name: model-cache
@@ -91,7 +86,7 @@ spec:
         name: {{ .runtime }}
       runtime: {{ if eq .runtime "vllm" }}kserve-vllmserver{{ else if eq .runtime "huggingface" }}kserve-huggingfaceserver{{ else if eq .runtime "triton" }}kserve-tritonserver{{ else }}{{ .runtime }}{{ end }}
 {{- if $.Values.externalModelCache }}
-      storageUri: "pvc://{{ include "kserve-model-serving.pvcName" (dict "model" . "Values" $.Values) }}/{{ .huggingFaceRepo | replace "/" "--" }}"
+      storageUri: "file://{{ $.Values.modelCache.mountPath }}/{{ .huggingFaceRepo | replace "/" "--" }}"
 {{- else }}
       storageUri: "hf://{{ .huggingFaceRepo }}"
 {{- end }}
