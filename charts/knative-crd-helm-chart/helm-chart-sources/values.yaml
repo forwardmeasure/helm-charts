@@ -9,6 +9,10 @@ serving:
   istioNamespace: istio-system
   # Name of the Knative local gateway service in istioNamespace
   localGatewayName: knative-local-gateway
+  # Name of the platform-owned local gateway service created by this chart.
+  # Selects the actual platform gateway pods and is referenced by config-istio.
+  # Must be different from localGatewayName which is owned by net-istio.
+  platformLocalGatewayName: knative-local-gateway-platform
   # Name of the platform Istio Gateway resource
   # Used to set the selector on the knative-local-gateway service
   gatewayName: ""
