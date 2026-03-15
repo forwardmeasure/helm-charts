@@ -5,6 +5,8 @@
 nameOverride: ""
 fullnameOverride: ""
 
+deploymentMode: "Serverless"
+
 # Pod annotations applied to InferenceService predictor pods.
 # On GCP override with gke-gcsfuse/volumes: "true" to enable GCS FUSE sidecar
 # and traffic.sidecar.istio.io/excludeInboundPorts: "8080" for Istio probes.
