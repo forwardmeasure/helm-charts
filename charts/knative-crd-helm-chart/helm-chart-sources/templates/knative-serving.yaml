@@ -9,6 +9,11 @@ spec:
   ingress:
     istio:
       enabled: true
+      {{- if .Values.serving.gatewayName }}
+      {{ .Values.serving.localGatewayName }}:
+        selector:
+          gateway.networking.k8s.io/gateway-name: {{ .Values.serving.gatewayName }}
+      {{- end }}
   config:
     network:
       ingress-class: "istio.ingress.networking.knative.dev"
@@ -17,11 +22,9 @@ spec:
       {{ .Values.serving.config.domain }}: ""
     {{- end }}
     istio:
-      {{- if ne .Values.serving.istioNamespace "istio-system" }}
       local-gateways: |
-        - name: knative-local-gateway
+        - name: {{ .Values.serving.localGatewayName }}
           namespace: {{ .Values.serving.namespace }}
-          service: knative-local-gateway.{{ .Values.serving.istioNamespace }}.svc.cluster.local
-      {{- end }}
+          service: {{ .Values.serving.localGatewayName }}.{{ .Values.serving.istioNamespace }}.svc.cluster.local
   additionalManifests:
     - URL: https://github.com/knative/net-istio/releases/download/knative-v{{ .Values.knativeVersion }}/net-istio.yaml
