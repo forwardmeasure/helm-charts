@@ -5,5 +5,5 @@ description: >
   Configures net-istio as the Serving network layer and eventing-kafka-broker as the
   Eventing broker implementation. Requires the Knative Operator to be installed.
 type: application
-version: "0.0.8"
+version: "0.0.9"
 appVersion: "1.21.0"

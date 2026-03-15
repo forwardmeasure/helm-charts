@@ -1,0 +1,34 @@
+# ---------------------------------------------------------------------------
+# Platform-owned local gateway service for Knative cluster-local routing.
+#
+# The default knative-local-gateway service (owned by net-istio) uses selector
+# istio=ingressgateway which matches no pods when using the Kubernetes Gateway
+# API. This service selects the actual platform gateway pods directly and is
+# referenced by config-istio as the local gateway for all cluster-local
+# Knative services including KServe InferenceService predictors.
+# ---------------------------------------------------------------------------
+# prettier-ignore
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.serving.platformLocalGatewayName }}
+  namespace: {{ .Values.serving.istioNamespace }}
+  labels:
+    app.kubernetes.io/component: net-istio
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/version: {{ .Values.knativeVersion }}
+    experimental.istio.io/disable-gateway-port-translation: "true"
+    networking.knative.dev/ingress-provider: istio
+spec:
+  type: ClusterIP
+  selector:
+    gateway.networking.k8s.io/gateway-name: {{ .Values.serving.gatewayName }}
+  ports:
+    - name: http2
+      port: 80
+      protocol: TCP
+      targetPort: 8081
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8444
