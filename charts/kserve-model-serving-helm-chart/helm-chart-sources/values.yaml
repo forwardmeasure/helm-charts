@@ -5,12 +5,14 @@
 nameOverride: ""
 fullnameOverride: ""
 
-deploymentMode: "Serverless"
-
 # Pod annotations applied to InferenceService predictor pods.
 # On GCP override with gke-gcsfuse/volumes: "true" to enable GCS FUSE sidecar
 # and traffic.sidecar.istio.io/excludeInboundPorts: "8080" for Istio probes.
 podAnnotations: {}
+
+# Pod annotations applied only when externalModelCache is true.
+# On GCP add gke-gcsfuse/volumes: "true" to enable GCS FUSE sidecar.
+modelCachePodAnnotations: {}
 
 # ------------------------------------------------------------------------------
 # ServiceAccount
@@ -82,9 +84,9 @@ modelCache:
 # ------------------------------------------------------------------------------
 modelDownload:
   image:
-    repository: docker.io/forwardmeasure/ml-model-utilities
+    repository: ghcr.io/forwardmeasure/ml-model-utilities
     tag: latest
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   resources:
     requests:
       cpu: 500m
