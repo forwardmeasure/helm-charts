@@ -118,3 +118,5 @@ vllmRuntime:
 #   modelDownload   — per-model override for download init container image/resources
 # ------------------------------------------------------------------------------
 models: []
+
+podAnnotations: {}
