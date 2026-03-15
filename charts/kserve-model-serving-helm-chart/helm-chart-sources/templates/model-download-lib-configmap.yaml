@@ -1,0 +1,140 @@
+{{- if .Values.externalModelCache }}
+{{- /* prettier-ignore */ -}}
+# ---------------------------------------------------------------------------
+# ConfigMap containing the shared model download library.
+# Mounted into init containers at /scripts/model-download-lib.sh.
+# Duplicated from docling-serve chart — consolidation tracked as future work.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-download-lib
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kserve-model-serving.labels" . | nindent 4 }}
+data:
+  model-download-lib.sh: |
+    #!/bin/sh
+    # ---------------------------------------------------------------------------
+    # model-download-lib.sh
+    # Reusable shell library for downloading HuggingFace model weights
+    # to a shared GCS-backed PVC.
+    # ---------------------------------------------------------------------------
+
+    LOCK_TIMEOUT_SECS="${LOCK_TIMEOUT_SECS:-600}"
+    LOCK_POLL_SECS="${LOCK_POLL_SECS:-10}"
+
+    _acquire_lock() {
+      local model_dir="$1"
+      local lock_file="${model_dir}/.download.lock"
+      local elapsed=0
+
+      while [ -f "${lock_file}" ]; do
+        if [ "${elapsed}" -ge "${LOCK_TIMEOUT_SECS}" ]; then
+          echo "⚠️  Lock timeout after ${LOCK_TIMEOUT_SECS}s on ${model_dir}. Stale lock? Proceeding anyway."
+          break
+        fi
+        echo "⏳ Waiting for lock on ${model_dir} (${elapsed}s / ${LOCK_TIMEOUT_SECS}s)..."
+        sleep "${LOCK_POLL_SECS}"
+        elapsed=$((elapsed + LOCK_POLL_SECS))
+      done
+
+      mkdir -p "${model_dir}"
+      echo "locked by ${HOSTNAME} pid $$ at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${lock_file}"
+      echo "🔒 Lock acquired on ${model_dir}"
+    }
+
+    _release_lock() {
+      local model_dir="$1"
+      rm -f "${model_dir}/.download.lock"
+      echo "🔓 Lock released on ${model_dir}"
+    }
+
+    _model_exists() {
+      local model_dir="$1"
+      [ -d "${model_dir}" ] && [ -n "$(find "${model_dir}" -type f ! -name '.download.lock' -maxdepth 2 | head -1)" ]
+    }
+
+    model_download_hf_repo() {
+      local repo_id="$1"
+      local cache_dir="$2"
+      local workload="$3"
+
+      local model_dir="${cache_dir}/$(echo "${repo_id}" | sed 's|/|--|')"
+
+      if _model_exists "${model_dir}"; then
+        echo "✅ [${workload}] ${repo_id} already present at ${model_dir}, skipping."
+        return 0
+      fi
+
+      _acquire_lock "${model_dir}"
+
+      if _model_exists "${model_dir}"; then
+        echo "✅ [${workload}] ${repo_id} downloaded by another pod while waiting, skipping."
+        _release_lock "${model_dir}"
+        return 0
+      fi
+
+      echo "⬇️  [${workload}] Downloading ${repo_id}..."
+      if huggingface-cli download "${repo_id}" --local-dir "${model_dir}"; then
+        echo "✅ [${workload}] ${repo_id} downloaded successfully."
+      else
+        echo "❌ [${workload}] Failed to download ${repo_id}."
+        _release_lock "${model_dir}"
+        return 1
+      fi
+
+      _release_lock "${model_dir}"
+    }
+
+    model_write_manifest() {
+      local cache_dir="$1"
+      local workload="$2"
+      shift 2
+      local model_dirs="$*"
+      local manifest="${cache_dir}/.${workload}.manifest"
+
+      echo "📝 [${workload}] Writing manifest to ${manifest}..."
+
+      local find_args=""
+      for dir in ${model_dirs}; do
+        if [ -d "${cache_dir}/${dir}" ]; then
+          find_args="${find_args} ${cache_dir}/${dir}"
+        fi
+      done
+
+      if [ -z "${find_args}" ]; then
+        echo "⚠️  [${workload}] No model directories found for manifest."
+        return 1
+      fi
+
+      # shellcheck disable=SC2086
+      find ${find_args} -type f ! -name '.download.lock' \
+        | sort \
+        | xargs sha256sum \
+        | sed "s|${cache_dir}/||g" \
+        > "${manifest}"
+
+      echo "✅ [${workload}] Manifest written with $(wc -l < "${manifest}") entries."
+    }
+
+    model_verify_manifest() {
+      local cache_dir="$1"
+      local workload="$2"
+      local manifest="${cache_dir}/.${workload}.manifest"
+
+      if [ ! -f "${manifest}" ]; then
+        echo "ℹ️  [${workload}] No manifest found at ${manifest}."
+        return 1
+      fi
+
+      echo "🔍 [${workload}] Verifying manifest..."
+      if (cd "${cache_dir}" && sha256sum -c "${manifest}" --quiet 2>/dev/null); then
+        echo "✅ [${workload}] Manifest verification passed."
+        return 0
+      else
+        echo "❌ [${workload}] Manifest verification FAILED."
+        return 1
+      fi
+    }
+{{- end }}
