@@ -21,10 +21,12 @@ spec:
     domain:
       {{ .Values.serving.config.domain }}: ""
     {{- end }}
+    deployment:
+      progress-deadline: {{ .Values.serving.config.progressDeadline | default "1800s" }}
     features:
       kubernetes.podspec-init-containers: "enabled"
       kubernetes.podspec-persistent-volume-claim: "enabled"
-      kubernetes.podspec-persistent-volume-write: "enabled" 
+      kubernetes.podspec-persistent-volume-write: "enabled"
     istio:
       local-gateways: |
         - name: {{ .Values.serving.localGatewayName }}
