@@ -21,6 +21,10 @@ spec:
     domain:
       {{ .Values.serving.config.domain }}: ""
     {{- end }}
+    features:
+      persistent-volume-claim-enabled: "enabled"
+      persistent-volume-write-enabled: "enabled"
+      init-containers-enabled: "enabled"    
     istio:
       local-gateways: |
         - name: {{ .Values.serving.localGatewayName }}
