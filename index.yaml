@@ -493,7 +493,34 @@ entries:
   kserve-model-serving:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T09:49:58.97995056-04:00"
+    created: "2026-03-15T12:47:49.774164057-04:00"
+    description: 'Generic model serving chart for KServe InferenceService deployments.
+      Deploys one or more models per release, each backed by a configurable KServe
+      ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
+      per model family (e.g. granite-serving, gemma-serving, phi-serving) with model-specific
+      resource configuration per entry in the models list.  Integrates with the model-cache
+      chart for GCS-backed model weight storage, with optional manifest verification
+      bypass for fast on-demand scaling. '
+    digest: f594acb6f7cba1c5c90b681b0d560704164eeae9e6470d6c84a2be09eb49fadf
+    keywords:
+    - kserve
+    - inference
+    - llm
+    - model-serving
+    - vllm
+    - triton
+    - huggingface
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: kserve-model-serving
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/kserve-model-serving-helm-chart/kserve-model-serving-0.1.2.tgz
+    version: 0.1.2
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-15T12:47:49.773917391-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -788,4 +815,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-15T11:22:11.009398113-04:00"
+generated: "2026-03-15T12:47:49.773331895-04:00"
