@@ -14,7 +14,8 @@ metadata:
     kserve-model-serving/family: {{ $.Release.Name }}
   annotations:
     serving.kserve.io/deploymentMode: "Serverless"
-    {{- with $.Values.podAnnotations }}
+    serving.kserve.io/deploymentRevision: {{ .Chart.Version | quote }}
+{{- with $.Values.podAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
