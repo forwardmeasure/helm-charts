@@ -401,7 +401,20 @@ entries:
   knative-crd:
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-15T10:56:45.727975681-04:00"
+    created: "2026-03-15T11:22:11.010183365-04:00"
+    description: 'Deploys KnativeServing and KnativeEventing custom resources via
+      the Knative Operator. Configures net-istio as the Serving network layer and
+      eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
+      Operator to be installed. '
+    digest: 47c5c8570eaa9706025955cbde3953d54176a2a5e427e50767fba834b8c2b0b4
+    name: knative-crd
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.9.tgz
+    version: 0.0.9
+  - apiVersion: v2
+    appVersion: 1.21.0
+    created: "2026-03-15T11:22:11.010065056-04:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -414,7 +427,7 @@ entries:
     version: 0.0.8
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-15T10:56:45.727819916-04:00"
+    created: "2026-03-15T11:22:11.009964765-04:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -427,7 +440,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-15T10:56:45.727642073-04:00"
+    created: "2026-03-15T11:22:11.00985097-04:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -440,7 +453,7 @@ entries:
     version: 0.0.6
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-15T10:56:45.727445659-04:00"
+    created: "2026-03-15T11:22:11.009758853-04:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -453,7 +466,7 @@ entries:
     version: 0.0.5
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-15T10:56:45.727256919-04:00"
+    created: "2026-03-15T11:22:11.009667696-04:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -466,7 +479,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-15T10:56:45.727074167-04:00"
+    created: "2026-03-15T11:22:11.009568195-04:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -775,4 +788,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-15T10:56:45.726797611-04:00"
+generated: "2026-03-15T11:22:11.009398113-04:00"

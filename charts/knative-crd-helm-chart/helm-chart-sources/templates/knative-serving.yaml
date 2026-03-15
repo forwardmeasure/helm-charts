@@ -25,16 +25,6 @@ spec:
       local-gateways: |
         - name: {{ .Values.serving.localGatewayName }}
           namespace: {{ .Values.serving.namespace }}
-          service: {{ .Values.serving.localGatewayName }}.{{ .Values.serving.istioNamespace }}.svc.cluster.local
+          service: {{ .Values.serving.platformLocalGatewayName }}.{{ .Values.serving.istioNamespace }}.svc.cluster.local
   additionalManifests:
     - URL: https://github.com/knative/net-istio/releases/download/knative-v{{ .Values.knativeVersion }}/net-istio.yaml
-      
-  override:
-      resources:
-        - selector:
-            kind: Service
-            name: knative-local-gateway
-            namespace: {{ .Values.serving.istioNamespace }}
-          spec:
-            selector:
-              gateway.networking.k8s.io/gateway-name: {{ .Values.serving.gatewayName }}
