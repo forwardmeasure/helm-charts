@@ -22,9 +22,9 @@ spec:
       {{ .Values.serving.config.domain }}: ""
     {{- end }}
     features:
-      persistent-volume-claim-enabled: "enabled"
-      persistent-volume-write-enabled: "enabled"
-      init-containers-enabled: "enabled"    
+      kubernetes.podspec-init-containers: "enabled"
+      kubernetes.podspec-persistent-volume-claim: "enabled"
+      kubernetes.podspec-persistent-volume-write: "enabled" 
     istio:
       local-gateways: |
         - name: {{ .Values.serving.localGatewayName }}
