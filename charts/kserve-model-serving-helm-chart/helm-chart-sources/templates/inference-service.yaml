@@ -86,7 +86,7 @@ spec:
         name: {{ .runtime }}
       runtime: {{ if eq .runtime "vllm" }}kserve-vllmserver{{ else if eq .runtime "huggingface" }}kserve-huggingfaceserver{{ else if eq .runtime "triton" }}kserve-tritonserver{{ else }}{{ .runtime }}{{ end }}
 {{- if $.Values.externalModelCache }}
-      storageUri: "file://{{ $.Values.modelCache.mountPath }}/{{ .huggingFaceRepo | replace "/" "--" }}"
+      {{- /* No storageUri — model pre-loaded by init container, storage initializer bypassed */ -}}
 {{- else }}
       storageUri: "hf://{{ .huggingFaceRepo }}"
 {{- end }}
@@ -103,8 +103,11 @@ spec:
 {{- if gt (.gpu | default 0) 0 }}
           nvidia.com/gpu: {{ .gpu | quote }}
 {{- end }}
-{{- with .args }}
       args:
+{{- if $.Values.externalModelCache }}
+        - --model_id={{ $.Values.modelCache.mountPath }}/{{ .huggingFaceRepo | replace "/" "--" }}
+{{- end }}
+{{- with .args }}
 {{- toYaml . | nindent 8 }}
 {{- end }}
       env:
