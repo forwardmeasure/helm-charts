@@ -84,7 +84,7 @@ modelDownload:
   image:
     repository: docker.io/forwardmeasure/ml-model-utilities
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   resources:
     requests:
       cpu: 500m
