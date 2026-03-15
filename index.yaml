@@ -532,7 +532,34 @@ entries:
   kserve-model-serving:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.954838669-04:00"
+    created: "2026-03-15T19:08:35.918146837-04:00"
+    description: 'Generic model serving chart for KServe InferenceService deployments.
+      Deploys one or more models per release, each backed by a configurable KServe
+      ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
+      per model family (e.g. granite-serving, gemma-serving, phi-serving) with model-specific
+      resource configuration per entry in the models list.  Integrates with the model-cache
+      chart for GCS-backed model weight storage, with optional manifest verification
+      bypass for fast on-demand scaling. '
+    digest: 1f4a65744a64a6ce1c39042f04adedf7945384f90f1c675dd61933510bf41a01
+    keywords:
+    - kserve
+    - inference
+    - llm
+    - model-serving
+    - vllm
+    - triton
+    - huggingface
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: kserve-model-serving
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/kserve-model-serving-helm-chart/kserve-model-serving-0.1.11.tgz
+    version: 0.1.11
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-15T19:08:35.917748764-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -559,7 +586,7 @@ entries:
     version: 0.1.10
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.958359731-04:00"
+    created: "2026-03-15T19:08:35.921076642-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -586,7 +613,7 @@ entries:
     version: 0.1.9
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.958012453-04:00"
+    created: "2026-03-15T19:08:35.920732207-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -613,7 +640,7 @@ entries:
     version: 0.1.8
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.957645994-04:00"
+    created: "2026-03-15T19:08:35.920371939-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -640,7 +667,7 @@ entries:
     version: 0.1.7
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.957297835-04:00"
+    created: "2026-03-15T19:08:35.920009914-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -667,7 +694,7 @@ entries:
     version: 0.1.6
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.95696112-04:00"
+    created: "2026-03-15T19:08:35.919639227-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -694,7 +721,7 @@ entries:
     version: 0.1.5
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.956621531-04:00"
+    created: "2026-03-15T19:08:35.919240986-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -721,7 +748,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.956252125-04:00"
+    created: "2026-03-15T19:08:35.918874173-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -748,7 +775,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.955826364-04:00"
+    created: "2026-03-15T19:08:35.918500233-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -775,7 +802,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T18:40:26.954578292-04:00"
+    created: "2026-03-15T19:08:35.917354405-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -1070,4 +1097,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-15T18:40:26.954251798-04:00"
+generated: "2026-03-15T19:08:35.916792854-04:00"
