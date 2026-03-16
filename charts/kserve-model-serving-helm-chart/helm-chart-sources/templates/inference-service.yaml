@@ -42,10 +42,6 @@ spec:
       - name: model-cache
         persistentVolumeClaim:
           claimName: {{ include "kserve-model-serving.pvcName" (dict "model" . "Values" $.Values) }}
-      - name: model-download-lib
-        configMap:
-          name: model-download-lib
-          defaultMode: 0755
     initContainers:
       - name: download-models
         image: {{ include "kserve-model-serving.downloadImage" (dict "model" . "Values" $.Values) }}
@@ -56,43 +52,23 @@ spec:
 {{- else }}
 {{- toYaml $.Values.modelDownload.resources | nindent 10 }}
 {{- end }}
-        env:
-          - name: CACHE_DIR
-            value: {{ $.Values.modelCache.mountPath }}
-          - name: WORKLOAD
-            value: {{ $.Release.Name }}-{{ .name }}
 {{- if $.Values.huggingFace.token.secretName }}
+        env:
           - name: HUGGING_FACE_HUB_TOKEN
             valueFrom:
               secretKeyRef:
                 name: {{ $.Values.huggingFace.token.secretName }}
                 key: {{ $.Values.huggingFace.token.secretKey }}
 {{- end }}
-        command: ["sh", "-lc"]
-        args:
-          - |
-            set -eu
-            . /scripts/model-download-lib.sh
-            WORKLOAD="{{ $.Release.Name }}-{{ .name }}"
-            CACHE_DIR="{{ $.Values.modelCache.mountPath }}"
-{{- if include "kserve-model-serving.skipVerification" (dict "model" . "Values" $.Values) | eq "true" }}
-            echo "[INFO] Manifest verification skipped (skipManifestVerification=true)"
-{{- else }}
-            if model_verify_manifest "${CACHE_DIR}" "${WORKLOAD}"; then
-              echo "[INFO] Model cache valid for ${WORKLOAD}. Nothing to do."
-              exit 0
-            fi
-{{- end }}
-            echo "[INFO] Downloading model {{ .huggingFaceRepo }} ..."
-            model_download_hf_repo "{{ .huggingFaceRepo }}" "${CACHE_DIR}" "${WORKLOAD}"
-            model_write_manifest "${CACHE_DIR}" "${WORKLOAD}" \
-              $(ls "${CACHE_DIR}" | grep -v '^\.' | tr '\n' ' ')
-            echo "[INFO] Download complete."
+        command:
+          - /usr/local/lib/model-download-lib.sh
+          - {{ .huggingFaceRepo | quote }}
+          - {{ $.Values.modelCache.mountPath | quote }}
+          - {{ printf "%s-%s" $.Release.Name .name | quote }}
+          - {{ include "kserve-model-serving.skipVerification" (dict "model" . "Values" $.Values) | quote }}
         volumeMounts:
           - name: model-cache
             mountPath: {{ $.Values.modelCache.mountPath }}
-          - name: model-download-lib
-            mountPath: /scripts
 {{- end }}
     model:
       modelFormat:
