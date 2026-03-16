@@ -29,6 +29,14 @@ spec:
     minReplicas: {{ .scaling.minReplicas | default 0 }}
     maxReplicas: {{ .scaling.maxReplicas | default 1 }}
     timeout: {{ .scaling.timeoutSeconds | default 1800 }}
+{{- with .nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+{{- end }}
+{{- with .tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+{{- end }}
 {{- if $.Values.externalModelCache }}
     volumes:
       - name: model-cache
