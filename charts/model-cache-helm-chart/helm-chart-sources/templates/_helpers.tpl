@@ -35,7 +35,7 @@ when the chart is deployed into multiple namespaces pointing at the same
 underlying storage backend.
 */}}
 {{- define "model-cache.pvName" -}}
-{{- printf "%s-model-cache-pv" .Release.Namespace }}
+{{- printf "%s-%s-pv" .Release.Namespace .Release.Name }}
 {{- end }}
 
 {{/*
