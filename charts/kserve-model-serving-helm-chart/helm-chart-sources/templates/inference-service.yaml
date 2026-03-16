@@ -107,13 +107,13 @@ spec:
         requests:
           cpu: {{ .resources.requests.cpu | quote }}
           memory: {{ .resources.requests.memory }}
-{{- if gt (.gpu | default 0) 0 }}
+{{- if gt (int (.gpu | default 0)) 0 }}
           nvidia.com/gpu: {{ .gpu | quote }}
 {{- end }}
         limits:
           cpu: {{ .resources.limits.cpu | quote }}
           memory: {{ .resources.limits.memory }}
-{{- if gt (.gpu | default 0) 0 }}
+{{- if gt (int (.gpu | default 0)) 0 }}
           nvidia.com/gpu: {{ .gpu | quote }}
 {{- end }}
       args:
