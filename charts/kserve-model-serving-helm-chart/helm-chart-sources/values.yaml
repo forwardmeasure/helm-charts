@@ -5,8 +5,6 @@
 nameOverride: ""
 fullnameOverride: ""
 
-deploymentMode: "Serverless"
-
 # Pod annotations applied to InferenceService predictor pods.
 # On GCP override with gke-gcsfuse/volumes: "true" to enable GCS FUSE sidecar
 # and traffic.sidecar.istio.io/excludeInboundPorts: "8080" for Istio probes.
@@ -123,7 +121,9 @@ vllmRuntime:
 #   env             — extra environment variables (map)
 #   gpu             — number of GPUs (0 for CPU-only)
 #   resources       — requests/limits for CPU and memory
-#   scaling         — minReplicas / maxReplicas
+#   scaling         — minReplicas / maxReplicas / timeoutSeconds
+#   nodeSelector    — Kubernetes node selector labels (e.g. node-pool: gpu, gpu-type: nvidia-l4)
+#   tolerations     — Kubernetes tolerations (e.g. for GPU taint nvidia.com/gpu=present:NoSchedule)
 #   modelCache      — per-model overrides for pvcName, serviceAccountName,
 #                     skipManifestVerification
 #   modelDownload   — per-model override for download init container image/resources
