@@ -80,28 +80,6 @@ entries:
   hugegraph:
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-04T23:10:02.675968668-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: 30e6e9205245d5338652aa06c2d9e90d3fa55ea0cb522b0240c00755ad37bae3
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.24.tgz
-    version: 0.0.24
-  - apiVersion: v2
-    appVersion: latest
-    created: "2026-03-04T23:10:02.67535433-05:00"
-    description: Apache HugeGraph distributed graph database (PD + Store + Server
-      + Hubble)
-    digest: 2c6c8aa4a8abac2500676fb9dc98dd4c0f9c8ba5d738a6b6a5c805187e7d56f4
-    name: hugegraph
-    type: application
-    urls:
-    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.23.tgz
-    version: 0.0.23
-  - apiVersion: v2
-    appVersion: latest
     created: "2026-03-17T16:03:23.101808217-04:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
