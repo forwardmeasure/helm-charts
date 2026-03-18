@@ -12,7 +12,7 @@ management:
         include: "*"
 
 grpc:
-  host: __POD_IP__
+  host: __SELF_DNS__
   port: 8500
   netty-server:
     max-inbound-message-size: 1000MB
