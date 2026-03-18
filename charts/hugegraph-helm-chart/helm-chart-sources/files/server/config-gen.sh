@@ -45,6 +45,17 @@ fi
 
 SERVER_ID="${POD_NAME}"
 
+# ---------------------------------------------------------------------------
+# Derive auth authenticator class from AUTH_ENABLED flag.
+# When auth is enabled, StandardAuthenticator handles both REST and Gremlin.
+# When disabled, empty value disables authentication entirely.
+# ---------------------------------------------------------------------------
+if [ "${AUTH_ENABLED}" = "true" ]; then
+  AUTH_AUTHENTICATOR="org.apache.hugegraph.auth.StandardAuthenticator"
+else
+  AUTH_AUTHENTICATOR=""
+fi
+
 wait_http_up() {
   name="$1"
   url="$2"
@@ -115,7 +126,7 @@ sed \
 
 sed \
   -e "s#__HTTP_PORT__#${HTTP_PORT}#g" \
-  -e "s#__SLOW_QUERY_THRESHOLD__#${SLOW_QUERY_THRESHOLD}#g" \
+  -e "s#__AUTH_AUTHENTICATOR__#${AUTH_AUTHENTICATOR}#g" \
   /templates/rest-server.properties.tpl > /config/rest-server.properties
 
 sed \
