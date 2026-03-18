@@ -1,6 +1,15 @@
 #!/usr/bin/env sh
 set -eu
 
+# ---------------------------------------------------------------------------
+# Store config-gen.sh
+#
+# Generates /config/application.yaml for hugegraph-store.
+#
+# grpc.host and raft.address use stable headless service DNS names
+# instead of pod IPs, preventing Raft conf corruption on pod reschedule.
+# ---------------------------------------------------------------------------
+
 require_env() {
   var="$1"
   eval "val=\${$var:-}"
@@ -21,7 +30,12 @@ require_env WAIT_TIMEOUT_SECONDS
 require_env PD_ADDRS
 
 NS="${POD_NAMESPACE}"
-RAFT_ADDRESS="${POD_IP}:${STORE_RAFT_PORT}"
+
+# Stable DNS name for this store pod — survives reschedule
+SELF_DNS="hugegraph-store-${POD_NAME##*-}.hugegraph-store.${NS}.svc.cluster.local"
+RAFT_ADDRESS="${SELF_DNS}:${STORE_RAFT_PORT}"
+
+echo "[config-gen] Self: ${POD_NAME} -> ${SELF_DNS} (IP: ${POD_IP})"
 
 echo "[wait-for-pd] Waiting for PD cluster..."
 i=0
@@ -55,11 +69,11 @@ mkdir -p /config
 
 sed \
   -e "s#__PD_ADDRS__#${PD_ADDRS}#g" \
-  -e "s#__POD_IP__#${POD_IP}#g" \
+  -e "s#__SELF_DNS__#${SELF_DNS}#g" \
   -e "s#__RAFT_ADDRESS__#${RAFT_ADDRESS}#g" \
   /templates/application.yaml.tpl > /config/application.yaml
 
 echo "[config-gen] Generated /config/application.yaml"
-echo "[config-gen] grpc.host=${POD_IP}"
+echo "[config-gen] grpc.host=${SELF_DNS}"
 echo "[config-gen] raft.address=${RAFT_ADDRESS}"
 cat /config/application.yaml

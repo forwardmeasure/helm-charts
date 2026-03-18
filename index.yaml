@@ -80,7 +80,19 @@ entries:
   hugegraph:
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-17T16:03:23.101808217-04:00"
+    created: "2026-03-17T20:50:33.43703499-04:00"
+    description: Apache HugeGraph distributed graph database (PD + Store + Server
+      + Hubble)
+    digest: 7023b96562f9e1f5fef959347e0d28ed6f783115ea2ca0e6d2cec9cefccb2f03
+    icon: https://hugegraph.apache.org
+    name: hugegraph
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.2.tgz
+    version: 0.0.2
+  - apiVersion: v2
+    appVersion: latest
+    created: "2026-03-17T20:50:33.43651805-04:00"
     description: Apache HugeGraph distributed graph database (PD + Store + Server
       + Hubble)
     digest: 3c1360082ae08303df03c65f7e404777d9211e5f730ca18dcac9ae519a2f3458
@@ -1250,4 +1262,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-17T16:03:23.100369887-04:00"
+generated: "2026-03-17T20:50:33.435044527-04:00"

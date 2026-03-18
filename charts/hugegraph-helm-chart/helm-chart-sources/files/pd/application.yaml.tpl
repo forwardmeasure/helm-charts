@@ -33,7 +33,7 @@ pd:
   initial-store-list: __STORE_LIST__
 
 raft:
-  address: __SELF_IP__:8610
+  address: __SELF_DNS__:8610
   peers-list: __RAFT_PEERS__
 
 store:
