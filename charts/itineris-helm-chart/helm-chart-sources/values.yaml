@@ -1,0 +1,183 @@
+# Copyright 2024 Itineris Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+# -- Number of Itineris server replicas
+replicaCount: 1
+
+image:
+  # -- Image registry
+  registry: docker.io
+  # -- Image repository
+  repository: forwardmeasure/itineris
+  # -- Image tag
+  tag: "1.1.0"
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets
+imagePullSecrets: []
+
+# -- Override the chart name
+nameOverride: ""
+# -- Override the full resource name
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a service account
+  create: true
+  # -- Annotations for the service account
+  annotations: {}
+  # -- Service account name override
+  name: ""
+
+# -- Annotations for the pod
+podAnnotations: {}
+
+# -- Security context for the pod
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10013
+  runAsGroup: 10013
+  fsGroup: 10013
+
+# -- Security context for the container
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  # -- Service type
+  type: ClusterIP
+  # -- Gremlin WebSocket/HTTP port
+  port: 8182
+
+# -- Resource requests and limits
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# -- Node selector
+nodeSelector: {}
+
+# -- Tolerations
+tolerations: []
+
+# -- Affinity rules
+affinity: {}
+
+# -- Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /gremlin
+    port: 8182
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+# -- Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /gremlin
+    port: 8182
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# -- Itineris server configuration
+itineris:
+  # -- Properties template to use (inmemory-server, cql-server, cql-opensearch-server)
+  propsTemplate: cql-opensearch-server
+  # -- Storage backend timeout in seconds
+  storageTimeout: 120
+  # -- Server startup timeout in seconds
+  serverTimeout: 60
+  # -- Java options
+  javaOptions: "-Xmx1g"
+  # -- Gremlin thread pool worker count
+  gremlinThreadPoolWorker: 1
+  # -- Gremlin pool size
+  gremlinPool: 8
+
+# -- CQL (Cassandra/k8ssandra) backend configuration
+cql:
+  # -- Cassandra hostname or service name
+  hostname: ""
+  # -- Cassandra port
+  port: 9042
+  # -- Cassandra keyspace
+  keyspace: itineris
+  # -- Cassandra local datacenter
+  localDatacenter: dc1
+  # -- Replication factor
+  replicationFactor: 3
+  # -- ESO remote key for CQL username secret
+  usernameSecret:
+    name: itineris-cql-credentials
+    key: username
+    remoteKey: ""
+  # -- ESO remote key for CQL password secret
+  passwordSecret:
+    name: itineris-cql-credentials
+    key: password
+    remoteKey: ""
+
+# -- OpenSearch index backend configuration
+opensearch:
+  # -- Enable OpenSearch index backend
+  enabled: true
+  # -- OpenSearch hostname or service name
+  hostname: ""
+  # -- OpenSearch port
+  port: 9200
+  # -- ESO remote key for OpenSearch username secret
+  usernameSecret:
+    name: itineris-opensearch-credentials
+    key: username
+    remoteKey: ""
+  # -- ESO remote key for OpenSearch password secret
+  passwordSecret:
+    name: itineris-opensearch-credentials
+    key: password
+    remoteKey: ""
+
+# -- External Secrets Operator configuration
+externalSecrets:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: fake-secret-store
+    kind: ClusterSecretStore
+
+# -- Persistence configuration
+persistence:
+  # -- Enable persistent volume
+  enabled: false
+  # -- Storage class
+  storageClass: ""
+  # -- Access modes
+  accessModes:
+    - ReadWriteOnce
+  # -- Storage size
+  size: 10Gi
+
+# -- Extra environment variables
+extraEnv: []
+
+# -- Extra volumes
+extraVolumes: []
+
+# -- Extra volume mounts
+extraVolumeMounts: []

@@ -1,0 +1,17 @@
+# prettier-ignore
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "itineris.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "itineris.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: gremlin
+      protocol: TCP
+      name: gremlin
+  selector:
+    {{- include "itineris.selectorLabels" . | nindent 4 }}
