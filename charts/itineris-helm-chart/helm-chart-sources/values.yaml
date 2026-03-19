@@ -77,25 +77,20 @@ tolerations: []
 # -- Affinity rules
 affinity: {}
 
-# -- Liveness probe configuration
-livenessProbe:
-  httpGet:
-    path: /gremlin
-    port: 8182
-  initialDelaySeconds: 60
-  periodSeconds: 30
-  timeoutSeconds: 10
-  failureThreshold: 3
-
-# -- Readiness probe configuration
-readinessProbe:
-  httpGet:
-    path: /gremlin
-    port: 8182
-  initialDelaySeconds: 30
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 3
+# -- Probe timing configuration
+# Handler type (tcpSocket on port 8182) is fixed in the deployment template
+# to avoid Helm deep-merge conflicts when overriding individual timing values.
+probes:
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
 
 # -- Itineris server configuration
 itineris:
@@ -124,7 +119,7 @@ cql:
   localDatacenter: dc1
   # -- Replication factor
   replicationFactor: 3
-  # Secret reference for Cassandra credentials
+  # -- k8ssandra superuser secret — read directly from k8ssandra namespace via SecretStore
   credentialsSecret:
     name: data-fabric-superuser
     namespace: k8ssandra-cluster
@@ -137,23 +132,17 @@ opensearch:
   hostname: ""
   # -- OpenSearch port
   port: 9200
-  # -- ESO remote key for OpenSearch username secret
+  # -- OpenSearch credentials secret (synced by platform-secrets)
   usernameSecret:
     name: itineris-opensearch-credentials
     key: username
-    remoteKey: ""
-  # -- ESO remote key for OpenSearch password secret
   passwordSecret:
     name: itineris-opensearch-credentials
     key: password
-    remoteKey: ""
 
 # -- External Secrets Operator configuration
 externalSecrets:
   refreshInterval: 1h
-  secretStoreRef:
-    name: fake-secret-store
-    kind: ClusterSecretStore
 
 # -- Persistence configuration
 persistence:
