@@ -60,8 +60,17 @@ Service account name.
 {{- end }}
 
 {{/*
-Image reference.
+Image reference — prefers digest over tag if both are set.
+Usage: {{ include "itineris.image" . }}
 */}}
 {{- define "itineris.image" -}}
-{{- printf "%s/%s:%s" .Values.image.registry .Values.image.repository .Values.image.tag }}
+{{- $registry := .Values.image.registry -}}
+{{- $repository := .Values.image.repository -}}
+{{- $digest := .Values.image.digest | default "" -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
+{{- if $digest }}
+{{- printf "%s/%s@%s" $registry $repository $digest }}
+{{- else }}
+{{- printf "%s/%s:%s" $registry $repository $tag }}
+{{- end }}
 {{- end }}
