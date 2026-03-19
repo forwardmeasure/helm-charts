@@ -2,7 +2,7 @@ apiVersion: v2
 name: itineris
 description: Itineris distributed graph database (JanusGraph fork)
 type: application
-version: "0.1.4"
+version: "0.1.5"
 appVersion: "1.1.0"
 keywords:
   - graph
