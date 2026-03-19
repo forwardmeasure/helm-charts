@@ -1,0 +1,14 @@
+apiVersion: v2
+name: itineris
+description: Itineris distributed graph database (JanusGraph fork)
+type: application
+version: "0.1.1"
+appVersion: "1.1.0"
+keywords:
+  - graph
+  - database
+  - gremlin
+  - tinkerpop
+maintainers:
+  - name: ForwardMeasure
+    url: https://github.com/forwardmeasure/itineris

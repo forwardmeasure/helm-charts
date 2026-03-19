@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "itineris.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "itineris.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "itineris.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "itineris.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "itineris.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: itineris
+          image: {{ include "itineris.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: gremlin
+              containerPort: 8182
+              protocol: TCP
+          env:
+            - name: ITINERIS_PROPS_TEMPLATE
+              value: {{ .Values.itineris.propsTemplate | quote }}
+            - name: ITINERIS_STORAGE_TIMEOUT
+              value: {{ .Values.itineris.storageTimeout | quote }}
+            - name: ITINERIS_SERVER_TIMEOUT
+              value: {{ .Values.itineris.serverTimeout | quote }}
+            - name: JAVA_OPTIONS
+              value: {{ .Values.itineris.javaOptions | quote }}
+            - name: gremlinserver.threadPoolWorker
+              value: {{ .Values.itineris.gremlinThreadPoolWorker | quote }}
+            - name: gremlinserver.gremlinPool
+              value: {{ .Values.itineris.gremlinPool | quote }}
+            # CQL backend
+            - name: itineris.storage.hostname
+              value: {{ .Values.cql.hostname | quote }}
+            - name: itineris.storage.port
+              value: {{ .Values.cql.port | quote }}
+            - name: itineris.storage.cql.keyspace
+              value: {{ .Values.cql.keyspace | quote }}
+            - name: itineris.storage.cql.local-datacenter
+              value: {{ .Values.cql.localDatacenter | quote }}
+            - name: itineris.storage.cql.replication-factor
+              value: {{ .Values.cql.replicationFactor | quote }}
+            {{- if .Values.cql.usernameSecret.name }}
+            - name: itineris.storage.username
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cql.usernameSecret.name }}
+                  key: {{ .Values.cql.usernameSecret.key }}
+            - name: itineris.storage.password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cql.passwordSecret.name }}
+                  key: {{ .Values.cql.passwordSecret.key }}
+            {{- end }}
+            # OpenSearch index backend
+            {{- if .Values.opensearch.enabled }}
+            - name: itineris.index.search.backend
+              value: "opensearch"
+            - name: itineris.index.search.hostname
+              value: {{ .Values.opensearch.hostname | quote }}
+            - name: itineris.index.search.port
+              value: {{ .Values.opensearch.port | quote }}
+            {{- if .Values.opensearch.usernameSecret.name }}
+            - name: itineris.index.search.opensearch.username
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opensearch.usernameSecret.name }}
+                  key: {{ .Values.opensearch.usernameSecret.key }}
+            - name: itineris.index.search.opensearch.password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opensearch.passwordSecret.name }}
+                  key: {{ .Values.opensearch.passwordSecret.key }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /opt/itineris/data
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+      {{- if or .Values.persistence.enabled .Values.extraVolumes }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "itineris.fullname" . }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
