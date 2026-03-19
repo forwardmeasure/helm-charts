@@ -14,10 +14,13 @@ image:
   registry: docker.io
   # -- Image repository
   repository: forwardmeasure/itineris
-  # -- Image tag
+  # -- Image tag (ignored if digest is set)
   tag: "1.1.0"
+  # -- Image digest (takes precedence over tag if set)
+  # e.g. sha256:abc123...
+  digest: ""
   # -- Image pull policy
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 # -- Image pull secrets
 imagePullSecrets: []
