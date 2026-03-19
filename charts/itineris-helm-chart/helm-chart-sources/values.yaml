@@ -142,6 +142,10 @@ opensearch:
   passwordSecret:
     name: itineris-opensearch-credentials
     key: password
+  ssl:
+    enabled: true
+    disableHostnameVerification: true
+    allowSelfSignedCertificates: true
 
 # -- External Secrets Operator configuration
 externalSecrets:
