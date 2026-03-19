@@ -102,6 +102,25 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/hugegraph-helm-chart/hugegraph-0.0.1.tgz
     version: 0.0.1
+  itineris:
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2026-03-18T23:32:25.37312285-04:00"
+    description: Itineris distributed graph database (JanusGraph fork)
+    digest: c09f718f394483fd7d3984de94f0876a7997b3a2a44a7a0e8aa9ccff5221298a
+    keywords:
+    - graph
+    - database
+    - gremlin
+    - tinkerpop
+    maintainers:
+    - name: ForwardMeasure
+      url: https://github.com/forwardmeasure/itineris
+    name: itineris
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/itineris-helm-chart/itineris-0.1.1.tgz
+    version: 0.1.1
   k8ssandra-cluster:
   - apiVersion: v2
     appVersion: 1.0.0
@@ -1262,4 +1281,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-17T20:50:33.435044527-04:00"
+generated: "2026-03-18T23:32:25.372808381-04:00"
