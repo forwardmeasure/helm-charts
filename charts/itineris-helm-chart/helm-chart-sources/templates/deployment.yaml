@@ -92,6 +92,12 @@ spec:
                 secretKeyRef:
                   name: itineris-opensearch-credentials
                   key: password
+            - name: itineris.index.search.opensearch.ssl.enabled
+              value: {{ .Values.opensearch.ssl.enabled | quote }}
+            - name: itineris.index.search.opensearch.ssl.disable-hostname-verification
+              value: {{ .Values.opensearch.ssl.disableHostnameVerification | quote }}
+            - name: itineris.index.search.opensearch.ssl.allow-self-signed-certificates
+              value: {{ .Values.opensearch.ssl.allowSelfSignedCertificates | quote }}
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
