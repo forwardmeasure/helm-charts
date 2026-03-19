@@ -136,12 +136,6 @@ opensearch:
   # -- OpenSearch port
   port: 9200
   # -- OpenSearch credentials secret (synced by platform-secrets)
-  usernameSecret:
-    name: itineris-opensearch-credentials
-    key: username
-  passwordSecret:
-    name: itineris-opensearch-credentials
-    key: password
   ssl:
     enabled: true
     disableHostnameVerification: true
