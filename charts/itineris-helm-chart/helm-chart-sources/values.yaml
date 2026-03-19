@@ -124,16 +124,10 @@ cql:
   localDatacenter: dc1
   # -- Replication factor
   replicationFactor: 3
-  # -- ESO remote key for CQL username secret
-  usernameSecret:
-    name: itineris-cql-credentials
-    key: username
-    remoteKey: ""
-  # -- ESO remote key for CQL password secret
-  passwordSecret:
-    name: itineris-cql-credentials
-    key: password
-    remoteKey: ""
+  # Secret reference for Cassandra credentials
+  credentialsSecret:
+    name: data-fabric-superuser
+    namespace: k8ssandra-cluster
 
 # -- OpenSearch index backend configuration
 opensearch:

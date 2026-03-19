@@ -60,18 +60,17 @@ spec:
               value: {{ .Values.cql.localDatacenter | quote }}
             - name: itineris.storage.cql.replication-factor
               value: {{ .Values.cql.replicationFactor | quote }}
-            {{- if .Values.cql.usernameSecret.name }}
+            # CQL credentials — sourced from ExternalSecret itineris-cql-credentials
             - name: itineris.storage.username
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.cql.usernameSecret.name }}
-                  key: {{ .Values.cql.usernameSecret.key }}
+                  name: itineris-cql-credentials
+                  key: username
             - name: itineris.storage.password
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.cql.passwordSecret.name }}
-                  key: {{ .Values.cql.passwordSecret.key }}
-            {{- end }}
+                  name: itineris-cql-credentials
+                  key: password
             # OpenSearch index backend
             {{- if .Values.opensearch.enabled }}
             - name: itineris.index.search.backend
@@ -80,18 +79,16 @@ spec:
               value: {{ .Values.opensearch.hostname | quote }}
             - name: itineris.index.search.port
               value: {{ .Values.opensearch.port | quote }}
-            {{- if .Values.opensearch.usernameSecret.name }}
             - name: itineris.index.search.opensearch.username
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.opensearch.usernameSecret.name }}
-                  key: {{ .Values.opensearch.usernameSecret.key }}
+                  name: itineris-opensearch-credentials
+                  key: username
             - name: itineris.index.search.opensearch.password
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.opensearch.passwordSecret.name }}
-                  key: {{ .Values.opensearch.passwordSecret.key }}
-            {{- end }}
+                  name: itineris-opensearch-credentials
+                  key: password
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
