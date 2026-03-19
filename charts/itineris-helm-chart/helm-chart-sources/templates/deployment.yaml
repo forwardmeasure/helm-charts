@@ -74,7 +74,9 @@ spec:
                 secretKeyRef:
                   name: itineris-cql-credentials
                   key: password
+            # ----------------------------------------------------------------
             # OpenSearch index backend
+            # ----------------------------------------------------------------
             {{- if .Values.opensearch.enabled }}
             - name: itineris.index.search.backend
               value: "opensearch"
@@ -82,16 +84,22 @@ spec:
               value: {{ .Values.opensearch.hostname | quote }}
             - name: itineris.index.search.port
               value: {{ .Values.opensearch.port | quote }}
-            - name: itineris.index.search.opensearch.username
+
+            # HTTP Basic auth — type must be "basic" for credentials to be sent
+            - name: itineris.index.search.opensearch.http.auth.type
+              value: "basic"
+            - name: itineris.index.search.opensearch.http.auth.basic.username
               valueFrom:
                 secretKeyRef:
                   name: itineris-opensearch-credentials
                   key: username
-            - name: itineris.index.search.opensearch.password
+            - name: itineris.index.search.opensearch.http.auth.basic.password
               valueFrom:
                 secretKeyRef:
                   name: itineris-opensearch-credentials
                   key: password
+
+            # SSL — OpenSearch requires HTTPS; allow self-signed certs
             - name: itineris.index.search.opensearch.ssl.enabled
               value: {{ .Values.opensearch.ssl.enabled | quote }}
             - name: itineris.index.search.opensearch.ssl.disable-hostname-verification
