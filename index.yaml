@@ -105,7 +105,25 @@ entries:
   itineris:
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-03-19T13:08:44.826808775-04:00"
+    created: "2026-03-19T13:57:55.06906742-04:00"
+    description: Itineris distributed graph database (JanusGraph fork)
+    digest: ed9750509da6a786ac402a2105dcad05586c68bcfb4ed7fe586ec3bf19e798a2
+    keywords:
+    - graph
+    - database
+    - gremlin
+    - tinkerpop
+    maintainers:
+    - name: ForwardMeasure
+      url: https://github.com/forwardmeasure/itineris
+    name: itineris
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/itineris-helm-chart/itineris-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2026-03-19T13:57:55.068835803-04:00"
     description: Itineris distributed graph database (JanusGraph fork)
     digest: b21e46c856cb7176b37a37a48e77fce76a4aac9901f240166fce5832b6ffe10c
     keywords:
@@ -123,7 +141,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-03-19T13:08:44.826524512-04:00"
+    created: "2026-03-19T13:57:55.068569183-04:00"
     description: Itineris distributed graph database (JanusGraph fork)
     digest: 19721c5a7c7712344e8301bb20a6d72a9748a1acc1e046966a3ad977dec1e18d
     keywords:
@@ -141,7 +159,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-03-19T13:08:44.826260184-04:00"
+    created: "2026-03-19T13:57:55.068312679-04:00"
     description: Itineris distributed graph database (JanusGraph fork)
     digest: c09f718f394483fd7d3984de94f0876a7997b3a2a44a7a0e8aa9ccff5221298a
     keywords:
@@ -1317,4 +1335,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-19T13:08:44.82589533-04:00"
+generated: "2026-03-19T13:57:55.067989322-04:00"
