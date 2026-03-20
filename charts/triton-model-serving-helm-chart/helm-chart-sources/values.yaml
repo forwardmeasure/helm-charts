@@ -1,0 +1,223 @@
+# ==============================================================================
+# triton-serving chart values
+# Deploy one Helmfile release per logical model group / colocation boundary.
+#
+# Colocation strategy:
+#   - Do NOT commingle LLM models with non-LLM models
+#   - Group by backend family: python/timeseries, vllm/llm, trtllm/llm, etc.
+#   - CPU vs GPU is controlled per-model via config.pbtxt instance_group
+#   - Backend is controlled per-model via config.pbtxt backend field
+# ==============================================================================
+
+# -- Number of replicas
+replicaCount: 1
+
+# -- Default Triton base image for the group.
+# Can be overridden per-model via models[].image.
+# digest takes precedence over tag when set — use digest in production
+# to avoid GKE image caching issues with mutable tags.
+image:
+  registry: docker.io
+  repository: forwardmeasure/triton-python-base
+  tag: "25.11"
+  # -- Image digest (takes precedence over tag if set)
+  # e.g. sha256:abc123...
+  digest: ""
+  pullPolicy: IfNotPresent
+
+# -- Init container image for git sparse checkout.
+# digest takes precedence over tag when set.
+gitInit:
+  image:
+    registry: docker.io
+    repository: alpine/git
+    tag: "latest"
+    # -- Image digest (takes precedence over tag if set)
+    digest: ""
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+# -- Image pull secrets
+imagePullSecrets: []
+
+# -- Override chart name
+nameOverride: ""
+# -- Override full resource name
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Set to false — model-cache chart creates model-cache-sa for this namespace
+  create: false
+  annotations: {}
+  # -- Must match the service account created by model-cache chart
+  name: model-cache-sa
+
+# -- Annotations for the pod (cloud-specific annotations e.g. gke-gcsfuse
+# should be set in the cloud-specific helmfile values layer, not here)
+podAnnotations: {}
+
+# -- Security context for the pod
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10013
+  runAsGroup: 10013
+  fsGroup: 10013
+
+# -- Default security context for Triton containers
+# Can be overridden per-model via models[].securityContext
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  # Base ports — offset by 10 per model index
+  # Model 0: 8000/8001/8002
+  # Model 1: 8010/8011/8012
+  # Model N: 8000+(N*10) / 8001+(N*10) / 8002+(N*10)
+  httpPort: 8000
+  grpcPort: 8001
+  metricsPort: 8002
+
+# -- Default resource requests and limits for Triton containers
+# Can be overridden per-model via models[].resources
+resources:
+  requests:
+    cpu: 2000m
+    memory: 8Gi
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+
+# -- Node selector
+nodeSelector: {}
+
+# -- Tolerations
+tolerations: []
+
+# -- Affinity rules
+affinity: {}
+
+# -- Probe timing
+probes:
+  liveness:
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# -- Triton model repository path — populated at startup by init containers
+modelRepo: /mnt/model-repo
+
+# -- Default extra triton server args for the group
+tritonArgs: []
+
+# -- Extra environment variables
+extraEnv: []
+
+# -- Extra volumes
+extraVolumes: []
+
+# -- Extra volume mounts
+extraVolumeMounts: []
+
+# ==============================================================================
+# Model list — one entry per model to serve in this Triton instance.
+#
+# models[]:
+#   name:               Unique model name — must match Triton model directory name
+#   image:              (optional) Per-model image override.
+#                       digest takes precedence over tag when set.
+#     registry:
+#     repository:
+#     tag:
+#     digest:           Recommended for production — avoids GKE tag caching
+#     pullPolicy:
+#   resources:          (optional) Per-model resource override
+#     requests:
+#       cpu:
+#       memory:
+#       nvidia.com/gpu:   Set for GPU models
+#     limits:
+#       cpu:
+#       memory:
+#       nvidia.com/gpu:
+#   securityContext:    (optional) Per-model security context override
+#   git:
+#     url:              Git repository URL
+#     ref:              Branch, tag, or commit SHA
+#     sparseCheckoutPath: Path within repo to the model directory
+#     credentialsSecret: (optional) Secret with keys: username, password
+#   modelWeights:
+#     pvcName:          PVC created by model-cache chart
+#     mountPath:        Must match MODEL_PATH prefix in config.pbtxt
+#     subPath:          (optional) Sub-path within PVC
+# ==============================================================================
+models: []
+# Example:
+#   - name: granite-timeseries-flowstate-r1
+#     image:
+#       registry: docker.io
+#       repository: forwardmeasure/triton-python-base
+#       tag: "25.11"
+#       digest: "sha256:abc123..."   # recommended for production
+#     resources:
+#       requests:
+#         cpu: 2000m
+#         memory: 8Gi
+#       limits:
+#         cpu: 4000m
+#         memory: 16Gi
+#     git:
+#       url: "https://github.com/forwardmeasure/datafabric.git"
+#       ref: "main"                  # or a commit SHA for immutability
+#       sparseCheckoutPath: "ml-models/granite-timeseries-flowstate-r1"
+#       credentialsSecret: ""
+#     modelWeights:
+#       pvcName: model-cache-pvc
+#       mountPath: /opt/huggingface/model-weights
+#       subPath: ""
+#
+#   - name: timesfm-2.5-200m-pytorch
+#     image:
+#       registry: docker.io
+#       repository: forwardmeasure/triton-pytorch-base
+#       tag: "25.11"
+#       digest: "sha256:def456..."
+#     resources:
+#       requests:
+#         cpu: 4000m
+#         memory: 16Gi
+#         nvidia.com/gpu: "1"
+#       limits:
+#         cpu: 8000m
+#         memory: 32Gi
+#         nvidia.com/gpu: "1"
+#     git:
+#       url: "https://github.com/forwardmeasure/datafabric.git"
+#       ref: "main"
+#       sparseCheckoutPath: "ml-models/timesfm-2.5-200m-pytorch"
+#       credentialsSecret: ""
+#     modelWeights:
+#       pvcName: model-cache-pvc
+#       mountPath: /opt/huggingface/model-weights
+#       subPath: ""
