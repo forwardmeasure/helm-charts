@@ -6,7 +6,7 @@ description: |
   shared emptyDir volume. Model weights are mounted from a GCS FUSE PVC.
   Deploy one release per logical model group (e.g. timeseries, nlp, vision).
 type: application
-version: "0.1.1"
+version: "0.1.2"
 appVersion: "25.11"
 keywords:
   - triton
