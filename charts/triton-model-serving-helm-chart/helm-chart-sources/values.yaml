@@ -14,14 +14,11 @@ replicaCount: 1
 
 # -- Default Triton base image for the group.
 # Can be overridden per-model via models[].image.
-# digest takes precedence over tag when set — use digest in production
-# to avoid GKE image caching issues with mutable tags.
+# digest takes precedence over tag — use digest in production to avoid GKE caching.
 image:
   registry: docker.io
   repository: forwardmeasure/triton-python-base
   tag: "25.11"
-  # -- Image digest (takes precedence over tag if set)
-  # e.g. sha256:abc123...
   digest: ""
   pullPolicy: IfNotPresent
 
@@ -32,7 +29,6 @@ gitInit:
     registry: docker.io
     repository: alpine/git
     tag: "latest"
-    # -- Image digest (takes precedence over tag if set)
     digest: ""
     pullPolicy: IfNotPresent
   resources:
@@ -47,6 +43,39 @@ gitInit:
     readOnlyRootFilesystem: false
     runAsNonRoot: false
     runAsUser: 0
+
+# -- Init container image for HuggingFace model weight download.
+# Uses the same ml-model-utilities image as kserve-model-serving.
+# digest takes precedence over tag when set.
+modelDownload:
+  image:
+    registry: ghcr.io
+    repository: forwardmeasure/ml-model-utilities
+    tag: "latest"
+    digest: ""
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 6Gi
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+
+# -- HuggingFace token secret.
+# Must be created by platform-secrets before this chart is deployed.
+# secretName: name of the Kubernetes Secret containing the token.
+# secretKey:  key within the secret that holds the token value.
+# When secretName is empty, no token is injected (public models only).
+huggingFace:
+  token:
+    secretName: ""
+    secretKey: token
 
 # -- Image pull secrets
 imagePullSecrets: []
@@ -63,8 +92,9 @@ serviceAccount:
   # -- Must match the service account created by model-cache chart
   name: model-cache-sa
 
-# -- Annotations for the pod (cloud-specific annotations e.g. gke-gcsfuse
-# should be set in the cloud-specific helmfile values layer, not here)
+# -- Annotations for the pod
+# Cloud-specific annotations (e.g. gke-gcsfuse/volumes: "true") should be
+# set in the cloud-specific helmfile values layer, not here.
 podAnnotations: {}
 
 # -- Security context for the pod
@@ -143,6 +173,12 @@ extraVolumeMounts: []
 # ==============================================================================
 # Model list — one entry per model to serve in this Triton instance.
 #
+# Init container order per model:
+#   1. download-weights-<name> — downloads HF weights to model-cache PVC
+#                                skipped if weights already present
+#   2. git-clone-<name>        — sparse-clones model code (config.pbtxt,
+#                                model.py, 1/) from git into emptyDir
+#
 # models[]:
 #   name:               Unique model name — must match Triton model directory name
 #   image:              (optional) Per-model image override.
@@ -162,6 +198,10 @@ extraVolumeMounts: []
 #       memory:
 #       nvidia.com/gpu:
 #   securityContext:    (optional) Per-model security context override
+#   huggingFaceRepo:    HuggingFace model repo (org/model) e.g. ibm-granite/granite-timeseries-flowstate-r1
+#   modelDownload:      (optional) Per-model download overrides
+#     skipIfExists:     true (default) — skip download if weights already in PVC
+#     resources:        override group-level modelDownload.resources
 #   git:
 #     url:              Git repository URL
 #     ref:              Branch, tag, or commit SHA
@@ -175,11 +215,12 @@ extraVolumeMounts: []
 models: []
 # Example:
 #   - name: granite-timeseries-flowstate-r1
+#     huggingFaceRepo: "ibm-granite/granite-timeseries-flowstate-r1"
 #     image:
 #       registry: docker.io
 #       repository: forwardmeasure/triton-python-base
 #       tag: "25.11"
-#       digest: "sha256:abc123..."   # recommended for production
+#       digest: "sha256:abc123..."
 #     resources:
 #       requests:
 #         cpu: 2000m
@@ -187,35 +228,12 @@ models: []
 #       limits:
 #         cpu: 4000m
 #         memory: 16Gi
-#     git:
-#       url: "https://github.com/forwardmeasure/datafabric.git"
-#       ref: "main"                  # or a commit SHA for immutability
-#       sparseCheckoutPath: "ml-models/granite-timeseries-flowstate-r1"
-#       credentialsSecret: ""
-#     modelWeights:
-#       pvcName: model-cache-pvc
-#       mountPath: /opt/huggingface/model-weights
-#       subPath: ""
-#
-#   - name: timesfm-2.5-200m-pytorch
-#     image:
-#       registry: docker.io
-#       repository: forwardmeasure/triton-pytorch-base
-#       tag: "25.11"
-#       digest: "sha256:def456..."
-#     resources:
-#       requests:
-#         cpu: 4000m
-#         memory: 16Gi
-#         nvidia.com/gpu: "1"
-#       limits:
-#         cpu: 8000m
-#         memory: 32Gi
-#         nvidia.com/gpu: "1"
+#     modelDownload:
+#       skipIfExists: true
 #     git:
 #       url: "https://github.com/forwardmeasure/datafabric.git"
 #       ref: "main"
-#       sparseCheckoutPath: "ml-models/timesfm-2.5-200m-pytorch"
+#       sparseCheckoutPath: "ml-models/granite-timeseries-flowstate-r1"
 #       credentialsSecret: ""
 #     modelWeights:
 #       pvcName: model-cache-pvc
