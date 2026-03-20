@@ -32,7 +32,6 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{/*
 Resolve whether manifest verification should be skipped for a given model.
 Per-model setting takes precedence over chart-level setting.
-Usage: {{ include "kserve-model-serving.skipVerification" (dict "model" $model "Values" $.Values) }}
 */}}
 {{- define "kserve-model-serving.skipVerification" -}}
 {{- if hasKey .model "modelCache" }}
@@ -49,7 +48,6 @@ Usage: {{ include "kserve-model-serving.skipVerification" (dict "model" $model "
 {{/*
 Resolve the PVC name for a given model.
 Per-model setting takes precedence over chart-level setting.
-Usage: {{ include "kserve-model-serving.pvcName" (dict "model" $model "Values" $.Values) }}
 */}}
 {{- define "kserve-model-serving.pvcName" -}}
 {{- if and (hasKey .model "modelCache") (hasKey .model.modelCache "pvcName") }}
@@ -72,20 +70,48 @@ Per-model setting takes precedence over chart-level setting.
 {{- end }}
 
 {{/*
-Resolve the model download image for a given model.
-Per-model setting takes precedence over chart-level setting.
+Resolve image reference from an image block — prefers digest over tag.
+Accepts a dict with keys: registry, repository, tag, digest.
+Supports both legacy format (repository: registry/repo) and
+explicit format (registry: ..., repository: repo).
 */}}
-{{- define "kserve-model-serving.downloadImage" -}}
-{{- if and (hasKey .model "modelDownload") (hasKey .model.modelDownload "image") }}
-{{- printf "%s:%s" .model.modelDownload.image.repository .model.modelDownload.image.tag }}
+{{- define "kserve-model-serving.imageRef" -}}
+{{- $registry := .registry | default "" -}}
+{{- $repository := .repository -}}
+{{- $digest := .digest | default "" -}}
+{{- $tag := .tag | default "latest" -}}
+{{- if $digest }}
+{{- if $registry }}
+{{- printf "%s/%s@%s" $registry $repository $digest }}
 {{- else }}
-{{- printf "%s:%s" .Values.modelDownload.image.repository .Values.modelDownload.image.tag }}
+{{- printf "%s@%s" $repository $digest }}
+{{- end }}
+{{- else }}
+{{- if $registry }}
+{{- printf "%s/%s:%s" $registry $repository $tag }}
+{{- else }}
+{{- printf "%s:%s" $repository $tag }}
+{{- end }}
 {{- end }}
 {{- end }}
 
 {{/*
+Resolve the model download image for a given model.
+Per-model image takes precedence over chart-level image.
+Supports registry, repository, tag, and digest fields.
+*/}}
+{{- define "kserve-model-serving.downloadImage" -}}
+{{- $imageBlock := dict -}}
+{{- if and (hasKey .model "modelDownload") (hasKey .model.modelDownload "image") }}
+{{- $imageBlock = .model.modelDownload.image }}
+{{- else }}
+{{- $imageBlock = .Values.modelDownload.image }}
+{{- end }}
+{{- include "kserve-model-serving.imageRef" $imageBlock }}
+{{- end }}
+
+{{/*
 Validate that a model entry has required fields.
-Usage: {{ include "kserve-model-serving.validateModel" (dict "model" $model) }}
 */}}
 {{- define "kserve-model-serving.validateModel" -}}
 {{- if empty .model.name }}
