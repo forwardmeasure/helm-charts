@@ -18,8 +18,8 @@ metadata:
 spec:
   refreshInterval: {{ $root.Values.refreshInterval }}
   secretStoreRef:
-    name: {{ $root.Values.secretStoreRef.name }}
-    kind: {{ $root.Values.secretStoreRef.kind }}
+    name: {{ ($secret.secretStoreRef).name | default $root.Values.secretStoreRef.name }}
+    kind: {{ ($secret.secretStoreRef).kind | default $root.Values.secretStoreRef.kind }}
   target:
     name: {{ $secret.name }}
     {{- if $secret.secretType }}
@@ -31,6 +31,9 @@ spec:
     - secretKey: {{ .secretKey }}
       remoteRef:
         key: {{ .remoteKey }}
+        {{- if .property }}
+        property: {{ .property }}
+        {{- end }}
     {{- end }}
 {{- end }}
 {{- end }}
