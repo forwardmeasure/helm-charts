@@ -84,10 +84,15 @@ modelCache:
 # Model download init container
 # Only used when externalModelCache is true.
 # ------------------------------------------------------------------------------
+# Updated modelDownload section for kserve-model-serving values.yaml
+# Replace the existing modelDownload block with this:
 modelDownload:
   image:
-    repository: ghcr.io/forwardmeasure/ml-model-utilities
-    tag: latest
+    registry: docker.io
+    repository: forwardmeasure/ml-model-utilities
+    tag: "latest"
+    # -- digest takes precedence over tag — use in production to avoid GKE caching
+    digest: ""
     pullPolicy: IfNotPresent
   resources:
     requests:
