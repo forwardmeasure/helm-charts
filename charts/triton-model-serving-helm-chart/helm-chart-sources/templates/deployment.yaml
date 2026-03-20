@@ -1,0 +1,229 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "triton-serving.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "triton-serving.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "triton-serving.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "triton-serving.labels" . | nindent 8 }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "triton-serving.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      # ----------------------------------------------------------------
+      # Init containers — one per model, sparse-clones model code from git
+      # into the shared model-repo emptyDir volume.
+      # Init containers run sequentially — order matches models[] list.
+      # ----------------------------------------------------------------
+      initContainers:
+        {{- range .Values.models }}
+        {{- $safeName := include "triton-serving.modelSafeName" .name }}
+        - name: git-clone-{{ $safeName }}
+          image: {{ $.Values.gitInit.image.registry }}/{{ $.Values.gitInit.image.repository }}:{{ $.Values.gitInit.image.tag }}
+          imagePullPolicy: {{ $.Values.gitInit.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $.Values.gitInit.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml $.Values.gitInit.resources | nindent 12 }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+
+              REPO_DIR=/tmp/sparse-repo-{{ $safeName }}
+
+              {{- if .git.credentialsSecret }}
+              GIT_USER=$(cat /git-credentials-{{ $safeName }}/username)
+              GIT_TOKEN=$(cat /git-credentials-{{ $safeName }}/password)
+              REPO_URL=$(echo "{{ .git.url }}" | sed "s|https://|https://${GIT_USER}:${GIT_TOKEN}@|")
+              {{- else }}
+              REPO_URL="{{ .git.url }}"
+              {{- end }}
+
+              echo "[INFO] Sparse-cloning {{ .git.sparseCheckoutPath }} from {{ .git.url }} @ {{ .git.ref }}"
+
+              git clone \
+                --depth=1 \
+                --filter=blob:none \
+                --sparse \
+                --branch {{ .git.ref }} \
+                "${REPO_URL}" \
+                "${REPO_DIR}"
+
+              cd "${REPO_DIR}"
+              git sparse-checkout set {{ .git.sparseCheckoutPath }}
+
+              MODEL_SRC="${REPO_DIR}/{{ .git.sparseCheckoutPath }}"
+              echo "[INFO] Copying ${MODEL_SRC} -> {{ $.Values.modelRepo }}/{{ .name }}"
+              cp -r "${MODEL_SRC}" {{ $.Values.modelRepo }}/{{ .name }}
+
+              echo "[INFO] Contents of {{ $.Values.modelRepo }}/{{ .name }}:"
+              find {{ $.Values.modelRepo }}/{{ .name }} -type f
+          volumeMounts:
+            - name: model-repo
+              mountPath: {{ $.Values.modelRepo }}
+            {{- if .git.credentialsSecret }}
+            - name: git-credentials-{{ $safeName }}
+              mountPath: /git-credentials-{{ $safeName }}
+              readOnly: true
+            {{- end }}
+        {{- end }}
+
+      # ----------------------------------------------------------------
+      # Containers — one per model.
+      # Each model gets its own Triton server container, allowing:
+      #   - Different base images (python, vllm, trtllm, pytorch, etc.)
+      #   - Different resource profiles (CPU/GPU/memory)
+      #   - Independent restarts if a model fails
+      # All containers share the model-repo emptyDir and model weights PVCs.
+      # Triton port assignments are offset by model index to avoid conflicts:
+      #   Model 0: HTTP 8000, gRPC 8001, metrics 8002
+      #   Model 1: HTTP 8010, gRPC 8011, metrics 8012
+      #   Model N: HTTP 8000+(N*10), gRPC 8001+(N*10), metrics 8002+(N*10)
+      # The Service exposes only the primary ports (8000/8001/8002).
+      # For multi-model groups, use a separate Service per model or an
+      # Istio VirtualService to route by path/header.
+      # ----------------------------------------------------------------
+      containers:
+        {{- range $idx, $model := .Values.models }}
+        {{- $safeName := include "triton-serving.modelSafeName" $model.name }}
+        {{- $httpPort := add 8000 (mul $idx 10) }}
+        {{- $grpcPort := add 8001 (mul $idx 10) }}
+        {{- $metricsPort := add 8002 (mul $idx 10) }}
+        - name: triton-{{ $safeName }}
+          image: {{ include "triton-serving.modelImage" (dict "model" $model "root" $) }}
+          imagePullPolicy: {{ ($model.image).pullPolicy | default $.Values.image.pullPolicy }}
+          securityContext:
+            {{- include "triton-serving.modelSecurityContext" (dict "model" $model "root" $) | nindent 12 }}
+          command:
+            - bash
+            - -c
+            - |
+              exec tritonserver \
+                --model-repository={{ $.Values.modelRepo }} \
+                --model-control-mode=explicit \
+                --load-model={{ $model.name }} \
+                {{- range $.Values.tritonArgs }}
+                {{ . }} \
+                {{- end }}
+                --allow-http=true \
+                --allow-grpc=true \
+                --allow-metrics=true \
+                --http-port={{ $httpPort }} \
+                --grpc-port={{ $grpcPort }} \
+                --metrics-port={{ $metricsPort }}
+          ports:
+            - name: http-{{ $safeName }}
+              containerPort: {{ $httpPort }}
+              protocol: TCP
+            - name: grpc-{{ $safeName }}
+              containerPort: {{ $grpcPort }}
+              protocol: TCP
+            - name: metrics-{{ $safeName }}
+              containerPort: {{ $metricsPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /v2/health/live
+              port: {{ $httpPort }}
+            initialDelaySeconds: {{ $.Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ $.Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ $.Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /v2/health/ready
+              port: {{ $httpPort }}
+            initialDelaySeconds: {{ $.Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ $.Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ $.Values.probes.readiness.failureThreshold }}
+          env:
+            - name: MODEL_REPO
+              value: {{ $.Values.modelRepo | quote }}
+            - name: MODEL_NAME
+              value: {{ $model.name | quote }}
+            - name: HF_HOME
+              value: /opt/hf
+            - name: TRANSFORMERS_CACHE
+              value: /opt/hf/cache
+            - name: TORCH_CUDA_ALLOC_CONF
+              value: expandable_segments:True
+            {{- with $.Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- include "triton-serving.modelResources" (dict "model" $model "root" $) | nindent 12 }}
+          volumeMounts:
+            - name: model-repo
+              mountPath: {{ $.Values.modelRepo }}
+              readOnly: true
+            {{- if $model.modelWeights }}
+            - name: model-weights-{{ $safeName }}
+              mountPath: {{ $model.modelWeights.mountPath }}
+              {{- if $model.modelWeights.subPath }}
+              subPath: {{ $model.modelWeights.subPath }}
+              {{- end }}
+              readOnly: true
+            {{- end }}
+            {{- with $.Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- end }}
+
+      # ----------------------------------------------------------------
+      # Volumes
+      # ----------------------------------------------------------------
+      volumes:
+        # Shared emptyDir — populated by init containers, read by all Triton containers
+        - name: model-repo
+          emptyDir: {}
+        # One PVC volume per model weights entry
+        {{- range .Values.models }}
+        {{- $safeName := include "triton-serving.modelSafeName" .name }}
+        {{- if .modelWeights }}
+        - name: model-weights-{{ $safeName }}
+          persistentVolumeClaim:
+            claimName: {{ .modelWeights.pvcName }}
+            readOnly: true
+        {{- end }}
+        # Git credentials secret per model (if set)
+        {{- if .git.credentialsSecret }}
+        - name: git-credentials-{{ $safeName }}
+          secret:
+            secretName: {{ .git.credentialsSecret }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

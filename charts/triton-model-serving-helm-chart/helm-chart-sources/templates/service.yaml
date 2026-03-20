@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "triton-serving.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "triton-serving.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    {{- range $idx, $model := .Values.models }}
+    {{- $safeName := include "triton-serving.modelSafeName" $model.name }}
+    {{- $httpPort := add 8000 (mul $idx 10) }}
+    {{- $grpcPort := add 8001 (mul $idx 10) }}
+    {{- $metricsPort := add 8002 (mul $idx 10) }}
+    - name: http-{{ $safeName }}
+      port: {{ $httpPort }}
+      targetPort: http-{{ $safeName }}
+      protocol: TCP
+    - name: grpc-{{ $safeName }}
+      port: {{ $grpcPort }}
+      targetPort: grpc-{{ $safeName }}
+      protocol: TCP
+    - name: metrics-{{ $safeName }}
+      port: {{ $metricsPort }}
+      targetPort: metrics-{{ $safeName }}
+      protocol: TCP
+    {{- end }}
+  selector:
+    {{- include "triton-serving.selectorLabels" . | nindent 4 }}
