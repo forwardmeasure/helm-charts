@@ -1,0 +1,18 @@
+apiVersion: v2
+name: triton-serving
+description: |
+  Deploys a NVIDIA Triton Inference Server instance serving a configurable
+  group of models. Each model is sparse-cloned from git at startup into a
+  shared emptyDir volume. Model weights are mounted from a GCS FUSE PVC.
+  Deploy one release per logical model group (e.g. timeseries, nlp, vision).
+type: application
+version: "0.1.1"
+appVersion: "25.11"
+keywords:
+  - triton
+  - inference
+  - model-serving
+  - machine-learning
+maintainers:
+  - name: ForwardMeasure
+    url: https://github.com/forwardmeasure
