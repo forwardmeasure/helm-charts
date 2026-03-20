@@ -81,8 +81,6 @@ tolerations: []
 affinity: {}
 
 # -- Probe timing configuration
-# Handler type (tcpSocket on port 8182) is fixed in the deployment template
-# to avoid Helm deep-merge conflicts when overriding individual timing values.
 probes:
   liveness:
     initialDelaySeconds: 60
@@ -122,6 +120,10 @@ cql:
   localDatacenter: dc1
   # -- Replication factor
   replicationFactor: 3
+  # -- Milliseconds to wait after creating each table, to allow schema propagation
+  # across all Cassandra nodes before preparing statements. Increase if you see
+  # "table X does not exist" errors on fresh installs with multi-node clusters.
+  initWaitTime: 2000
   # -- k8ssandra superuser secret — read directly from k8ssandra namespace via SecretStore
   credentialsSecret:
     name: data-fabric-superuser
@@ -135,7 +137,7 @@ opensearch:
   hostname: ""
   # -- OpenSearch port
   port: 9200
-  # -- OpenSearch credentials secret (synced by platform-secrets)
+  # -- SSL configuration
   ssl:
     enabled: true
     disableHostnameVerification: true
