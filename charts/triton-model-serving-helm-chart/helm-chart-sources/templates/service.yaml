@@ -9,21 +9,20 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     {{- range $idx, $model := .Values.models }}
-    {{- $safeName := include "triton-serving.modelSafeName" $model.name }}
     {{- $httpPort := add 8000 (mul $idx 10) }}
     {{- $grpcPort := add 8001 (mul $idx 10) }}
     {{- $metricsPort := add 8002 (mul $idx 10) }}
-    - name: http-{{ $safeName }}
+    - name: {{ printf "http-m%d" $idx }}
       port: {{ $httpPort }}
-      targetPort: http-{{ $safeName }}
+      targetPort: {{ printf "http-m%d" $idx }}
       protocol: TCP
-    - name: grpc-{{ $safeName }}
+    - name: {{ printf "grpc-m%d" $idx }}
       port: {{ $grpcPort }}
-      targetPort: grpc-{{ $safeName }}
+      targetPort: {{ printf "grpc-m%d" $idx }}
       protocol: TCP
-    - name: metrics-{{ $safeName }}
+    - name: {{ printf "metrics-m%d" $idx }}
       port: {{ $metricsPort }}
-      targetPort: metrics-{{ $safeName }}
+      targetPort: {{ printf "metrics-m%d" $idx }}
       protocol: TCP
     {{- end }}
   selector:
