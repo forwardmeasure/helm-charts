@@ -159,13 +159,13 @@ spec:
                 --grpc-port={{ $grpcPort }} \
                 --metrics-port={{ $metricsPort }}
           ports:
-            - name: http-{{ $safeName }}
+            - name: {{ printf "http-m%d" $idx }}
               containerPort: {{ $httpPort }}
               protocol: TCP
-            - name: grpc-{{ $safeName }}
+            - name: {{ printf "grpc-m%d" $idx }}
               containerPort: {{ $grpcPort }}
               protocol: TCP
-            - name: metrics-{{ $safeName }}
+            - name: {{ printf "metrics-m%d" $idx }}
               containerPort: {{ $metricsPort }}
               protocol: TCP
           livenessProbe:
