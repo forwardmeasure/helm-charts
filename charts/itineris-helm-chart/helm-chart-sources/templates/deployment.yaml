@@ -40,6 +40,9 @@ spec:
               containerPort: 8182
               protocol: TCP
           env:
+            # ----------------------------------------------------------------
+            # Server bootstrap
+            # ----------------------------------------------------------------
             - name: ITINERIS_PROPS_TEMPLATE
               value: {{ .Values.itineris.propsTemplate | quote }}
             - name: ITINERIS_STORAGE_TIMEOUT
@@ -48,11 +51,18 @@ spec:
               value: {{ .Values.itineris.serverTimeout | quote }}
             - name: JAVA_OPTIONS
               value: {{ .Values.itineris.javaOptions | quote }}
+
+            # ----------------------------------------------------------------
+            # Gremlin server tuning
+            # ----------------------------------------------------------------
             - name: gremlinserver.threadPoolWorker
               value: {{ .Values.itineris.gremlinThreadPoolWorker | quote }}
             - name: gremlinserver.gremlinPool
               value: {{ .Values.itineris.gremlinPool | quote }}
-            # CQL backend
+
+            # ----------------------------------------------------------------
+            # CQL storage backend
+            # ----------------------------------------------------------------
             - name: itineris.storage.hostname
               value: {{ .Values.cql.hostname | quote }}
             - name: itineris.storage.port
@@ -63,7 +73,11 @@ spec:
               value: {{ .Values.cql.localDatacenter | quote }}
             - name: itineris.storage.cql.replication-factor
               value: {{ .Values.cql.replicationFactor | quote }}
-            # CQL credentials — sourced from ExternalSecret itineris-cql-credentials
+            {{- if .Values.cql.initWaitTime }}
+            - name: itineris.storage.cql.init-wait-time
+              value: {{ .Values.cql.initWaitTime | quote }}
+            {{- end }}
+            # CQL credentials sourced from ExternalSecret itineris-cql-credentials
             - name: itineris.storage.username
               valueFrom:
                 secretKeyRef:
@@ -74,6 +88,7 @@ spec:
                 secretKeyRef:
                   name: itineris-cql-credentials
                   key: password
+
             # ----------------------------------------------------------------
             # OpenSearch index backend
             # ----------------------------------------------------------------
@@ -107,9 +122,14 @@ spec:
             - name: itineris.index.search.opensearch.ssl.allow-self-signed-certificates
               value: {{ .Values.opensearch.ssl.allowSelfSignedCertificates | quote }}
             {{- end }}
+
+            # ----------------------------------------------------------------
+            # Extra env vars (from values)
+            # ----------------------------------------------------------------
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+
           livenessProbe:
             tcpSocket:
               port: 8182
