@@ -164,3 +164,12 @@ Replaces underscores and dots with hyphens.
 {{- define "triton-serving.modelSafeName" -}}
 {{- . | replace "_" "-" | replace "." "-" }}
 {{- end }}
+
+{{/*
+Generate a short port name prefix using model index — stays within 15 char limit.
+e.g. http-m0, grpc-m0, metrics-m0
+Args: dict with "prefix" and "idx" keys
+*/}}
+{{- define "triton-serving.portName" -}}
+{{- printf "%s-m%d" .prefix (.idx | int) }}
+{{- end }}
