@@ -1394,6 +1394,28 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.1.tgz
     version: 0.1.1
+  triton-serving:
+  - apiVersion: v2
+    appVersion: "25.11"
+    created: "2026-03-20T10:57:51.632313211-04:00"
+    description: 'Deploys a NVIDIA Triton Inference Server instance serving a configurable
+      group of models. Each model is sparse-cloned from git at startup into a shared
+      emptyDir volume. Model weights are mounted from a GCS FUSE PVC. Deploy one release
+      per logical model group (e.g. timeseries, nlp, vision). '
+    digest: 30ec42fd53fa24885e454a2683e6631661e64b8ea4f428416120a1fffd3c0241
+    keywords:
+    - triton
+    - inference
+    - model-serving
+    - machine-learning
+    maintainers:
+    - name: ForwardMeasure
+      url: https://github.com/forwardmeasure
+    name: triton-serving
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/triton-model-serving-helm-chart/triton-serving-0.1.1.tgz
+    version: 0.1.1
   zookeeper:
   - apiVersion: v2
     appVersion: 3.9.4
@@ -1455,4 +1477,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-20T01:21:30.348160653-04:00"
+generated: "2026-03-20T10:57:51.631990261-04:00"
