@@ -28,15 +28,50 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
 
       # ----------------------------------------------------------------
-      # Init containers — one per model, sparse-clones model code from git
-      # into the shared model-repo emptyDir volume.
-      # Init containers run sequentially — order matches models[] list.
+      # Init containers — per model, in order:
+      #   1. download-weights-<n> — downloads HF weights to model-cache PVC
+      #                             skipped if weights already present
+      #   2. git-clone-<n>        — sparse-clones model code from git
+      #                             into shared model-repo emptyDir
       # ----------------------------------------------------------------
       initContainers:
         {{- range .Values.models }}
         {{- $safeName := include "triton-serving.modelSafeName" .name }}
+
+        # ---- Step 1: Download model weights from HuggingFace ----
+        - name: download-weights-{{ $safeName }}
+          image: {{ include "triton-serving.modelDownloadImage" (dict "model" . "root" $) }}
+          imagePullPolicy: {{ $.Values.modelDownload.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $.Values.modelDownload.securityContext | nindent 12 }}
+          resources:
+            {{- include "triton-serving.modelDownloadResources" (dict "model" . "root" $) | nindent 12 }}
+          env:
+            {{- if $.Values.huggingFace.token.secretName }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.huggingFace.token.secretName }}
+                  key: {{ $.Values.huggingFace.token.secretKey }}
+            {{- end }}
+          command:
+            - /usr/local/lib/model-download-lib.sh
+            - {{ .huggingFaceRepo | quote }}
+            - {{ .modelWeights.mountPath | quote }}
+            - {{ .name | quote }}
+            - {{ ((.modelDownload).skipIfExists | default true) | quote }}
+          volumeMounts:
+            {{- if .modelWeights }}
+            - name: model-weights-{{ $safeName }}
+              mountPath: {{ .modelWeights.mountPath }}
+              {{- if .modelWeights.subPath }}
+              subPath: {{ .modelWeights.subPath }}
+              {{- end }}
+            {{- end }}
+
+        # ---- Step 2: Sparse-clone model code from git ----
         - name: git-clone-{{ $safeName }}
-          image: {{ $.Values.gitInit.image.registry }}/{{ $.Values.gitInit.image.repository }}:{{ $.Values.gitInit.image.tag }}
+          image: {{ include "triton-serving.gitInitImage" $ }}
           imagePullPolicy: {{ $.Values.gitInit.image.pullPolicy }}
           securityContext:
             {{- toYaml $.Values.gitInit.securityContext | nindent 12 }}
@@ -89,18 +124,11 @@ spec:
 
       # ----------------------------------------------------------------
       # Containers — one per model.
-      # Each model gets its own Triton server container, allowing:
-      #   - Different base images (python, vllm, trtllm, pytorch, etc.)
+      # Each model gets its own Triton server container allowing:
+      #   - Different base images per model
       #   - Different resource profiles (CPU/GPU/memory)
-      #   - Independent restarts if a model fails
-      # All containers share the model-repo emptyDir and model weights PVCs.
-      # Triton port assignments are offset by model index to avoid conflicts:
-      #   Model 0: HTTP 8000, gRPC 8001, metrics 8002
-      #   Model 1: HTTP 8010, gRPC 8011, metrics 8012
-      #   Model N: HTTP 8000+(N*10), gRPC 8001+(N*10), metrics 8002+(N*10)
-      # The Service exposes only the primary ports (8000/8001/8002).
-      # For multi-model groups, use a separate Service per model or an
-      # Istio VirtualService to route by path/header.
+      #   - Independent restarts
+      # Ports offset by 10 per model index.
       # ----------------------------------------------------------------
       containers:
         {{- range $idx, $model := .Values.models }}
@@ -167,6 +195,13 @@ spec:
               value: /opt/hf/cache
             - name: TORCH_CUDA_ALLOC_CONF
               value: expandable_segments:True
+            {{- if $.Values.huggingFace.token.secretName }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.huggingFace.token.secretName }}
+                  key: {{ $.Values.huggingFace.token.secretKey }}
+            {{- end }}
             {{- with $.Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -193,7 +228,7 @@ spec:
       # Volumes
       # ----------------------------------------------------------------
       volumes:
-        # Shared emptyDir — populated by init containers, read by all Triton containers
+        # Shared emptyDir — model code cloned by init containers
         - name: model-repo
           emptyDir: {}
         # One PVC volume per model weights entry
@@ -203,7 +238,6 @@ spec:
         - name: model-weights-{{ $safeName }}
           persistentVolumeClaim:
             claimName: {{ .modelWeights.pvcName }}
-            readOnly: true
         {{- end }}
         # Git credentials secret per model (if set)
         {{- if .git.credentialsSecret }}
