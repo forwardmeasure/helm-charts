@@ -76,10 +76,27 @@ Accepts a dict with keys: registry, repository, tag, digest
 {{- end }}
 
 {{/*
-Resolve the gitInit image — prefers digest over tag.
+Resolve the gitInit image.
 */}}
 {{- define "triton-serving.gitInitImage" -}}
 {{- include "triton-serving.imageRef" .Values.gitInit.image }}
+{{- end }}
+
+{{/*
+Resolve the modelDownload image — uses model-level override if set,
+falls back to group default.
+Args: dict with "model" and "root" keys
+*/}}
+{{- define "triton-serving.modelDownloadImage" -}}
+{{- $model := .model -}}
+{{- $root := .root -}}
+{{- $imageBlock := dict
+    "registry"   ($root.Values.modelDownload.image.registry)
+    "repository" ($root.Values.modelDownload.image.repository)
+    "tag"        ($root.Values.modelDownload.image.tag)
+    "digest"     ($root.Values.modelDownload.image.digest | default "")
+-}}
+{{- include "triton-serving.imageRef" $imageBlock }}
 {{- end }}
 
 {{/*
@@ -109,6 +126,20 @@ Args: dict with "model" and "root" keys
 {{- toYaml $model.resources }}
 {{- else }}
 {{- toYaml $root.Values.resources }}
+{{- end }}
+{{- end }}
+
+{{/*
+Resolve download resources for a model — uses model-level override if set, falls back to group default.
+Args: dict with "model" and "root" keys
+*/}}
+{{- define "triton-serving.modelDownloadResources" -}}
+{{- $model := .model -}}
+{{- $root := .root -}}
+{{- if and $model.modelDownload $model.modelDownload.resources }}
+{{- toYaml $model.modelDownload.resources }}
+{{- else }}
+{{- toYaml $root.Values.modelDownload.resources }}
 {{- end }}
 {{- end }}
 
