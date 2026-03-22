@@ -12,57 +12,32 @@ Create a default fully qualified app name.
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- printf "%s-%s" .Release.Name (include "kserve-model-serving.name" .) | trunc 63 | trimSuffix "-" }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
 {{- end }}
 {{- end }}
 
 {{/*
-Common labels applied to all resources owned by this chart.
+Common labels
 */}}
 {{- define "kserve-model-serving.labels" -}}
-helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+helm.sh/chart: {{ include "kserve-model-serving.name" . }}-{{ .Chart.Version }}
 app.kubernetes.io/name: {{ include "kserve-model-serving.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
 {{- end }}
 
 {{/*
-Resolve whether manifest verification should be skipped for a given model.
-Per-model setting takes precedence over chart-level setting.
-*/}}
-{{- define "kserve-model-serving.skipVerification" -}}
-{{- if hasKey .model "modelCache" }}
-{{- if hasKey .model.modelCache "skipManifestVerification" }}
-{{- .model.modelCache.skipManifestVerification }}
-{{- else }}
-{{- .Values.modelCache.skipManifestVerification }}
-{{- end }}
-{{- else }}
-{{- .Values.modelCache.skipManifestVerification }}
-{{- end }}
-{{- end }}
-
-{{/*
-Resolve the PVC name for a given model.
-Per-model setting takes precedence over chart-level setting.
-*/}}
-{{- define "kserve-model-serving.pvcName" -}}
-{{- if and (hasKey .model "modelCache") (hasKey .model.modelCache "pvcName") }}
-{{- .model.modelCache.pvcName }}
-{{- else }}
-{{- .Values.modelCache.pvcName }}
-{{- end }}
-{{- end }}
-
-{{/*
-Resolve the ServiceAccount name for a given model.
-Per-model setting takes precedence over chart-level setting.
+ServiceAccount name resolver.
+When externalModelCache is true, prefer per-model override, then
+modelCache.serviceAccountName, then chart-level serviceAccount.name.
 */}}
 {{- define "kserve-model-serving.serviceAccountName" -}}
-{{- if and (hasKey .model "modelCache") (hasKey .model.modelCache "serviceAccountName") }}
+{{- if and (hasKey .model "modelCache") (hasKey .model.modelCache "serviceAccountName") (.model.modelCache.serviceAccountName) }}
 {{- .model.modelCache.serviceAccountName }}
 {{- else }}
 {{- .Values.modelCache.serviceAccountName }}
@@ -70,57 +45,86 @@ Per-model setting takes precedence over chart-level setting.
 {{- end }}
 
 {{/*
-Resolve image reference from an image block — prefers digest over tag.
-Accepts a dict with keys: registry, repository, tag, digest.
-Supports both legacy format (repository: registry/repo) and
-explicit format (registry: ..., repository: repo).
+PVC name resolver.
+Prefer per-model override, then chart-level modelCache.pvcName.
 */}}
-{{- define "kserve-model-serving.imageRef" -}}
-{{- $registry := .registry | default "" -}}
-{{- $repository := .repository -}}
-{{- $digest := .digest | default "" -}}
-{{- $tag := .tag | default "latest" -}}
-{{- if $digest }}
-{{- if $registry }}
-{{- printf "%s/%s@%s" $registry $repository $digest }}
+{{- define "kserve-model-serving.pvcName" -}}
+{{- if and (hasKey .model "modelCache") (hasKey .model.modelCache "pvcName") (.model.modelCache.pvcName) }}
+{{- .model.modelCache.pvcName }}
 {{- else }}
-{{- printf "%s@%s" $repository $digest }}
-{{- end }}
-{{- else }}
-{{- if $registry }}
-{{- printf "%s/%s:%s" $registry $repository $tag }}
-{{- else }}
-{{- printf "%s:%s" $repository $tag }}
-{{- end }}
+{{- .Values.modelCache.pvcName }}
 {{- end }}
 {{- end }}
 
 {{/*
-Resolve the model download image for a given model.
-Per-model image takes precedence over chart-level image.
-Supports registry, repository, tag, and digest fields.
+Skip manifest verification resolver.
+Prefer per-model override, then chart-level modelCache.skipManifestVerification.
+*/}}
+{{- define "kserve-model-serving.skipVerification" -}}
+{{- if and (hasKey .model "modelCache") (hasKey .model.modelCache "skipManifestVerification") }}
+{{- .model.modelCache.skipManifestVerification | toString }}
+{{- else }}
+{{- .Values.modelCache.skipManifestVerification | toString }}
+{{- end }}
+{{- end }}
+
+{{/*
+Model download image resolver.
+SHA digest takes precedence over tag when both are set.
+Prefer per-model override for registry/repository/tag/sha,
+then chart-level modelDownload.image.
 */}}
 {{- define "kserve-model-serving.downloadImage" -}}
-{{- $imageBlock := dict -}}
+{{- $img := .Values.modelDownload.image }}
 {{- if and (hasKey .model "modelDownload") (hasKey .model.modelDownload "image") }}
-{{- $imageBlock = .model.modelDownload.image }}
-{{- else }}
-{{- $imageBlock = .Values.modelDownload.image }}
+{{- $img = .model.modelDownload.image }}
 {{- end }}
-{{- include "kserve-model-serving.imageRef" $imageBlock }}
+{{- $registry := $img.registry | default "docker.io" }}
+{{- $repo     := $img.repository }}
+{{- if $img.sha }}
+{{- printf "%s/%s@%s" $registry $repo $img.sha }}
+{{- else if $img.digest }}
+{{- printf "%s/%s@%s" $registry $repo $img.digest }}
+{{- else }}
+{{- printf "%s/%s:%s" $registry $repo ($img.tag | default "latest") }}
+{{- end }}
 {{- end }}
 
 {{/*
-Validate that a model entry has required fields.
+Custom container image reference resolver.
+SHA takes precedence over tag when both are set.
+Usage: include "kserve-model-serving.customImageRef" .customImage
+*/}}
+{{- define "kserve-model-serving.customImageRef" -}}
+{{- $registry := .registry | default "docker.io" -}}
+{{- $repo     := .repository -}}
+{{- if .sha -}}
+{{- printf "%s/%s@%s" $registry $repo .sha -}}
+{{- else -}}
+{{- printf "%s/%s:%s" $registry $repo (.tag | default "latest") -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Validate a model entry has required fields.
 */}}
 {{- define "kserve-model-serving.validateModel" -}}
-{{- if empty .model.name }}
-  {{- fail "model.name must be set for every entry in the models list" }}
+{{- if not .model.name }}
+{{- fail "model entry missing required field: name" }}
 {{- end }}
-{{- if empty .model.runtime }}
-  {{- fail (printf "model.runtime must be set for model %s" .model.name) }}
+{{- if not .model.runtime }}
+{{- fail (printf "model '%s' missing required field: runtime" .model.name) }}
 {{- end }}
-{{- if empty .model.huggingFaceRepo }}
-  {{- fail (printf "model.huggingFaceRepo must be set for model %s" .model.name) }}
+{{- if eq .model.runtime "kserve-custom" }}
+{{- if not .model.customImage }}
+{{- fail (printf "model '%s' with runtime kserve-custom missing required field: customImage" .model.name) }}
+{{- end }}
+{{- if not .model.customImage.repository }}
+{{- fail (printf "model '%s' customImage missing required field: repository" .model.name) }}
+{{- end }}
+{{- else }}
+{{- if not .model.huggingFaceRepo }}
+{{- fail (printf "model '%s' missing required field: huggingFaceRepo" .model.name) }}
+{{- end }}
 {{- end }}
 {{- end }}
