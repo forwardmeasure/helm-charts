@@ -15,29 +15,29 @@ metadata:
   annotations:
     serving.kserve.io/deploymentMode: {{ $.Values.deploymentMode | quote }}
     serving.kserve.io/deploymentRevision: {{ $.Chart.Version | quote }}
-{{- with $.Values.podAnnotations }}
+    {{- with $.Values.podAnnotations }}
     {{- toYaml . | nindent 4 }}
-{{- end }}
-{{- if $.Values.externalModelCache }}
-{{- with $.Values.modelCachePodAnnotations }}
+    {{- end }}
+    {{- if $.Values.externalModelCache }}
+    {{- with $.Values.modelCachePodAnnotations }}
     {{- toYaml . | nindent 4 }}
-{{- end }}
-{{- end }}
+    {{- end }}
+    {{- end }}
 spec:
   predictor:
     serviceAccountName: {{ if $.Values.externalModelCache }}{{ include "kserve-model-serving.serviceAccountName" (dict "model" . "Values" $.Values) }}{{ else }}{{ $.Values.serviceAccount.name }}{{ end }}
     minReplicas: {{ .scaling.minReplicas | default 0 }}
     maxReplicas: {{ .scaling.maxReplicas | default 1 }}
     timeout: {{ .scaling.timeoutSeconds | default 1800 }}
-{{- with .nodeSelector }}
+    {{- with .nodeSelector }}
     nodeSelector:
       {{- toYaml . | nindent 6 }}
-{{- end }}
-{{- with .tolerations }}
+    {{- end }}
+    {{- with .tolerations }}
     tolerations:
       {{- toYaml . | nindent 6 }}
-{{- end }}
-{{- if $.Values.externalModelCache }}
+    {{- end }}
+    {{- if $.Values.externalModelCache }}
     volumes:
       - name: model-cache
         persistentVolumeClaim:
@@ -47,19 +47,19 @@ spec:
         image: {{ include "kserve-model-serving.downloadImage" (dict "model" . "Values" $.Values) }}
         imagePullPolicy: {{ $.Values.modelDownload.image.pullPolicy }}
         resources:
-{{- if and (hasKey . "modelDownload") (hasKey .modelDownload "resources") }}
-{{- toYaml .modelDownload.resources | nindent 10 }}
-{{- else }}
-{{- toYaml $.Values.modelDownload.resources | nindent 10 }}
-{{- end }}
-{{- if $.Values.huggingFace.token.secretName }}
+          {{- if and (hasKey . "modelDownload") (hasKey .modelDownload "resources") }}
+          {{- toYaml .modelDownload.resources | nindent 10 }}
+          {{- else }}
+          {{- toYaml $.Values.modelDownload.resources | nindent 10 }}
+          {{- end }}
+        {{- if $.Values.huggingFace.token.secretName }}
         env:
           - name: HUGGING_FACE_HUB_TOKEN
             valueFrom:
               secretKeyRef:
                 name: {{ $.Values.huggingFace.token.secretName }}
                 key: {{ $.Values.huggingFace.token.secretKey }}
-{{- end }}
+        {{- end }}
         command:
           - /usr/local/lib/model-download-lib.sh
           - {{ .huggingFaceRepo | quote }}
@@ -69,55 +69,111 @@ spec:
         volumeMounts:
           - name: model-cache
             mountPath: {{ $.Values.modelCache.mountPath }}
-{{- end }}
+    {{- end }}
+    {{- /*
+    -------------------------------------------------------------------------
+    kserve-custom: Bring Your Own Container runtime.
+    Used for any custom Python model (FlowState, BERT, NER, Jaro-Winkler, etc.)
+    that manages its own model loading and serving via the KServe Python SDK.
+    No ClusterServingRuntime or storageUri — the container is self-contained.
+    SHA digest takes precedence over tag when both are set.
+    -------------------------------------------------------------------------
+    */}}
+    {{- if eq .runtime "kserve-custom" }}
+    containers:
+      - name: kserve-container
+        image: {{ include "kserve-model-serving.customImageRef" .customImage }}
+        imagePullPolicy: {{ .customImage.pullPolicy | default "IfNotPresent" }}
+        env:
+          - name: MODEL_NAME
+            value: {{ .name | quote }}
+          - name: MODEL_BASE_PATH
+            value: {{ $.Values.modelCache.mountPath | quote }}
+          - name: MODEL_SUBDIR
+            value: {{ .huggingFaceRepo | replace "/" "--" | quote }}
+          {{- if $.Values.huggingFace.token.secretName }}
+          - name: HUGGING_FACE_HUB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.huggingFace.token.secretName }}
+                key: {{ $.Values.huggingFace.token.secretKey }}
+          {{- end }}
+          {{- range $key, $val := .env }}
+          - name: {{ $key }}
+            value: {{ $val | quote }}
+          {{- end }}
+        resources:
+          requests:
+            cpu: {{ .resources.requests.cpu | quote }}
+            memory: {{ .resources.requests.memory }}
+            {{- if gt (int (.gpu | default 0)) 0 }}
+            nvidia.com/gpu: {{ .gpu | quote }}
+            {{- end }}
+          limits:
+            cpu: {{ .resources.limits.cpu | quote }}
+            memory: {{ .resources.limits.memory }}
+            {{- if gt (int (.gpu | default 0)) 0 }}
+            nvidia.com/gpu: {{ .gpu | quote }}
+            {{- end }}
+        {{- if $.Values.externalModelCache }}
+        volumeMounts:
+          - name: model-cache
+            mountPath: {{ $.Values.modelCache.mountPath }}
+            readOnly: true
+        {{- end }}
+    {{- else }}
+    {{- /* ----------------------------------------------------------------
+    Standard managed runtimes: vllm | huggingface | triton
+    ---------------------------------------------------------------- */}}
     model:
       modelFormat:
         name: {{ .runtime }}
       runtime: {{ if eq .runtime "vllm" }}kserve-vllmserver{{ else if eq .runtime "huggingface" }}kserve-huggingfaceserver{{ else if eq .runtime "triton" }}kserve-tritonserver{{ else }}{{ .runtime }}{{ end }}
-{{- if $.Values.externalModelCache }}
-      {{- /* No storageUri — model pre-loaded by init container, storage initializer bypassed */ -}}
-{{- else }}
+      {{- if $.Values.externalModelCache }}
+      {{- /* No storageUri — model pre-loaded by init container, storage initializer bypassed */}}
+      {{- else }}
       storageUri: "hf://{{ .huggingFaceRepo }}"
-{{- end }}
+      {{- end }}
       resources:
         requests:
           cpu: {{ .resources.requests.cpu | quote }}
           memory: {{ .resources.requests.memory }}
-{{- if gt (int (.gpu | default 0)) 0 }}
+          {{- if gt (int (.gpu | default 0)) 0 }}
           nvidia.com/gpu: {{ .gpu | quote }}
-{{- end }}
+          {{- end }}
         limits:
           cpu: {{ .resources.limits.cpu | quote }}
           memory: {{ .resources.limits.memory }}
-{{- if gt (int (.gpu | default 0)) 0 }}
+          {{- if gt (int (.gpu | default 0)) 0 }}
           nvidia.com/gpu: {{ .gpu | quote }}
-{{- end }}
+          {{- end }}
       args:
-{{- if $.Values.externalModelCache }}
+        {{- if $.Values.externalModelCache }}
         - --model_id={{ $.Values.modelCache.mountPath }}/{{ .huggingFaceRepo | replace "/" "--" }}
-{{- end }}
-{{- with .args }}
-{{- toYaml . | nindent 8 }}
-{{- end }}
+        {{- end }}
+        {{- with .args }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       env:
-{{- if $.Values.huggingFace.token.secretName }}
+        {{- if $.Values.huggingFace.token.secretName }}
         - name: HUGGING_FACE_HUB_TOKEN
           valueFrom:
             secretKeyRef:
               name: {{ $.Values.huggingFace.token.secretName }}
               key: {{ $.Values.huggingFace.token.secretKey }}
-{{- end }}
-{{- range $key, $val := .env }}
+        {{- end }}
+        {{- range $key, $val := .env }}
         - name: {{ $key }}
           value: {{ $val | quote }}
-{{- end }}
-{{- if $.Values.externalModelCache }}
+        {{- end }}
+      {{- if $.Values.externalModelCache }}
       volumeMounts:
         - name: model-cache
           mountPath: {{ $.Values.modelCache.mountPath }}
-{{- if or (eq $.Values.deploymentMode "Serverless") ($.Values.modelCache.readOnlyForServing) }}
+          {{- if or (eq $.Values.deploymentMode "Serverless") ($.Values.modelCache.readOnlyForServing) }}
           readOnly: true
-{{- end }}
-{{- end }}
+          {{- end }}
+      {{- end }}
+    {{- end }}
 {{- end }}
 {{- end }}

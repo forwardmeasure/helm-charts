@@ -18,15 +18,11 @@ modelCachePodAnnotations: {}
 
 # ------------------------------------------------------------------------------
 # ServiceAccount
-#
-# create: true  — this chart creates its own SA using name and annotations.
+# create: true — this chart creates its own SA using name and annotations.
 # create: false — use a pre-existing SA (e.g. from model-cache chart when
 #                 externalModelCache is true). name must still be set.
-#
 # On GCP with externalModelCache: true, set create: false and name to the
 # model-cache SA which already has Workload Identity for GCS access.
-# On GCP with externalModelCache: false, set create: true and annotate with
-# Workload Identity if GCS access is needed for other purposes.
 # ------------------------------------------------------------------------------
 serviceAccount:
   create: true
@@ -50,11 +46,8 @@ imagePullSecrets: []
 # HuggingFace token
 # Required for gated models (Gemma, some Phi variants).
 # Public models (Granite, most Phi) do not need a token.
-#
 # secretName: name of an existing Kubernetes Secret containing the token.
-#             Created externally via ESO/platform-secrets.
 # secretKey:  key within the secret that holds the token value.
-#
 # When secretName is empty, no token is injected.
 # ------------------------------------------------------------------------------
 huggingFace:
@@ -64,11 +57,9 @@ huggingFace:
 
 # ------------------------------------------------------------------------------
 # Model cache integration
-#
 # When externalModelCache is true, models are loaded from the shared GCS-backed
 # PVC created by the model-cache chart. The init container downloads model
 # weights before the inference container starts.
-#
 # When externalModelCache is false, KServe's built-in storage initializer
 # downloads models directly from HuggingFace Hub at pod start.
 # ------------------------------------------------------------------------------
@@ -84,14 +75,15 @@ modelCache:
 # Model download init container
 # Only used when externalModelCache is true.
 # ------------------------------------------------------------------------------
-# Updated modelDownload section for kserve-model-serving values.yaml
-# Replace the existing modelDownload block with this:
 modelDownload:
   image:
     registry: docker.io
     repository: forwardmeasure/ml-model-utilities
     tag: "latest"
-    # -- digest takes precedence over tag — use in production to avoid GKE caching
+    # sha takes precedence over tag when set, e.g.:
+    # sha: "sha256:a3f1c29b8e4d..."
+    sha: ""
+    # digest is a legacy alias for sha — sha takes precedence if both set
     digest: ""
     pullPolicy: IfNotPresent
   resources:
@@ -116,23 +108,41 @@ vllmRuntime:
 
 # ------------------------------------------------------------------------------
 # Models
-#
 # Each entry deploys one KServe InferenceService.
 #
-# Fields:
-#   name            — DNS-safe name for the InferenceService
-#   enabled         — false skips without removing from values
-#   runtime         — vllm | huggingface | triton
-#   huggingFaceRepo — HuggingFace model repo (org/model)
-#   args            — extra args passed to the serving container
-#   env             — extra environment variables (map)
-#   gpu             — number of GPUs (0 for CPU-only)
-#   resources       — requests/limits for CPU and memory
-#   scaling         — minReplicas / maxReplicas / timeoutSeconds
-#   nodeSelector    — Kubernetes node selector labels (e.g. node-pool: gpu, gpu-type: nvidia-l4)
-#   tolerations     — Kubernetes tolerations (e.g. for GPU taint nvidia.com/gpu=present:NoSchedule)
-#   modelCache      — per-model overrides for pvcName, serviceAccountName,
-#                     skipManifestVerification
-#   modelDownload   — per-model override for download init container image/resources
+# Common fields:
+#   name             — DNS-safe name for the InferenceService
+#   enabled          — false skips without removing from values
+#   runtime          — vllm | huggingface | triton | kserve-custom
+#   huggingFaceRepo  — HuggingFace model repo (org/model). Required for
+#                      managed runtimes. For kserve-custom with
+#                      externalModelCache: true, used by init container.
+#   env              — environment variables injected into the container (map)
+#   gpu              — number of GPUs (0 for CPU-only)
+#   resources        — requests/limits for CPU and memory
+#   scaling          — minReplicas / maxReplicas / timeoutSeconds
+#   nodeSelector     — Kubernetes node selector labels
+#   tolerations      — Kubernetes tolerations
+#   modelCache       — per-model overrides: pvcName, serviceAccountName,
+#                      skipManifestVerification
+#   modelDownload    — per-model override for download init container image/resources
+#
+# kserve-custom additional fields:
+#   customImage:
+#     registry       — Docker registry    (default: docker.io)
+#     repository     — org/image-name     (required)
+#     tag            — image tag          (default: latest)
+#     sha            — image digest e.g. sha256:abc123...
+#                      takes precedence over tag when set
+#     pullPolicy     — image pull policy  (default: IfNotPresent)
+#
+#   NOTE: For kserve-custom, MODEL_NAME, MODEL_BASE_PATH, and MODEL_SUBDIR
+#   are injected automatically from name, modelCache.mountPath, and
+#   huggingFaceRepo respectively. LOG_LEVEL and LOG_FORMAT are conventional
+#   env keys read by model.py via os.environ.
+#
+# Actual model entries belong in release-specific override files, e.g.:
+#   helm upgrade --install timeseries-serving ./kserve-model-serving \
+#     -f releases/timeseries-serving/values.yaml
 # ------------------------------------------------------------------------------
 models: []
