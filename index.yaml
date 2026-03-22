@@ -1515,7 +1515,7 @@ entries:
   zookeeper:
   - apiVersion: v2
     appVersion: 3.9.4
-    created: "2026-03-02T11:04:23.309807928-05:00"
+    created: "2026-03-22T13:55:03.94251284-04:00"
     description: A Helm chart for Apache Zookeeper on Kubernetes
     digest: 63957a82954963e53fd17c51fc225721fb2f8f4abeaba6f4dc6cffa004899479
     name: zookeeper
@@ -1525,7 +1525,7 @@ entries:
     version: 1.0.6
   - apiVersion: v2
     appVersion: 3.9.4
-    created: "2026-03-02T11:04:23.309637923-05:00"
+    created: "2026-03-22T13:55:03.942374103-04:00"
     description: A Helm chart for Apache Zookeeper on Kubernetes
     digest: 66094e6bc408fd5cd56d9ade70d75327c35a497de9553a9d5766da2c63d7078a
     name: zookeeper
@@ -1573,4 +1573,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-22T13:50:54.874644682-04:00"
+generated: "2026-03-22T13:55:03.942154004-04:00"
