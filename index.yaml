@@ -1202,7 +1202,7 @@ entries:
   model-cache:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T21:43:31.555938182-04:00"
+    created: "2026-03-23T10:07:32.650147367-04:00"
     description: 'Provisions the shared model cache infrastructure for model-serving
       workloads. Creates a StorageClass, PersistentVolume, PersistentVolumeClaim,
       and ServiceAccount in the release namespace. Designed to be deployed as a dependency
@@ -1230,7 +1230,7 @@ entries:
     version: 0.1.5
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-15T21:43:31.555770961-04:00"
+    created: "2026-03-23T10:07:32.650009434-04:00"
     description: 'Provisions the shared model cache infrastructure for model-serving
       workloads. Creates a StorageClass, PersistentVolume, PersistentVolumeClaim,
       and ServiceAccount in the release namespace. Designed to be deployed as a dependency
@@ -1573,4 +1573,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-23T10:07:05.261680644-04:00"
+generated: "2026-03-23T10:07:32.649793408-04:00"
