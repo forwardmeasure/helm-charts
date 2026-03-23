@@ -70,8 +70,8 @@ Prefer per-model override, then chart-level modelCache.skipManifestVerification.
 
 {{/*
 Model download image resolver.
-SHA digest takes precedence over tag when both are set.
-Prefer per-model override for registry/repository/tag/sha,
+sha takes precedence over digest over tag.
+Prefer per-model override for registry/repository/tag/sha/digest,
 then chart-level modelDownload.image.
 */}}
 {{- define "kserve-model-serving.downloadImage" -}}
@@ -81,10 +81,9 @@ then chart-level modelDownload.image.
 {{- end }}
 {{- $registry := $img.registry | default "docker.io" }}
 {{- $repo     := $img.repository }}
-{{- if $img.sha }}
-{{- printf "%s/%s@%s" $registry $repo $img.sha }}
-{{- else if $img.digest }}
-{{- printf "%s/%s@%s" $registry $repo $img.digest }}
+{{- $digest   := coalesce $img.sha $img.digest "" }}
+{{- if $digest }}
+{{- printf "%s/%s@%s" $registry $repo $digest }}
 {{- else }}
 {{- printf "%s/%s:%s" $registry $repo ($img.tag | default "latest") }}
 {{- end }}
@@ -92,14 +91,15 @@ then chart-level modelDownload.image.
 
 {{/*
 Custom container image reference resolver.
-SHA takes precedence over tag when both are set.
+sha takes precedence over digest over tag.
 Usage: include "kserve-model-serving.customImageRef" .customImage
 */}}
 {{- define "kserve-model-serving.customImageRef" -}}
 {{- $registry := .registry | default "docker.io" -}}
 {{- $repo     := .repository -}}
-{{- if .sha -}}
-{{- printf "%s/%s@%s" $registry $repo .sha -}}
+{{- $digest   := coalesce .sha .digest "" -}}
+{{- if $digest -}}
+{{- printf "%s/%s@%s" $registry $repo $digest -}}
 {{- else -}}
 {{- printf "%s/%s:%s" $registry $repo (.tag | default "latest") -}}
 {{- end -}}

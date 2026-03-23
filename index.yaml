@@ -715,7 +715,34 @@ entries:
   kserve-model-serving:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-22T13:56:25.668422361-04:00"
+    created: "2026-03-23T12:38:38.971234748-04:00"
+    description: 'Generic model serving chart for KServe InferenceService deployments.
+      Deploys one or more models per release, each backed by a configurable KServe
+      ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
+      per model family (e.g. granite-serving, gemma-serving, phi-serving) with model-specific
+      resource configuration per entry in the models list.  Integrates with the model-cache
+      chart for GCS-backed model weight storage, with optional manifest verification
+      bypass for fast on-demand scaling. '
+    digest: 3ec5825efdb9ded4c4a984c02823074c1b10d8e68bdfede131f8ec82901fe81d
+    keywords:
+    - kserve
+    - inference
+    - llm
+    - model-serving
+    - vllm
+    - triton
+    - huggingface
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: kserve-model-serving
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/kserve-model-serving-helm-chart/kserve-model-serving-0.1.19.tgz
+    version: 0.1.19
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-23T12:38:38.970788363-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -742,7 +769,7 @@ entries:
     version: 0.1.18
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-22T13:56:25.667285355-04:00"
+    created: "2026-03-23T12:38:38.970353273-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -1573,4 +1600,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-23T10:07:32.649793408-04:00"
+generated: "2026-03-23T12:38:38.969772575-04:00"
