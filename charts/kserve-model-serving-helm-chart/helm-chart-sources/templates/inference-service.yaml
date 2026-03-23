@@ -76,7 +76,8 @@ spec:
     Used for any custom Python model (FlowState, BERT, NER, Jaro-Winkler, etc.)
     that manages its own model loading and serving via the KServe Python SDK.
     No ClusterServingRuntime or storageUri — the container is self-contained.
-    SHA digest takes precedence over tag when both are set.
+    sha takes precedence over digest over tag for image resolution.
+    command/args are optional — override ENTRYPOINT/CMD when set.
     -------------------------------------------------------------------------
     */}}
     {{- if eq .runtime "kserve-custom" }}
@@ -84,6 +85,14 @@ spec:
       - name: kserve-container
         image: {{ include "kserve-model-serving.customImageRef" .customImage }}
         imagePullPolicy: {{ .customImage.pullPolicy | default "IfNotPresent" }}
+        {{- if .customImage.command }}
+        command:
+          {{- toYaml .customImage.command | nindent 10 }}
+        {{- end }}
+        {{- if .customImage.args }}
+        args:
+          {{- toYaml .customImage.args | nindent 10 }}
+        {{- end }}
         env:
           - name: MODEL_NAME
             value: {{ .name | quote }}
