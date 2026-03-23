@@ -105,7 +105,7 @@ entries:
   itineris:
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-03-20T01:21:30.34873538-04:00"
+    created: "2026-03-23T10:06:23.643642082-04:00"
     description: Itineris distributed graph database (JanusGraph fork)
     digest: 562deaf6073b31759c642749f31b216b0a7fdb9fb5931686a77318103af63682
     keywords:
@@ -123,7 +123,7 @@ entries:
     version: 0.1.10
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-03-20T01:21:30.351689544-04:00"
+    created: "2026-03-23T10:06:23.643891949-04:00"
     description: Itineris distributed graph database (JanusGraph fork)
     digest: 3d676c413eff8097c05cb04ae0f61faf782791d1ffb85469754dbf0f0687fa60
     keywords:
@@ -1573,4 +1573,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-23T10:06:02.805796026-04:00"
+generated: "2026-03-23T10:06:23.64331295-04:00"
