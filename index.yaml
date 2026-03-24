@@ -1453,7 +1453,26 @@ entries:
   opensearch-cluster:
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-03-13T19:39:32.851037274-04:00"
+    created: "2026-03-24T02:37:58.622149258-04:00"
+    dependencies:
+    - name: opensearch
+      repository: https://opensearch-project.github.io/helm-charts/
+      version: 3.5.0
+    - name: opensearch-dashboards
+      repository: https://opensearch-project.github.io/helm-charts/
+      version: 3.5.0
+    description: 'Wrapper chart for the opensearch-project/opensearch and opensearch-project/opensearch-dashboards
+      Helm charts. Adds cert-manager Certificate CRs, External Secrets Operator integration,
+      Istio PeerAuthentication, and OpenSearch security plugin configuration. '
+    digest: e1fa8406d73cf42b5694d80f1db98565545debf63ef1cef5791b73cc7f6511d5
+    name: opensearch-cluster
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-cluster-0.1.2.tgz
+    version: 0.1.2
+  - apiVersion: v2
+    appVersion: 3.5.0
+    created: "2026-03-24T02:37:58.619438759-04:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -1683,4 +1702,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-23T16:49:40.846799621-04:00"
+generated: "2026-03-24T02:37:58.617745387-04:00"
