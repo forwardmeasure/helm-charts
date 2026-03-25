@@ -82,7 +82,11 @@ spec:
             - name: TENANT_ID
               value: {{ $staticTenant | quote }}
             {{- else }}
-            # Tenant ID from DATAFABRIC_DEFAULT_TENANT — must be set in env
+            # Tenant ID sourced from DATAFABRIC_DEFAULT_TENANT env var.
+            # Must be explicitly passed here — init containers do not inherit
+            # env vars from the main container.
+            - name: DATAFABRIC_DEFAULT_TENANT
+              value: {{ index $svc.env "DATAFABRIC_DEFAULT_TENANT" | default "default_tenant" | quote }}
             - name: TENANT_ID
               value: "$(DATAFABRIC_DEFAULT_TENANT)"
             {{- end }}
@@ -92,7 +96,7 @@ spec:
             - |
               echo "Waiting for liquibase migrations to complete for tenant: ${TENANT_ID}"
               ATTEMPTS=0
-              STATUS_URL="${LIQUIBASE_SERVICE_URL}/data-fabric/api/v1/liquibase-migration/migration/tenants/${TENANT_ID}/status"
+              STATUS_URL="${LIQUIBASE_SERVICE_URL}/migration/tenants/${TENANT_ID}/status"
               until [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; do
                 ATTEMPTS=$((ATTEMPTS + 1))
                 echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: polling ${STATUS_URL}"
@@ -226,7 +230,6 @@ spec:
           args:
             - "--structured-logs"
             - "--port={{ $proxy.port | default 5432 }}"
-            - "--private-ip"
             - "$(DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE)"
           env:
             - name: DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE
