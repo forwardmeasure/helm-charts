@@ -27,7 +27,72 @@ spec:
             type: {{ .path.type }}
             value: {{ .path.value | quote }}
         {{- end }}
-      {{- if .rewrite }}
+      {{- /* ----------------------------------------------------------------
+           Filter rendering — two modes:
+           1. Explicit filters[] list in values — rendered verbatim.
+              Supports any Gateway API filter type (URLRewrite,
+              RequestHeaderModifier, RequestRedirect, etc.)
+           2. Legacy rewrite shorthand — a single URLRewrite filter
+              generated from rewrite.path for backwards compatibility.
+           ---------------------------------------------------------------- */}}
+      {{- if .filters }}
+      filters:
+        {{- range .filters }}
+        - type: {{ .type }}
+          {{- if eq .type "URLRewrite" }}
+          urlRewrite:
+            {{- with .urlRewrite.hostname }}
+            hostname: {{ . | quote }}
+            {{- end }}
+            {{- with .urlRewrite.path }}
+            path:
+              type: {{ .type }}
+              {{- if eq .type "ReplacePrefixMatch" }}
+              replacePrefixMatch: {{ .replacePrefixMatch | quote }}
+              {{- else if eq .type "ReplaceFullPath" }}
+              replaceFullPath: {{ .replaceFullPath | quote }}
+              {{- end }}
+            {{- end }}
+          {{- else if eq .type "RequestHeaderModifier" }}
+          requestHeaderModifier:
+            {{- with .requestHeaderModifier.set }}
+            set:
+              {{- range . }}
+              - name: {{ .name | quote }}
+                value: {{ .value | quote }}
+              {{- end }}
+            {{- end }}
+            {{- with .requestHeaderModifier.add }}
+            add:
+              {{- range . }}
+              - name: {{ .name | quote }}
+                value: {{ .value | quote }}
+              {{- end }}
+            {{- end }}
+            {{- with .requestHeaderModifier.remove }}
+            remove:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+            {{- end }}
+          {{- else if eq .type "RequestRedirect" }}
+          requestRedirect:
+            {{- with .requestRedirect.scheme }}
+            scheme: {{ . }}
+            {{- end }}
+            {{- with .requestRedirect.hostname }}
+            hostname: {{ . | quote }}
+            {{- end }}
+            {{- with .requestRedirect.port }}
+            port: {{ . }}
+            {{- end }}
+            {{- with .requestRedirect.statusCode }}
+            statusCode: {{ . }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- else if .rewrite }}
+      {{- /* Legacy shorthand: rewrite.path → single URLRewrite filter */}}
       filters:
         - type: URLRewrite
           urlRewrite:
