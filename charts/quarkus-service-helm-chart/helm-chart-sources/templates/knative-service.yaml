@@ -226,6 +226,7 @@ spec:
           args:
             - "--structured-logs"
             - "--port={{ $proxy.port | default 5432 }}"
+            - "--private-ip"
             - "$(DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE)"
           env:
             - name: DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE
