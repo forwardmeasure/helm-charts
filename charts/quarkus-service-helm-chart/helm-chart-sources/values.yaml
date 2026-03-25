@@ -73,6 +73,9 @@ cloudSqlProxy:
       cpu: "500m"
       memory: "256Mi"
   port: 5432
+  # Use private IP for Cloud SQL connections — required when Cloud SQL instance
+  # has no public IP. Set to false for instances with public IP only.
+  privateIp: true
 
 # ------------------------------------------------------------------------------
 # Liquibase migration wait — chart-level defaults
