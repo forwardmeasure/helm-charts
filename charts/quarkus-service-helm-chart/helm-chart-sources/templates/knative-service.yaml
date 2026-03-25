@@ -179,6 +179,17 @@ spec:
                   key: {{ .secretKey }}
             {{- end }}
             {{- end }}
+            {{- if and .cloudSqlProxy .cloudSqlProxy.enabled }}
+            # --------------------------------------------------------------------
+            # JDBC URL constructed from the injected DATA_FABRIC_SVC_DB_NAME secret.
+            # Kubernetes resolves $(DATA_FABRIC_SVC_DB_NAME) from the secret env var
+            # injected above — no hardcoded database name needed.
+            # Only rendered when cloudSqlProxy is enabled since the URL pattern
+            # jdbc:postgresql://localhost:5432/<db> is specific to the proxy sidecar.
+            # --------------------------------------------------------------------
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: "jdbc:postgresql://localhost:5432/$(DATA_FABRIC_SVC_DB_NAME)"
+            {{- end }}
             {{- range $key, $val := .env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
@@ -230,7 +241,9 @@ spec:
           args:
             - "--structured-logs"
             - "--port={{ $proxy.port | default 5432 }}"
+            {{- if $proxy.privateIp }}
             - "--private-ip"
+            {{- end }}
             - "$(DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE)"
           env:
             - name: DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE
