@@ -1,0 +1,31 @@
+apiVersion: v2
+name: quarkus-service
+description: |
+  Generic Knative Service chart for Quarkus microservice deployments.
+  Deploys one or more Quarkus services per release, each independently
+  configurable with its own image, resources, secrets, and scaling policy.
+
+  Supports both JVM and GraalVM native runtime modes — controlled per
+  service via the image digest/tag. Secrets are injected via External
+  Secrets Operator. Config properties follow standard Quarkus environment
+  variable override conventions (QUARKUS_ prefix).
+
+  Designed to be deployed once per service family (e.g. entity-resolution-serving)
+  with service-specific resource and scaling configuration per entry in
+  the services list.
+
+  Integrates with Istio for mTLS and traffic management, and with
+  Knative for serverless scaling including scale-to-zero.
+type: application
+version: "0.1.1"
+appVersion: "1.0.0"
+keywords:
+  - quarkus
+  - knative
+  - serverless
+  - microservices
+  - entity-resolution
+  - camel
+maintainers:
+  - name: Prashanth Nandavanam
+    email: pn@forwardmeasure.com

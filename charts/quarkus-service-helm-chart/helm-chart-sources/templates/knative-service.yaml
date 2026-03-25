@@ -1,0 +1,248 @@
+{{- range .Values.services }}
+{{- if .enabled }}
+{{- include "quarkus-service.validateService" (dict "service" . "root" $) }}
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+  annotations:
+    {{- with $.Values.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/class: {{ .scaling.class | default "kpa.autoscaling.knative.dev" | quote }}
+        autoscaling.knative.dev/metric: {{ .scaling.metric | default "concurrency" | quote }}
+        autoscaling.knative.dev/target: {{ .scaling.target | default "10" | quote }}
+        autoscaling.knative.dev/minScale: {{ .scaling.minReplicas | default 1 | quote }}
+        autoscaling.knative.dev/maxScale: {{ .scaling.maxReplicas | default 5 | quote }}
+        {{- with $.Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $.Values.serviceAccount.name }}
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      timeoutSeconds: {{ .scaling.timeoutSeconds | default 300 }}
+      containerConcurrency: {{ .scaling.containerConcurrency | default 0 }}
+      # --------------------------------------------------------------------
+      # Init containers
+      # The liquibase wait init container is rendered by default for all
+      # services. Opt out with liquibaseWait.enabled: false on the service
+      # (e.g. the liquibase service itself).
+      # Additional custom init containers can be added via initContainers.
+      # --------------------------------------------------------------------
+      {{- $svc := . }}
+      {{- $liquibaseEnabled := include "quarkus-service.liquibaseWaitEnabled" (dict "service" $svc "root" $) }}
+      {{- $hasCustomInit := and .initContainers (gt (len .initContainers) 0) }}
+      {{- if or (eq $liquibaseEnabled "true") $hasCustomInit }}
+      initContainers:
+        # ------------------------------------------------------------------
+        # Liquibase migration wait
+        # Polls the liquibase migration service until all changesets for
+        # the configured tenant have been applied (pendingChangeSets == 0).
+        # Tenant ID sourced from DATAFABRIC_DEFAULT_TENANT env var unless
+        # a static tenantId override is set on the service.
+        # ------------------------------------------------------------------
+        {{- if eq $liquibaseEnabled "true" }}
+        {{- $lw := $.Values.liquibaseWait }}
+        {{- $staticTenant := include "quarkus-service.liquibaseWaitTenantId" (dict "service" $svc "root" $) }}
+        - name: wait-for-liquibase
+          image: {{ $lw.image | default "curlimages/curl:latest" }}
+          imagePullPolicy: {{ $lw.imagePullPolicy | default "IfNotPresent" }}
+          env:
+            - name: LIQUIBASE_SERVICE_URL
+              value: {{ include "quarkus-service.liquibaseServiceUrl" $ | quote }}
+            - name: MAX_ATTEMPTS
+              value: {{ $lw.maxAttempts | default 30 | quote }}
+            - name: SLEEP_SECONDS
+              value: {{ $lw.sleepSeconds | default 10 | quote }}
+            {{- if $staticTenant }}
+            # Static tenant ID override — set via liquibaseWait.tenantId
+            - name: TENANT_ID
+              value: {{ $staticTenant | quote }}
+            {{- else }}
+            # Tenant ID from DATAFABRIC_DEFAULT_TENANT — must be set in env
+            - name: TENANT_ID
+              value: "$(DATAFABRIC_DEFAULT_TENANT)"
+            {{- end }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for liquibase migrations to complete for tenant: ${TENANT_ID}"
+              ATTEMPTS=0
+              STATUS_URL="${LIQUIBASE_SERVICE_URL}/data-fabric/api/v1/liquibase-migration/migration/tenants/${TENANT_ID}/status"
+              until [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; do
+                ATTEMPTS=$((ATTEMPTS + 1))
+                echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: polling ${STATUS_URL}"
+                RESPONSE=$(curl -sf "${STATUS_URL}" 2>/dev/null)
+                if [ $? -eq 0 ]; then
+                  PENDING=$(echo "${RESPONSE}" | grep -o '"pendingChangeSets":[0-9]*' | grep -o '[0-9]*$')
+                  if [ -n "${PENDING}" ] && [ "${PENDING}" -eq 0 ]; then
+                    echo "Migrations complete for tenant: ${TENANT_ID}"
+                    exit 0
+                  fi
+                  echo "Pending changesets: ${PENDING:-unknown} — waiting ${SLEEP_SECONDS}s"
+                else
+                  echo "Liquibase service not reachable — waiting ${SLEEP_SECONDS}s"
+                fi
+                sleep ${SLEEP_SECONDS}
+              done
+              echo "Timed out waiting for liquibase migrations after $((MAX_ATTEMPTS * SLEEP_SECONDS))s"
+              exit 1
+          resources:
+            requests:
+              cpu: {{ $lw.resources.requests.cpu | default "50m" | quote }}
+              memory: {{ $lw.resources.requests.memory | default "32Mi" }}
+            limits:
+              cpu: {{ $lw.resources.limits.cpu | default "100m" | quote }}
+              memory: {{ $lw.resources.limits.memory | default "64Mi" }}
+        {{- end }}
+        # ------------------------------------------------------------------
+        # Custom init containers
+        # Additional init containers defined per service in values.
+        # ------------------------------------------------------------------
+        {{- if $hasCustomInit }}
+        {{- range .initContainers }}
+        {{- if .enabled }}
+        - name: {{ .name }}
+          image: {{ .image | default "curlimages/curl:latest" }}
+          imagePullPolicy: {{ .imagePullPolicy | default "IfNotPresent" }}
+          {{- with .env }}
+          env:
+            {{- range $key, $val := . }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+          {{- end }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              {{- .script | nindent 14 }}
+          resources:
+            requests:
+              cpu: {{ .resources.requests.cpu | default "50m" | quote }}
+              memory: {{ .resources.requests.memory | default "32Mi" }}
+            limits:
+              cpu: {{ .resources.limits.cpu | default "100m" | quote }}
+              memory: {{ .resources.limits.memory | default "64Mi" }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
+      containers:
+        # --------------------------------------------------------------------
+        # Main application container
+        # --------------------------------------------------------------------
+        - name: {{ .name }}
+          image: {{ include "quarkus-service.imageRef" (dict "image" .image) }}
+          imagePullPolicy: {{ .image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http1
+              containerPort: {{ .port | default 8080 }}
+              protocol: TCP
+          env:
+            - name: QUARKUS_RUNTIME_MODE
+              value: {{ .runtime | default "jvm" | quote }}
+            {{- if .secrets }}
+            {{- range .secrets }}
+            - name: {{ .envVar }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quarkus-service.k8sSecretName" (dict "root" $ "secretName" .secretName) }}
+                  key: {{ .secretKey }}
+            {{- end }}
+            {{- end }}
+            {{- range $key, $val := .env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+          resources:
+            requests:
+              cpu: {{ .resources.requests.cpu | default "500m" | quote }}
+              memory: {{ .resources.requests.memory | default "512Mi" }}
+            limits:
+              cpu: {{ .resources.limits.cpu | default "2000m" | quote }}
+              memory: {{ .resources.limits.memory | default "1Gi" }}
+          livenessProbe:
+            httpGet:
+              path: {{ .probes.liveness | default "/q/health/live" }}
+              port: {{ .port | default 8080 }}
+            initialDelaySeconds: {{ .probes.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .probes.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .probes.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .probes.failureThreshold | default 3 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .probes.readiness | default "/q/health/ready" }}
+              port: {{ .port | default 8080 }}
+            initialDelaySeconds: {{ .probes.initialDelaySeconds | default 10 }}
+            periodSeconds: {{ .probes.periodSeconds | default 5 }}
+            timeoutSeconds: {{ .probes.timeoutSeconds | default 3 }}
+            failureThreshold: {{ .probes.failureThreshold | default 3 }}
+          startupProbe:
+            httpGet:
+              path: {{ .probes.startup | default "/q/health/started" }}
+              port: {{ .port | default 8080 }}
+            initialDelaySeconds: {{ .probes.initialDelaySeconds | default 10 }}
+            periodSeconds: {{ .probes.periodSeconds | default 5 }}
+            failureThreshold: {{ .probes.startupFailureThreshold | default 30 }}
+
+        # --------------------------------------------------------------------
+        # Cloud SQL Auth Proxy sidecar
+        # Listens on localhost:5432, proxies to Cloud SQL via IAM/Workload Identity.
+        # App connects to localhost:5432 — standard PostgreSQL JDBC, no socket factory.
+        # Only rendered when cloudSqlProxy.enabled is true for this service.
+        # Secret name resolved via quarkus-service.cloudSqlProxySecretName —
+        # defaults to the service name, overridable via cloudSqlProxy.secretName.
+        # --------------------------------------------------------------------
+        {{- if and .cloudSqlProxy .cloudSqlProxy.enabled }}
+        {{- $proxy := $.Values.cloudSqlProxy }}
+        - name: cloud-sql-proxy
+          image: {{ include "quarkus-service.cloudSqlProxyImageRef" $proxy }}
+          imagePullPolicy: {{ $proxy.image.pullPolicy | default "IfNotPresent" }}
+          args:
+            - "--structured-logs"
+            - "--port={{ $proxy.port | default 5432 }}"
+            - "$(DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE)"
+          env:
+            - name: DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quarkus-service.cloudSqlProxySecretName" (dict "service" $svc "root" $) }}
+                  key: db-cloud-sql-instance
+          resources:
+            requests:
+              cpu: {{ $proxy.resources.requests.cpu | default "100m" | quote }}
+              memory: {{ $proxy.resources.requests.memory | default "128Mi" }}
+            limits:
+              cpu: {{ $proxy.resources.limits.cpu | default "500m" | quote }}
+              memory: {{ $proxy.resources.limits.memory | default "256Mi" }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+        {{- end }}
+{{- end }}
+{{- end }}
