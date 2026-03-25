@@ -584,7 +584,7 @@ entries:
   knative-crd:
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-25T00:44:28.305801254-04:00"
+    created: "2026-03-15T15:59:37.451162213-04:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -597,7 +597,7 @@ entries:
     version: 0.0.12
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-03-25T00:44:28.305685378-04:00"
+    created: "2026-03-15T15:59:37.451049214-04:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -715,7 +715,7 @@ entries:
   kserve-model-serving:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-25T00:43:11.072883387-04:00"
+    created: "2026-03-25T00:45:06.760697111-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -742,7 +742,7 @@ entries:
     version: 0.1.21
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-25T00:43:11.072569263-04:00"
+    created: "2026-03-25T00:45:06.760304615-04:00"
     description: 'Generic model serving chart for KServe InferenceService deployments.
       Deploys one or more models per release, each backed by a configurable KServe
       ServingRuntime (vLLM, HuggingFace, Triton, etc.).  Designed to be deployed once
@@ -1759,4 +1759,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-25T00:44:28.305470903-04:00"
+generated: "2026-03-25T00:45:06.75978882-04:00"
