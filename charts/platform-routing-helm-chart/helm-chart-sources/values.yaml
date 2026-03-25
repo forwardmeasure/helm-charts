@@ -74,6 +74,7 @@ clusterIssuer:
 #     enabled         — create a cert-manager Certificate
 #     secretName      — TLS secret name to produce
 #   auth
+#     internalPorts   — ports exempt from JWT auth (default: ["8012"] for Knative queue-proxy)
 #     enabled         — create RequestAuthentication + AuthorizationPolicy
 #     selector        — matchLabels for the policy selector
 #     issuerUrl       — Keycloak realm issuer URL
@@ -87,3 +88,10 @@ clusterIssuer:
 #       sni           — SNI hostname
 # ---------------------------------------------------------------------------
 routes: []
+
+# ---------------------------------------------------------------------------
+# Auth defaults — applied to all routes with auth.enabled: true
+# ---------------------------------------------------------------------------
+authDefaults:
+  internalPorts:
+    - "8012"
