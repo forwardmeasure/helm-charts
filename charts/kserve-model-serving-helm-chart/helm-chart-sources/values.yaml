@@ -80,10 +80,6 @@ modelDownload:
     registry: docker.io
     repository: forwardmeasure/ml-model-utilities
     tag: "latest"
-    # sha takes precedence over tag when set, e.g.:
-    # sha: "sha256:a3f1c29b8e4d..."
-    sha: ""
-    # digest is a legacy alias for sha — sha takes precedence if both set
     digest: ""
     pullPolicy: IfNotPresent
   resources:
@@ -132,8 +128,6 @@ vllmRuntime:
 #     registry       — Docker registry    (default: docker.io)
 #     repository     — org/image-name     (required)
 #     tag            — image tag          (default: latest)
-#     sha            — image digest e.g. sha256:abc123...
-#                      takes precedence over tag when set
 #     pullPolicy     — image pull policy  (default: IfNotPresent)
 #
 #   NOTE: For kserve-custom, MODEL_NAME, MODEL_BASE_PATH, and MODEL_SUBDIR
