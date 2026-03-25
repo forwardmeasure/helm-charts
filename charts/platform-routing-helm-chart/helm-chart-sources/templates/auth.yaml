@@ -27,9 +27,24 @@ spec:
       {{- toYaml .auth.selector | nindent 6 }}
   action: ALLOW
   rules:
+    # Allow authenticated external traffic — valid JWT required
     - from:
         - source:
             requestPrincipals: ["*"]
+    # Allow internal probe traffic on configured ports.
+    # Covers Knative queue-proxy (8012), kubelet, and activator probes
+    # which do not carry a JWT. Defaults to ["8012"] for Knative services.
+    # Override via auth.internalPorts per route if needed.
+    - to:
+        - operation:
+            ports:
+              {{- range (.auth.internalPorts | default $.Values.authDefaults.internalPorts) }}
+              - {{ . | quote }}
+              {{- end }}
+    # Allow traffic from knative-serving namespace (activator, controller)
+    - from:
+        - source:
+            namespaces: ["knative-serving"]
 {{- end }}
 {{- end }}
 {{- end }}
