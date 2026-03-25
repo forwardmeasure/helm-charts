@@ -1577,6 +1577,36 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.1.tgz
     version: 0.1.1
+  quarkus-service:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-25T00:20:24.786846548-04:00"
+    description: 'Generic Knative Service chart for Quarkus microservice deployments.
+      Deploys one or more Quarkus services per release, each independently configurable
+      with its own image, resources, secrets, and scaling policy.  Supports both JVM
+      and GraalVM native runtime modes — controlled per service via the image digest/tag.
+      Secrets are injected via External Secrets Operator. Config properties follow
+      standard Quarkus environment variable override conventions (QUARKUS_ prefix).  Designed
+      to be deployed once per service family (e.g. entity-resolution-serving) with
+      service-specific resource and scaling configuration per entry in the services
+      list.  Integrates with Istio for mTLS and traffic management, and with Knative
+      for serverless scaling including scale-to-zero. '
+    digest: ffc406c292add65c5c6016a561d614188d8d22268ba7fcfe7beae4f9df291e71
+    keywords:
+    - quarkus
+    - knative
+    - serverless
+    - microservices
+    - entity-resolution
+    - camel
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: quarkus-service
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/quarkus-service-helm-chart/quarkus-service-0.1.1.tgz
+    version: 0.1.1
   triton-serving:
   - apiVersion: v2
     appVersion: "25.11"
@@ -1702,4 +1732,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-24T02:37:58.617745387-04:00"
+generated: "2026-03-25T00:20:24.786489718-04:00"
