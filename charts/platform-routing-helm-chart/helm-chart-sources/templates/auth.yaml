@@ -1,12 +1,21 @@
 {{- range .Values.routes }}
 {{- if .auth }}
 {{- if .auth.enabled }}
+{{- /*
+  Auth resources must be deployed to the workload's namespace, not the gateway
+  namespace. Istio only enforces RequestAuthentication and AuthorizationPolicy
+  on pods in the same namespace as the policy.
+
+  Use auth.workloadNamespace to specify the namespace of the target workload.
+  Defaults to gateway.namespace for non-Knative / gateway-level enforcement.
+*/}}
+{{- $authNamespace := .auth.workloadNamespace | default $.Values.gateway.namespace }}
 ---
 apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: {{ .name }}
-  namespace: {{ $.Values.gateway.namespace }}
+  namespace: {{ $authNamespace }}
 spec:
   selector:
     matchLabels:
@@ -20,7 +29,7 @@ apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: {{ .name }}
-  namespace: {{ $.Values.gateway.namespace }}
+  namespace: {{ $authNamespace }}
 spec:
   selector:
     matchLabels:
