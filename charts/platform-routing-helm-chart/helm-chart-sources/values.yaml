@@ -63,7 +63,9 @@ clusterIssuer:
 #     matches[]
 #       path.type     — PathPrefix | Exact
 #       path.value    — path string
-#     rewrite         — optional URL rewrite
+#     filters[]       — optional explicit filter list (URLRewrite,
+#                       RequestHeaderModifier, RequestRedirect)
+#     rewrite         — legacy shorthand: single URLRewrite filter
 #       path          — replacePrefixMatch value
 #     backend
 #       name          — service name
@@ -74,11 +76,18 @@ clusterIssuer:
 #     enabled         — create a cert-manager Certificate
 #     secretName      — TLS secret name to produce
 #   auth
-#     internalPorts   — ports exempt from JWT auth (default: ["8012"] for Knative queue-proxy)
 #     enabled         — create RequestAuthentication + AuthorizationPolicy
+#     workloadNamespace — namespace of the target workload pods.
+#                        MUST match the namespace where the workload runs.
+#                        Istio only enforces policies in the same namespace
+#                        as the workload. Defaults to gateway.namespace.
+#                        For Knative services in data-fabric, set this to
+#                        the data-fabric namespace.
 #     selector        — matchLabels for the policy selector
 #     issuerUrl       — Keycloak realm issuer URL
 #     jwksUri         — Keycloak JWKS URI
+#     internalPorts   — ports exempt from JWT auth (default: ["8012"] for
+#                       Knative queue-proxy). Override per route if needed.
 #   destinationRule
 #     enabled         — create a DestinationRule
 #     host            — fully qualified service hostname

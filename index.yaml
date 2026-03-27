@@ -1519,7 +1519,20 @@ entries:
   platform-routing:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-25T19:00:47.326350547-04:00"
+    created: "2026-03-27T12:06:24.423240316-04:00"
+    description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
+      platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
+      Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
+      and DestinationRule resources. '
+    digest: d3617bef125f436a02c24a13719018b47e46a1d3d2cd43f3d72f79cf6ded8052
+    name: platform-routing
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/platform-routing-helm-chart/platform-routing-0.0.6.tgz
+    version: 0.0.6
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-27T12:06:24.423061466-04:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -1532,7 +1545,7 @@ entries:
     version: 0.0.5
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-25T19:00:47.326005959-04:00"
+    created: "2026-03-27T12:06:24.422897212-04:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -1545,7 +1558,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-25T19:00:47.325664738-04:00"
+    created: "2026-03-27T12:06:24.422728804-04:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -1558,7 +1571,7 @@ entries:
     version: 0.0.3
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-25T19:00:47.324767709-04:00"
+    created: "2026-03-27T12:06:24.422547964-04:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -1959,4 +1972,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-25T19:00:47.324314872-04:00"
+generated: "2026-03-27T12:06:24.422268159-04:00"
