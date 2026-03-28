@@ -64,7 +64,7 @@ Centralised here so all templates use the same naming pattern.
 Usage: include "quarkus-service.k8sSecretName" (dict "root" $ "secretName" "my-secret")
 */}}
 {{- define "quarkus-service.k8sSecretName" -}}
-{{- printf "%s-%s-%s" .root.Release.Name .root.Release.Namespace .secretName -}}
+{{- printf "%s-%s" .root.Release.Name .secretName -}}
 {{- end }}
 
 {{/*
