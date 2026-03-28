@@ -1,33 +1,25 @@
 # ==============================================================================
-# quarkus-service chart values
+# quarkus-service chart — default values
 # ==============================================================================
 
 nameOverride: ""
 fullnameOverride: ""
 
-# Pod annotations applied to all Knative Service pods unless overridden
-# per service. Use for Istio traffic exclusions, GKE-specific annotations, etc.
+# Pod annotations applied to all Knative Service pods in this release.
 podAnnotations:
   traffic.sidecar.istio.io/excludeInboundPorts: "8080"
 
 # ------------------------------------------------------------------------------
 # Image pull secrets
-# Referenced on the ServiceAccount so all pods in the namespace
-# can pull from private registries without per-pod configuration.
 # ------------------------------------------------------------------------------
 imagePullSecrets:
   - name: docker-io-credentials
 
 # ------------------------------------------------------------------------------
 # ServiceAccount
-# create: true  — this chart creates its own SA.
-# create: false — use a pre-existing SA. name must still be set.
-#
-# labels: optional additional labels e.g. app.kubernetes.io/name,
-#         app.kubernetes.io/version. Merged with standard chart labels.
-#
-# annotations: empty by default — cloud-agnostic base.
-# GCP Workload Identity applied via patch overlay:
+# create: true  — chart creates its own SA
+# create: false — use a pre-existing SA; name must still be set
+# annotations:  empty by default; GCP Workload Identity applied via overlay:
 #   iam.gke.io/gcp-service-account: <gsa>@<project>.iam.gserviceaccount.com
 # ------------------------------------------------------------------------------
 serviceAccount:
@@ -37,33 +29,50 @@ serviceAccount:
   annotations: {}
 
 # ------------------------------------------------------------------------------
-# External Secrets Operator defaults
-# Applied to all services unless overridden per service entry.
+# External Secrets Operator — chart-level defaults
+# Applied to all ExternalSecrets unless overridden.
 # ------------------------------------------------------------------------------
 externalSecret:
   clusterSecretStore: fake-secret-store
   refreshInterval: 1h
 
 # ------------------------------------------------------------------------------
-# Cloud SQL Auth Proxy sidecar defaults
-# Applied to all services that have cloudSqlProxy.enabled: true.
-# The proxy listens on localhost:<port> and handles IAM auth to Cloud SQL
-# via Workload Identity — no service account key needed.
+# Release-level shared secrets
+# Produces one ExternalSecret per entry, named <release>-<secretName>.
+# Use for secrets shared across multiple services in this release
+# (e.g. shared DB credentials, shared OIDC config).
+#
+# Format:
+#   secrets:
+#     - secretName: db
+#       entries:
+#         - secretKey: db-username
+#           remoteKey: /my-release/db/username
+#         - secretKey: db-password
+#           remoteKey: /my-release/db/password
+#     - secretName: oidc
+#       entries:
+#         - secretKey: oidc-auth-server-url
+#           remoteKey: /my-api/oidc/auth-server-url
+#
+# Services reference these via secretName in their secrets list — the chart
+# resolves the Kubernetes secret name as <release>-<secretName>.
+# ------------------------------------------------------------------------------
+secrets: []
+
+# ------------------------------------------------------------------------------
+# Cloud SQL Auth Proxy sidecar — chart-level defaults
+# Applied to all services with cloudSqlProxy.enabled: true.
+# Proxy listens on localhost:<port>, handles IAM auth via Workload Identity.
 # App connects to localhost:<port> with standard PostgreSQL JDBC.
-#
-# All image fields are configurable: registry, repository, tag, digest, pullPolicy.
-# digest takes precedence over tag when set.
-#
-# Per-service override:
-#   cloudSqlProxy:
-#     enabled: true
-#     secretName: my-service   # overrides default (service name) for secret lookup
+# privateIp: true — required when Cloud SQL instance has no public IP.
 # ------------------------------------------------------------------------------
 cloudSqlProxy:
   image:
     registry: gcr.io
     repository: cloud-sql-connectors/cloud-sql-proxy
     tag: "2.14.1"
+    digest: ""
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -73,47 +82,19 @@ cloudSqlProxy:
       cpu: "500m"
       memory: "256Mi"
   port: 5432
-  # Use private IP for Cloud SQL connections — required when Cloud SQL instance
-  # has no public IP. Set to false for instances with public IP only.
   privateIp: true
 
 # ------------------------------------------------------------------------------
 # Liquibase migration wait — chart-level defaults
-#
-# Rendered as an init container on every service UNLESS the service explicitly
-# sets liquibaseWait.enabled: false.
-#
-# The init container polls the liquibase migration service status endpoint
-# for the configured tenant until pendingChangeSets == 0, ensuring domain
-# services never start before their database schema is ready.
-#
-# Opt-out pattern (e.g. the liquibase service itself):
-#   liquibaseWait:
-#     enabled: false
-#
-# Per-service tenant override (if different from DATAFABRIC_DEFAULT_TENANT):
-#   liquibaseWait:
-#     tenantId: "my-tenant"   # static override — use sparingly
-#
-# The tenant ID is sourced from DATAFABRIC_DEFAULT_TENANT env var by default,
-# which must be set in the service's env block.
-#
-# Polling behaviour:
-#   maxAttempts × sleepSeconds = total wait time before giving up
-#   Default: 30 × 10s = 5 minutes
-#   On timeout: init container exits 1 — Kubernetes restarts the pod
-#
-# Internal Knative service URL pattern:
-#   http://<service-name>.<namespace>.svc.cluster.local
+# Rendered as an init container on every enabled service unless the service
+# sets liquibaseWait.enabled: false (e.g. the liquibase service itself).
+# Polls GET /migration/schemas/public/ready — 200 = ready, 503 = migrating.
 # ------------------------------------------------------------------------------
 liquibaseWait:
   enabled: true
   image: curlimages/curl:latest
   imagePullPolicy: IfNotPresent
-  # Name of the liquibase Knative Service — must match the service name in
-  # the liquibase-serving release
   serviceName: liquibase-migration
-  # Namespace where the liquibase service is deployed
   serviceNamespace: data-fabric
   maxAttempts: 30
   sleepSeconds: 10
@@ -125,87 +106,10 @@ liquibaseWait:
       cpu: "100m"
       memory: "64Mi"
 
-# ==============================================================================
+# ------------------------------------------------------------------------------
 # Services
-# Each entry deploys one Knative Service.
-#
-# Common fields:
-#   name                — DNS-safe name for the Knative Service
-#   enabled             — false skips without removing from values
-#   runtime             — jvm | native (informational, reflected in labels)
-#   port                — container port (default: 8080)
-#   image:
-#     registry          — Docker registry (default: docker.io)
-#     repository        — org/image-name (required)
-#     tag               — image tag (default: latest)
-#     digest            — image digest e.g. sha256:abc123
-#                         takes precedence over tag when set
-#     pullPolicy        — image pull policy (default: IfNotPresent)
-#   env                 — static environment variables (map)
-#                         follows DATA_FABRIC_SVC_* and OIDC_* conventions
-#   secrets             — ESO-managed secrets injected as env vars
-#     - envVar          — environment variable name in the container
-#       secretName      — k8s Secret name suffix (convention: service name)
-#       secretKey       — key within the k8s Secret
-#       remoteKey       — path in the remote secret store
-#       property        — property within the remote secret (default: secretKey)
-#   cloudSqlProxy:
-#     enabled           — true to render Cloud SQL Auth Proxy sidecar
-#     secretName        — override secret name for Cloud SQL instance lookup
-#                         defaults to service name if not set
-#   liquibaseWait:
-#     enabled           — false to skip the liquibase wait init container
-#                         default: inherits chart-level liquibaseWait.enabled
-#     tenantId          — static tenant ID override (optional)
-#                         default: reads DATAFABRIC_DEFAULT_TENANT from env
-#   resources:
-#     requests/limits:
-#       cpu             — CPU request/limit
-#       memory          — memory request/limit
-#   scaling:
-#     minReplicas       — minimum replicas (0 = scale to zero)
-#     maxReplicas       — maximum replicas
-#     target            — concurrency target per pod (default: 10)
-#     metric            — knative autoscaling metric (default: concurrency)
-#     class             — knative autoscaling class (default: kpa)
-#     timeoutSeconds    — request timeout (default: 300)
-#     containerConcurrency — max concurrent requests per container (0 = unlimited)
-#   probes:
-#     liveness          — liveness probe path (default: /q/health/live)
-#     readiness         — readiness probe path (default: /q/health/ready)
-#     startup           — startup probe path (default: /q/health/started)
-#     initialDelaySeconds     (default: 30)
-#     periodSeconds           (default: 10)
-#     timeoutSeconds          (default: 5)
-#     failureThreshold        (default: 3)
-#     startupFailureThreshold (default: 30)
-#   annotations         — additional Knative Service metadata annotations
-#   podAnnotations      — additional pod-level annotations (merged with global)
-#   nodeSelector        — Kubernetes node selector labels
-#   tolerations         — Kubernetes tolerations
-#   externalSecret:     — per-service ESO overrides
-#     clusterSecretStore
-#     refreshInterval
-#
-# Secret naming convention:
-#   ESO materialises secrets as: <release>-<namespace>-<secretName>
-#   secretName in the secrets list should match the service name by convention.
-#   The Cloud SQL proxy also looks up its secret using this same convention.
-#
-# JVM vs Native:
-#   runtime: jvm    — standard JVM fast-jar image (Dockerfile.jvm)
-#   runtime: native — GraalVM native binary image (Dockerfile.native)
-#   Use -Pdebug Maven profile to build debug variants (Dockerfile.jvm-debug,
-#   Dockerfile.native-debug) tagged as latest-debug.
-#
-# Build commands:
-#   JVM prod:    mvn package -Pjvm -Dquarkus.container-image.push=true
-#   JVM debug:   mvn package -Pjvm,debug -Dquarkus.container-image.push=true
-#   Native prod: mvn package -Pnative -Dquarkus.container-image.push=true
-#
-# Deployment:
-#   helm upgrade --install data-fabric-services ./quarkus-service \
-#     -f releases/data-fabric-services/base.yaml \
-#     -n data-fabric
-# ==============================================================================
+# Each entry produces a Knative Service + Cloud SQL proxy sidecar (if enabled).
+# Per-service secrets (unique to that service) are declared here under secrets[].
+# Shared secrets across services are declared at the top-level secrets[] above.
+# ------------------------------------------------------------------------------
 services: []
