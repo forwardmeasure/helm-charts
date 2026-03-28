@@ -50,6 +50,8 @@ spec:
       # The liquibase wait init container is rendered by default for all
       # services. Opt out with liquibaseWait.enabled: false on the service
       # (e.g. the liquibase service itself).
+      # Polls GET /migration/schemas/public/ready — returns 200 when all
+      # public schema changesets are applied, 503 while still migrating.
       # Additional custom init containers can be added via initContainers.
       # --------------------------------------------------------------------
       {{- $svc := . }}
@@ -59,14 +61,13 @@ spec:
       initContainers:
         # ------------------------------------------------------------------
         # Liquibase migration wait
-        # Polls the liquibase migration service until all changesets for
-        # the configured tenant have been applied (pendingChangeSets == 0).
-        # Tenant ID sourced from DATAFABRIC_DEFAULT_TENANT env var unless
-        # a static tenantId override is set on the service.
+        # Polls /migration/schemas/public/ready until HTTP 200.
+        # 200 = all public schema changesets applied, safe to start.
+        # 503 = migrations still running, keep waiting.
+        # Any other response = service not yet reachable, keep waiting.
         # ------------------------------------------------------------------
         {{- if eq $liquibaseEnabled "true" }}
         {{- $lw := $.Values.liquibaseWait }}
-        {{- $staticTenant := include "quarkus-service.liquibaseWaitTenantId" (dict "service" $svc "root" $) }}
         - name: wait-for-liquibase
           image: {{ $lw.image | default "curlimages/curl:latest" }}
           imagePullPolicy: {{ $lw.imagePullPolicy | default "IfNotPresent" }}
@@ -77,43 +78,25 @@ spec:
               value: {{ $lw.maxAttempts | default 30 | quote }}
             - name: SLEEP_SECONDS
               value: {{ $lw.sleepSeconds | default 10 | quote }}
-            {{- if $staticTenant }}
-            # Static tenant ID override — set via liquibaseWait.tenantId
-            - name: TENANT_ID
-              value: {{ $staticTenant | quote }}
-            {{- else }}
-            # Tenant ID sourced from DATAFABRIC_DEFAULT_TENANT env var.
-            # Must be explicitly passed here — init containers do not inherit
-            # env vars from the main container.
-            - name: DATAFABRIC_DEFAULT_TENANT
-              value: {{ index $svc.env "DATAFABRIC_DEFAULT_TENANT" | default "default_tenant" | quote }}
-            - name: TENANT_ID
-              value: "$(DATAFABRIC_DEFAULT_TENANT)"
-            {{- end }}
           command:
             - /bin/sh
             - -c
             - |
-              echo "Waiting for liquibase migrations to complete for tenant: ${TENANT_ID}"
+              echo "Waiting for public schema migrations to complete"
               ATTEMPTS=0
-              STATUS_URL="${LIQUIBASE_SERVICE_URL}/migration/tenants/${TENANT_ID}/status"
+              STATUS_URL="${LIQUIBASE_SERVICE_URL}/migration/schemas/public/ready"
               until [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; do
                 ATTEMPTS=$((ATTEMPTS + 1))
                 echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: polling ${STATUS_URL}"
-                RESPONSE=$(curl -sf "${STATUS_URL}" 2>/dev/null)
-                if [ $? -eq 0 ]; then
-                  PENDING=$(echo "${RESPONSE}" | grep -o '"pendingChangeSets":[0-9]*' | grep -o '[0-9]*$')
-                  if [ -n "${PENDING}" ] && [ "${PENDING}" -eq 0 ]; then
-                    echo "Migrations complete for tenant: ${TENANT_ID}"
-                    exit 0
-                  fi
-                  echo "Pending changesets: ${PENDING:-unknown} — waiting ${SLEEP_SECONDS}s"
-                else
-                  echo "Liquibase service not reachable — waiting ${SLEEP_SECONDS}s"
+                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${STATUS_URL}")
+                if [ "${HTTP_CODE}" = "200" ]; then
+                  echo "Public schema migrations complete"
+                  exit 0
                 fi
+                echo "Schema not ready (HTTP ${HTTP_CODE}) — waiting ${SLEEP_SECONDS}s"
                 sleep ${SLEEP_SECONDS}
               done
-              echo "Timed out waiting for liquibase migrations after $((MAX_ATTEMPTS * SLEEP_SECONDS))s"
+              echo "Timed out waiting for public schema migrations after $((MAX_ATTEMPTS * SLEEP_SECONDS))s"
               exit 1
           resources:
             requests:
