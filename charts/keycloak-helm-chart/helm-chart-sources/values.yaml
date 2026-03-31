@@ -22,22 +22,21 @@ service:
   type: ClusterIP
 
 # ---------------------------------------------------------------------------
-# Keycloak configuration
+# Keycloak runtime configuration
 # ---------------------------------------------------------------------------
 keycloak:
   httpPort: 8080
   httpsPort: 8443
-
-  # Keycloak 26.x management interface (health/metrics commonly served here)
   managementPort: 9000
 
   hostname: ""
-  hostnameUrl: ""
-  hostnameDebug: "true"
+  hostnameDebug: "false"
   hostnameStrict: "false"
 
-  # NOTE: You are using hostname v1 "proxy" option; Keycloak warns but it still works.
-  proxy: edge
+  # Prefer proxyHeaders for modern deployments behind ingress/gateway.
+  # Set to "xforwarded" or "forwarded" as appropriate.
+  proxyHeaders: ""
+  proxy: ""
 
   httpEnabled: "true"
   httpRelativePath: /auth
@@ -45,49 +44,121 @@ keycloak:
   logLevel: INFO
   log: console
 
-  # Database
   db:
     type: postgres
-    # schema: optional — omit to use database default
-    schema: ""
-    # driver: optional — omit to use Keycloak's built-in driver for the db type
+    schema: public
     driver: ""
     poolInitialSize: "5"
     poolMinSize: "5"
     poolMaxSize: "20"
-    # Secret must contain: KC_DB_USERNAME, KC_DB_PASSWORD, KC_DB_URL
-    # Set urlPropertiesSecret: true if the secret also contains KC_DB_URL_PROPERTIES
+
+    # Secret must contain:
+    # - KC_DB_USERNAME
+    # - KC_DB_PASSWORD
+    # - KC_DB_URL
+    # Optionally:
+    # - KC_DB_URL_PROPERTIES
     credentialsSecret: keycloak-db-credentials
     urlPropertiesSecret: false
 
-  # Secret must contain: KEYCLOAK_ADMIN, KEYCLOAK_ADMIN_PASSWORD
+  # Secret must contain:
+  # - KEYCLOAK_ADMIN
+  # - KEYCLOAK_ADMIN_PASSWORD
   adminCredentialsSecret: keycloak-admin-credentials
 
 # ---------------------------------------------------------------------------
 # TLS
-# Secret must contain tls.crt and tls.key
+# Secret must contain:
+# - tls.crt
+# - tls.key
 # ---------------------------------------------------------------------------
 tls:
   secretName: data-fabric-tls-secret
 
 # ---------------------------------------------------------------------------
 # Realm bootstrap
-# Mounts a realm JSON file from a ConfigMap into /opt/keycloak/data/import
+# The realm file is always defined. Import behavior is controlled by realm.import:
+# - none
+# - bootstrap
+# - overwrite
 # ---------------------------------------------------------------------------
 realm:
-  enabled: false
-  name: datafabric
-  configMapName: bootstrap-keycloak-realm-configmap
-  configMapKey: bootstrap-keycloak-realm.json
-  credentialsSecret: keycloak-default-realm-credentials
+  import: overwrite
+
+  realm: datafabric
+  displayName: DataFabric
+  configMapKey: datafabric-realm.json
+  file: files/datafabric-realm.json
+
   features: "scripts,authorization"
-  javaOpts: >-
-    -Dkeycloak.migration.action=import
-    -Dkeycloak.migration.provider=dir
-    -Dkeycloak.migration.dir=/opt/keycloak/data/import
-    -Dkeycloak.migration.strategy=OVERWRITE_EXISTING
-    -Dkeycloak.migration.replace-placeholders=true
-  json: ""
+
+  # Secret must contain:
+  # - DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_SECRET
+  # - DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_SECRET
+  clientSecretsSecret: keycloak-realm-client-secrets
+
+  accessTokenLifespan: "3600"
+  ssoSessionIdleTimeout: "1800"
+  ssoSessionMaxLifespan: "36000"
+  offlineSessionIdleTimeout: "2592000"
+  accessCodeLifespan: "60"
+
+  publicClient:
+    clientId: datafabric-public
+    name: "DataFabric Public SPA Client"
+    redirectUri1: "https://datafabric.asvinau.com/*"
+    redirectUri2: "http://localhost:3000/*"
+    webOrigin1: "https://datafabric.asvinau.com"
+    webOrigin2: "http://localhost:3000"
+    postLogoutRedirectUris: "https://datafabric.asvinau.com/*##http://localhost:3000/*"
+
+  defaultConfidentialClient:
+    clientId: datafabric-confidential
+    name: "DataFabric Confidential API Client"
+
+  adminPublicClient:
+    clientId: datafabric-admin-public
+    name: "DataFabric Admin Public Client"
+    redirectUri1: "https://datafabric.asvinau.com/*"
+    redirectUri2: "http://localhost:3000/*"
+    webOrigin1: "https://datafabric.asvinau.com"
+    webOrigin2: "http://localhost:3000"
+    postLogoutRedirectUris: "https://datafabric.asvinau.com/*##http://localhost:3000/*"
+
+  adminConfidentialClient:
+    clientId: datafabric-admin-confidential
+    name: "DataFabric Admin Confidential Client"
+
+# ---------------------------------------------------------------------------
+# Bootstrap admin user
+# Created by the post-install / post-upgrade hook.
+# ---------------------------------------------------------------------------
+bootstrapAdminUser:
+  username: "admin@forwardmeasure.com"
+  email: "admin@forwardmeasure.com"
+  firstName: "Admin"
+  lastName: "User"
+  passwordSecret: keycloak-bootstrap-admin-user-credentials
+
+  # -----------------------------------------------------------------------
+  # Data Fabric platform roles (realm roles)
+  # -----------------------------------------------------------------------
+  datafabricRoles:
+    viewer: datafabric-platform-viewer
+    accessAdmin: datafabric-access-admin
+    platformAdmin: datafabric-platform-admin
+
+  # -----------------------------------------------------------------------
+  # Keycloak realm-management roles for bootstrap user
+  # (used for Keycloak administration, not platform auth)
+  # -----------------------------------------------------------------------
+  keycloakRealmManagementRoles: "manage-clients,manage-users,manage-realm,view-clients,view-users,query-clients,query-users"
+
+  # -----------------------------------------------------------------------
+  # Keycloak readiness tuning (for slow startups / cold clusters)
+  # -----------------------------------------------------------------------
+  keycloakReadySleepSeconds: 5
+  keycloakReadyMaxAttempts: 60
 
 # ---------------------------------------------------------------------------
 # ServiceAccount
@@ -119,13 +190,7 @@ resources:
 
 # ---------------------------------------------------------------------------
 # Probes
-# Defaults target Keycloak management interface on 9000 (HTTPS).
-# These fields map directly to the updated StatefulSet template.
-# ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
-# Probes
-# Target Keycloak management interface on port 9000 via HTTP.
-# Health and metrics are enabled via build-time args (--health-enabled=true).
+# Target Keycloak management interface over HTTP.
 # ---------------------------------------------------------------------------
 readinessProbe:
   enabled: true
@@ -190,7 +255,9 @@ extraEnv: []
 extraVolumes: []
 extraVolumeMounts: []
 
-# Cloud-specific things like workload identity
+# ---------------------------------------------------------------------------
+# GCP / Workload Identity
+# ---------------------------------------------------------------------------
 gcp:
   workloadIdentity:
     enabled: false

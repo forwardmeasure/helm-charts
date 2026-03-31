@@ -11,9 +11,11 @@ spec:
   ports:
     - name: http
       port: {{ .Values.keycloak.httpPort }}
-      targetPort: {{ .Values.keycloak.httpPort }}
+      targetPort: http
+      protocol: TCP
     - name: https
       port: {{ .Values.keycloak.httpsPort }}
-      targetPort: {{ .Values.keycloak.httpsPort }}
+      targetPort: https
+      protocol: TCP
   selector:
     {{- include "keycloak.selectorLabels" . | nindent 4 }}

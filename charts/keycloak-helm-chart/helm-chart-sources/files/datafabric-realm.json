@@ -1,0 +1,211 @@
+{
+    "realm": "${KC_REALM}",
+    "displayName": "${KC_REALM_DISPLAY_NAME}",
+    "enabled": true,
+    "registrationAllowed": false,
+    "loginWithEmailAllowed": true,
+    "duplicateEmailsAllowed": false,
+    "resetPasswordAllowed": true,
+    "editUsernameAllowed": false,
+    "bruteForceProtected": true,
+    "accessTokenLifespan": "${KC_ACCESS_TOKEN_LIFESPAN}",
+    "ssoSessionIdleTimeout": "${KC_SSO_SESSION_IDLE_TIMEOUT}",
+    "ssoSessionMaxLifespan": "${KC_SSO_SESSION_MAX_LIFESPAN}",
+    "offlineSessionIdleTimeout": "${KC_OFFLINE_SESSION_IDLE_TIMEOUT}",
+    "accessCodeLifespan": "${KC_ACCESS_CODE_LIFESPAN}",
+    "eventsEnabled": true,
+    "eventsListeners": [
+        "jboss-logging"
+    ],
+    "adminEventsEnabled": true,
+    "adminEventsDetailsEnabled": true,
+    "internationalizationEnabled": false,
+    "supportedLocales": [
+        "en"
+    ],
+    "defaultLocale": "en",
+    "roles": {
+        "realm": [
+            {
+                "name": "datafabric-platform-viewer",
+                "description": "Read-only access to Data Fabric platform"
+            },
+            {
+                "name": "datafabric-access-admin",
+                "description": "Manage users, roles, and access in Data Fabric"
+            },
+            {
+                "name": "datafabric-platform-admin",
+                "description": "Full administrative access to Data Fabric platform",
+                "composite": true,
+                "composites": {
+                    "realm": [
+                        "datafabric-platform-viewer",
+                        "datafabric-access-admin"
+                    ]
+                }
+            }
+        ]
+    },
+    "clientScopes": [
+        {
+            "name": "tenant_details",
+            "description": "Tenant context claims for DataFabric tokens",
+            "protocol": "openid-connect",
+            "attributes": {
+                "include.in.token.scope": "true",
+                "display.on.consent.screen": "false"
+            },
+            "protocolMappers": [
+                {
+                    "name": "tenant-id",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-usermodel-attribute-mapper",
+                    "consentRequired": false,
+                    "config": {
+                        "user.attribute": "tenant-id",
+                        "claim.name": "tenant-id",
+                        "jsonType.label": "String",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "userinfo.token.claim": "true",
+                        "multivalued": "false",
+                        "aggregate.attrs": "false"
+                    }
+                }
+            ]
+        }
+    ],
+    "clients": [
+        {
+            "clientId": "${DATAFABRIC_PUBLIC_CLIENT_ID}",
+            "name": "${DATAFABRIC_PUBLIC_CLIENT_NAME}",
+            "description": "Public PKCE client for browser and SPA applications",
+            "enabled": true,
+            "protocol": "openid-connect",
+            "publicClient": true,
+            "bearerOnly": false,
+            "standardFlowEnabled": true,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": false,
+            "redirectUris": [
+                "${DATAFABRIC_PUBLIC_REDIRECT_URI_1}",
+                "${DATAFABRIC_PUBLIC_REDIRECT_URI_2}"
+            ],
+            "webOrigins": [
+                "${DATAFABRIC_PUBLIC_WEB_ORIGIN_1}",
+                "${DATAFABRIC_PUBLIC_WEB_ORIGIN_2}"
+            ],
+            "attributes": {
+                "pkce.code.challenge.method": "S256",
+                "post.logout.redirect.uris": "${DATAFABRIC_PUBLIC_POST_LOGOUT_REDIRECT_URIS}"
+            },
+            "defaultClientScopes": [
+                "web-origins",
+                "roles",
+                "profile",
+                "email",
+                "tenant_details"
+            ],
+            "optionalClientScopes": [
+                "address",
+                "phone",
+                "offline_access"
+            ]
+        },
+        {
+            "clientId": "${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_ID}",
+            "name": "${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_NAME}",
+            "description": "Confidential client for default non-UI clients and service-to-service access",
+            "enabled": true,
+            "protocol": "openid-connect",
+            "publicClient": false,
+            "bearerOnly": false,
+            "standardFlowEnabled": false,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": true,
+            "secret": "${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_SECRET}",
+            "defaultClientScopes": [
+                "roles",
+                "tenant_details"
+            ],
+            "optionalClientScopes": [
+                "offline_access"
+            ]
+        },
+        {
+            "clientId": "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}",
+            "name": "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_NAME}",
+            "description": "Public PKCE client for interactive admin UI access",
+            "enabled": true,
+            "protocol": "openid-connect",
+            "publicClient": true,
+            "bearerOnly": false,
+            "standardFlowEnabled": true,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": false,
+            "redirectUris": [
+                "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1}",
+                "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2}"
+            ],
+            "webOrigins": [
+                "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1}",
+                "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2}"
+            ],
+            "attributes": {
+                "pkce.code.challenge.method": "S256",
+                "post.logout.redirect.uris": "${DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS}"
+            },
+            "defaultClientScopes": [
+                "web-origins",
+                "roles",
+                "profile",
+                "email"
+            ],
+            "optionalClientScopes": [
+                "address",
+                "phone",
+                "offline_access"
+            ]
+        },
+        {
+            "clientId": "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}",
+            "name": "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_NAME}",
+            "description": "Confidential client for tenant provisioning and Keycloak administration",
+            "enabled": true,
+            "protocol": "openid-connect",
+            "publicClient": false,
+            "bearerOnly": false,
+            "standardFlowEnabled": false,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": true,
+            "secret": "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_SECRET}",
+            "defaultClientScopes": [
+                "roles"
+            ],
+            "optionalClientScopes": [
+                "offline_access"
+            ]
+        }
+    ],
+    "clientScopeMappings": {
+        "realm-management": [
+            {
+                "client": "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}",
+                "roles": [
+                    "manage-clients",
+                    "manage-users",
+                    "manage-realm",
+                    "view-clients",
+                    "view-users",
+                    "query-clients",
+                    "query-users"
+                ]
+            }
+        ]
+    }
+}
