@@ -393,7 +393,26 @@ entries:
   keycloak:
   - apiVersion: v2
     appVersion: "26.5"
-    created: "2026-03-31T17:40:51.294153197-04:00"
+    created: "2026-03-31T18:25:04.143109108-04:00"
+    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+      database support.
+    digest: b424cd7ab959bfc373792c472aec700d06bf365397964f6aa026c4d690848eb3
+    keywords:
+    - keycloak
+    - iam
+    - authentication
+    - authorization
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: keycloak
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.13.tgz
+    version: 0.0.13
+  - apiVersion: v2
+    appVersion: "26.5"
+    created: "2026-03-31T18:25:04.14261758-04:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 030dfee2a4e6f51906905e6ca5d98ed69a8fb28b2c47069a1f8c65db607076a2
@@ -412,7 +431,7 @@ entries:
     version: 0.0.12
   - apiVersion: v2
     appVersion: "26.5"
-    created: "2026-03-31T17:40:51.29253736-04:00"
+    created: "2026-03-31T18:25:04.142138027-04:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 6f3f9c41f409470a3831fd222facb0335c1edc1628e226d6ca45fcc52cad373b
@@ -431,7 +450,7 @@ entries:
     version: 0.0.11
   - apiVersion: v2
     appVersion: "26.5"
-    created: "2026-03-31T17:40:51.292159936-04:00"
+    created: "2026-03-31T18:25:04.141776182-04:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 5138fce2ff4167c260144ab1d1a78337fee68f96b3ceb92578f6f2c3c28293a0
@@ -2078,4 +2097,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-03-31T17:42:13.664724569-04:00"
+generated: "2026-03-31T18:25:04.141293861-04:00"
