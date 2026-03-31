@@ -21,6 +21,21 @@ Create a default fully qualified app name.
 {{- end }}
 {{- end }}
 
+{{- define "keycloak.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{- default (printf "%s-service-account" (include "keycloak.fullname" .)) .Values.serviceAccount.name }}
+{{- else -}}
+default
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolve the realm ConfigMap name used by this chart.
+*/}}
+{{- define "keycloak.realmConfigMapName" -}}
+{{- printf "%s-realm" (include "keycloak.fullname" .) -}}
+{{- end }}
+
 {{/*
 Common labels
 */}}

@@ -18,12 +18,18 @@ spec:
     metadata:
       labels:
         {{- include "keycloak.selectorLabels" . | nindent 8 }}
-      {{- with .Values.podAnnotations }}
       annotations:
+        {{- if .Values.realm.file }}
+        checksum/realm-config: {{ .Files.Get .Values.realm.file | sha256sum | quote }}
+        {{- end }}
+        checksum/db-credentials-secret: {{ .Values.keycloak.db.credentialsSecret | quote }}
+        checksum/admin-credentials-secret: {{ .Values.keycloak.adminCredentialsSecret | quote }}
+        checksum/tls-secret: {{ .Values.tls.secretName | quote }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
-      serviceAccountName: {{ .Values.serviceAccount.name | default (printf "%s-service-account" (include "keycloak.fullname" .)) }}
+      serviceAccountName: {{ include "keycloak.serviceAccountName" . }}
       securityContext:
         fsGroup: {{ .Values.podSecurityContext.fsGroup }}
       enableServiceLinks: {{ .Values.enableServiceLinks }}
@@ -49,13 +55,13 @@ spec:
                 path: server-certificate.pem
               - key: tls.key
                 path: server-certificate-key.pem
-        {{- if .Values.realm.enabled }}
+        {{- if .Values.realm.file }}
         - name: keycloak-realm-import-volume
           configMap:
-            name: {{ .Values.realm.configMapName }}
+            name: {{ include "keycloak.realmConfigMapName" . }}
             items:
               - key: {{ .Values.realm.configMapKey }}
-                path: {{ .Values.realm.name }}-realm.json
+                path: {{ .Values.realm.configMapKey }}
         {{- end }}
         {{- if .Values.cloudSqlProxy.enabled }}
         - name: gcp-service-account-credentials-volume
@@ -70,9 +76,6 @@ spec:
         {{- end }}
 
       containers:
-        # ---------------------------------------------------------------------------
-        # Cloud SQL Auth Proxy sidecar — GCP only, enabled via cloudSqlProxy.enabled
-        # ---------------------------------------------------------------------------
         {{- if .Values.cloudSqlProxy.enabled }}
         - name: cloud-sql-proxy
           image: "{{ .Values.cloudSqlProxy.image.repository }}:{{ .Values.cloudSqlProxy.image.tag }}"
@@ -94,9 +97,6 @@ spec:
             {{- toYaml .Values.cloudSqlProxy.resources | nindent 12 }}
         {{- end }}
 
-        # ---------------------------------------------------------------------------
-        # Keycloak main container
-        # ---------------------------------------------------------------------------
         - name: keycloak
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -104,19 +104,15 @@ spec:
             runAsNonRoot: true
             runAsUser: {{ .Values.containerSecurityContext.runAsUser }}
           args:
-            {{- if .Values.realm.enabled }}
             - start
+            {{- if ne .Values.realm.import "none" }}
             - --import-realm
+            {{- end }}
             - --health-enabled=true
             - --metrics-enabled=true
             - --http-management-scheme=http
             - --log-level={{ .Values.keycloak.logLevel }}
-            {{- else }}
-            - start
-            - --health-enabled=true
-            - --metrics-enabled=true
-            - --http-management-scheme=http
-            {{- end }}
+
           ports:
             - name: http
               containerPort: {{ .Values.keycloak.httpPort }}
@@ -124,9 +120,8 @@ spec:
             - name: https
               containerPort: {{ .Values.keycloak.httpsPort }}
               protocol: TCP
-            # Keycloak 26.x management interface (health/metrics live here by default)
             - name: management
-              containerPort: 9000
+              containerPort: {{ .Values.keycloak.managementPort }}
               protocol: TCP
 
           env:
@@ -134,8 +129,6 @@ spec:
               value: {{ .Values.keycloak.httpPort | quote }}
             - name: KC_HTTPS_PORT
               value: {{ .Values.keycloak.httpsPort | quote }}
-            - name: KC_HOSTNAME_URL
-              value: {{ .Values.keycloak.hostnameUrl | quote }}
             - name: KC_HOSTNAME
               value: {{ .Values.keycloak.hostname | quote }}
             - name: KC_HOSTNAME_DEBUG
@@ -160,7 +153,6 @@ spec:
             - name: KC_LOG
               value: {{ .Values.keycloak.log | quote }}
 
-            # Database
             - name: KC_DB
               value: {{ .Values.keycloak.db.type | quote }}
             {{- if .Values.keycloak.db.schema }}
@@ -200,13 +192,11 @@ spec:
                   key: KC_DB_URL_PROPERTIES
             {{- end }}
 
-            # TLS
             - name: KC_HTTPS_CERTIFICATE_FILE
               value: /secrets/tls/server-certificate.pem
             - name: KC_HTTPS_CERTIFICATE_KEY_FILE
               value: /secrets/tls/server-certificate-key.pem
 
-            # Admin credentials
             - name: KEYCLOAK_ADMIN
               valueFrom:
                 secretKeyRef:
@@ -218,40 +208,84 @@ spec:
                   name: {{ .Values.keycloak.adminCredentialsSecret }}
                   key: KEYCLOAK_ADMIN_PASSWORD
 
-            # Realm bootstrap
-            {{- if .Values.realm.enabled }}
-            - name: KEYCLOAK_DEFAULT_REALM_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.realm.credentialsSecret }}
-                  key: KEYCLOAK_DEFAULT_REALM_NAME
-            - name: KEYCLOAK_DEFAULT_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.realm.credentialsSecret }}
-                  key: KEYCLOAK_DEFAULT_CLIENT_ID
-            - name: KEYCLOAK_DEFAULT_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.realm.credentialsSecret }}
-                  key: KEYCLOAK_DEFAULT_CLIENT_SECRET
-            - name: KEYCLOAK_DEFAULT_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.realm.credentialsSecret }}
-                  key: KEYCLOAK_DEFAULT_USERNAME
-            - name: KEYCLOAK_DEFAULT_USER_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.realm.credentialsSecret }}
-                  key: KEYCLOAK_DEFAULT_USER_PASSWORD
+            {{- if .Values.realm.file }}
             - name: KC_FEATURES
               value: {{ .Values.realm.features | quote }}
             - name: JAVA_OPTS_APPEND
-              value: {{ .Values.realm.javaOpts | quote }}
+              value: >-
+                -Dkeycloak.migration.action=import
+                -Dkeycloak.migration.provider=dir
+                -Dkeycloak.migration.dir=/opt/keycloak/data/import
+                -Dkeycloak.migration.strategy={{ if eq .Values.realm.import "overwrite" }}OVERWRITE_EXISTING{{ else }}IGNORE_EXISTING{{ end }}
+                -Dkeycloak.migration.replace-placeholders=true
+
+            - name: KC_REALM
+              value: {{ .Values.realm.realm | quote }}
+            - name: KC_REALM_DISPLAY_NAME
+              value: {{ .Values.realm.displayName | quote }}
+
+            - name: KC_ACCESS_TOKEN_LIFESPAN
+              value: {{ .Values.realm.accessTokenLifespan | quote }}
+            - name: KC_SSO_SESSION_IDLE_TIMEOUT
+              value: {{ .Values.realm.ssoSessionIdleTimeout | quote }}
+            - name: KC_SSO_SESSION_MAX_LIFESPAN
+              value: {{ .Values.realm.ssoSessionMaxLifespan | quote }}
+            - name: KC_OFFLINE_SESSION_IDLE_TIMEOUT
+              value: {{ .Values.realm.offlineSessionIdleTimeout | quote }}
+            - name: KC_ACCESS_CODE_LIFESPAN
+              value: {{ .Values.realm.accessCodeLifespan | quote }}
+
+            - name: DATAFABRIC_PUBLIC_CLIENT_ID
+              value: {{ .Values.realm.publicClient.clientId | quote }}
+            - name: DATAFABRIC_PUBLIC_CLIENT_NAME
+              value: {{ .Values.realm.publicClient.name | quote }}
+            - name: DATAFABRIC_PUBLIC_REDIRECT_URI_1
+              value: {{ .Values.realm.publicClient.redirectUri1 | quote }}
+            - name: DATAFABRIC_PUBLIC_REDIRECT_URI_2
+              value: {{ .Values.realm.publicClient.redirectUri2 | quote }}
+            - name: DATAFABRIC_PUBLIC_WEB_ORIGIN_1
+              value: {{ .Values.realm.publicClient.webOrigin1 | quote }}
+            - name: DATAFABRIC_PUBLIC_WEB_ORIGIN_2
+              value: {{ .Values.realm.publicClient.webOrigin2 | quote }}
+            - name: DATAFABRIC_PUBLIC_POST_LOGOUT_REDIRECT_URIS
+              value: {{ .Values.realm.publicClient.postLogoutRedirectUris | quote }}
+
+            - name: DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_ID
+              value: {{ .Values.realm.defaultConfidentialClient.clientId | quote }}
+            - name: DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_NAME
+              value: {{ .Values.realm.defaultConfidentialClient.name | quote }}
+            - name: DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.realm.clientSecretsSecret }}
+                  key: DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_SECRET
+
+            - name: DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID
+              value: {{ .Values.realm.adminPublicClient.clientId | quote }}
+            - name: DATAFABRIC_ADMIN_PUBLIC_CLIENT_NAME
+              value: {{ .Values.realm.adminPublicClient.name | quote }}
+            - name: DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1
+              value: {{ .Values.realm.adminPublicClient.redirectUri1 | quote }}
+            - name: DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2
+              value: {{ .Values.realm.adminPublicClient.redirectUri2 | quote }}
+            - name: DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1
+              value: {{ .Values.realm.adminPublicClient.webOrigin1 | quote }}
+            - name: DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2
+              value: {{ .Values.realm.adminPublicClient.webOrigin2 | quote }}
+            - name: DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS
+              value: {{ .Values.realm.adminPublicClient.postLogoutRedirectUris | quote }}
+
+            - name: DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID
+              value: {{ .Values.realm.adminConfidentialClient.clientId | quote }}
+            - name: DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_NAME
+              value: {{ .Values.realm.adminConfidentialClient.name | quote }}
+            - name: DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.realm.clientSecretsSecret }}
+                  key: DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_SECRET
             {{- end }}
 
-            # GCP Cloud SQL proxy
             {{- if .Values.cloudSqlProxy.enabled }}
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /secrets/gcp/gcp-service-account-credentials.json
@@ -265,9 +299,10 @@ spec:
             - name: keycloak-tls-server-cert-volume
               mountPath: /secrets/tls
               readOnly: true
-            {{- if .Values.realm.enabled }}
+            {{- if .Values.realm.file }}
             - name: keycloak-realm-import-volume
               mountPath: /opt/keycloak/data/import
+              readOnly: true
             {{- end }}
             {{- if .Values.cloudSqlProxy.enabled }}
             - name: gcp-service-account-credentials-volume
@@ -280,11 +315,12 @@ spec:
 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
               path: {{ .Values.livenessProbe.path }}
-              port: {{ .Values.livenessProbe.port | default "http" }}
+              port: {{ .Values.livenessProbe.port | default .Values.keycloak.managementPort }}
               scheme: {{ .Values.livenessProbe.scheme | default "HTTP" }}
               {{- with .Values.livenessProbe.httpHeaders }}
               httpHeaders:
@@ -300,7 +336,7 @@ spec:
           readinessProbe:
             httpGet:
               path: {{ .Values.readinessProbe.path }}
-              port: {{ .Values.readinessProbe.port | default "http" }}
+              port: {{ .Values.readinessProbe.port | default .Values.keycloak.managementPort }}
               scheme: {{ .Values.readinessProbe.scheme | default "HTTP" }}
               {{- with .Values.readinessProbe.httpHeaders }}
               httpHeaders:
@@ -316,7 +352,7 @@ spec:
           startupProbe:
             httpGet:
               path: {{ .Values.startupProbe.path }}
-              port: {{ .Values.startupProbe.port | default (.Values.readinessProbe.port | default "http") }}
+              port: {{ .Values.startupProbe.port | default .Values.keycloak.managementPort }}
               scheme: {{ .Values.startupProbe.scheme | default (.Values.readinessProbe.scheme | default "HTTP") }}
               {{- with .Values.startupProbe.httpHeaders }}
               httpHeaders:

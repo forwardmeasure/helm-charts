@@ -1,12 +1,12 @@
-{{- if and .Values.realm.enabled .Values.realm.json }}
+{{- if .Values.realm.file }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Values.realm.configMapName }}
+  name: {{ include "keycloak.realmConfigMapName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "keycloak.labels" . | nindent 4 }}
 data:
-  {{ .Values.realm.configMapKey | quote }}: |
-    {{- .Values.realm.json | nindent 4 }}
+  {{ .Values.realm.configMapKey }}: |
+{{ .Files.Get .Values.realm.file | indent 4 }}
 {{- end }}
