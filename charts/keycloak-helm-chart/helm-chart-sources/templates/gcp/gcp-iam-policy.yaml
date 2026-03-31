@@ -14,8 +14,8 @@ spec:
   bindings:
     - role: roles/iam.workloadIdentityUser
       members:
-        - serviceAccount:{{ .Values.gcp.workloadIdentity.gcpProjectId }}.svc.id.goog[{{ .Release.Namespace }}/{{ .Values.serviceAccount.name }}]
+        - serviceAccount:{{ printf "%s.svc.id.goog[%s/%s]" .Values.gcp.workloadIdentity.gcpProjectId .Release.Namespace (include "keycloak.serviceAccountName" .) }}
     - role: roles/cloudsql.client
       members:
-        - serviceAccount:{{ .Values.gcp.workloadIdentity.gcpProjectId }}.svc.id.goog[{{ .Release.Namespace }}/{{ .Values.serviceAccount.name }}]
+        - serviceAccount:{{ printf "%s.svc.id.goog[%s/%s]" .Values.gcp.workloadIdentity.gcpProjectId .Release.Namespace (include "keycloak.serviceAccountName" .) }}
 {{- end }}
