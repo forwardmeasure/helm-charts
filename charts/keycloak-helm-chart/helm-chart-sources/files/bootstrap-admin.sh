@@ -53,9 +53,12 @@ kc_post_json() {
     -H "Content-Type: application/json" \
     "$url" \
     --data "$body")"
-  if [ "$code" != "201" ] && [ "$code" != "204" ]; then
+  if [ "$code" != "201" ] && [ "$code" != "204" ] && [ "$code" != "409" ]; then
     cat /tmp/kc.out >&2 || true
     fail "POST $url failed with HTTP $code"
+  fi
+  if [ "$code" = "409" ]; then
+    log "POST $url returned 409 (already exists) — skipping"
   fi
 }
 
@@ -74,7 +77,6 @@ kc_put_json() {
   fi
 }
 
-# kc_put_no_body — for scope assignment endpoints that take no request body
 kc_put_no_body() {
   url="$1"
   code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
@@ -93,20 +95,23 @@ kc_put_no_body() {
 
 print_config_banner() {
   log_section "Bootstrap configuration"
-  log "KEYCLOAK_URL              = ${KEYCLOAK_URL}"
-  log "REALM                     = ${REALM}"
-  log "KEYCLOAK_ADMIN            = ${KEYCLOAK_ADMIN}"
-  log "ADMIN_USERNAME            = ${ADMIN_USERNAME}"
-  log "ADMIN_EMAIL               = ${ADMIN_EMAIL}"
-  log "ADMIN_FIRST_NAME          = ${ADMIN_FIRST_NAME}"
-  log "ADMIN_LAST_NAME           = ${ADMIN_LAST_NAME}"
-  log "DATAFABRIC_ROLE_VIEWER    = ${DATAFABRIC_ROLE_VIEWER}"
-  log "DATAFABRIC_ROLE_ACCESS_ADMIN   = ${DATAFABRIC_ROLE_ACCESS_ADMIN}"
-  log "DATAFABRIC_ROLE_PLATFORM_ADMIN = ${DATAFABRIC_ROLE_PLATFORM_ADMIN}"
+  log "KEYCLOAK_URL                            = ${KEYCLOAK_URL}"
+  log "REALM                                   = ${REALM}"
+  log "KEYCLOAK_ADMIN                          = ${KEYCLOAK_ADMIN}"
+  log "ADMIN_USERNAME                          = ${ADMIN_USERNAME}"
+  log "ADMIN_EMAIL                             = ${ADMIN_EMAIL}"
+  log "ADMIN_FIRST_NAME                        = ${ADMIN_FIRST_NAME}"
+  log "ADMIN_LAST_NAME                         = ${ADMIN_LAST_NAME}"
+  log "DATAFABRIC_ROLE_VIEWER                  = ${DATAFABRIC_ROLE_VIEWER}"
+  log "DATAFABRIC_ROLE_ACCESS_ADMIN            = ${DATAFABRIC_ROLE_ACCESS_ADMIN}"
+  log "DATAFABRIC_ROLE_PLATFORM_ADMIN          = ${DATAFABRIC_ROLE_PLATFORM_ADMIN}"
   log "DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID = ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
-  log "KEYCLOAK_REALM_MGMT_ROLES = ${KEYCLOAK_REALM_MGMT_ROLES}"
-  log "KEYCLOAK_READY_SLEEP_SECONDS = ${KEYCLOAK_READY_SLEEP_SECONDS}"
-  log "KEYCLOAK_READY_MAX_ATTEMPTS  = ${KEYCLOAK_READY_MAX_ATTEMPTS}"
+  log "DATAFABRIC_PUBLIC_CLIENT_ID             = ${DATAFABRIC_PUBLIC_CLIENT_ID}"
+  log "DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID       = ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
+  log "KEYCLOAK_REALM_MGMT_ROLES               = ${KEYCLOAK_REALM_MGMT_ROLES}"
+  log "DATAFABRIC_TENANT_GROUP_ROLES           = ${DATAFABRIC_TENANT_GROUP_ROLES:-<empty>}"
+  log "KEYCLOAK_READY_SLEEP_SECONDS            = ${KEYCLOAK_READY_SLEEP_SECONDS}"
+  log "KEYCLOAK_READY_MAX_ATTEMPTS             = ${KEYCLOAK_READY_MAX_ATTEMPTS}"
   log_section "Starting bootstrap"
 }
 
@@ -160,19 +165,15 @@ fetch_admin_token() {
 ensure_realm_role() {
   role_name="$1"
   description="$2"
-
   log "Checking realm role: ${role_name}"
   code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
     -H "Authorization: Bearer ${TOKEN}" \
     "${KEYCLOAK_URL}/admin/realms/${REALM}/roles/${role_name}")"
-
   if [ "$code" = "200" ]; then
     log "Realm role already exists: ${role_name}"
     return 0
   fi
-
   [ "$code" = "404" ] || fail "Unexpected HTTP $code checking realm role '${role_name}'"
-
   log "Creating realm role: ${role_name}"
   body="$(cat <<EOF
 {
@@ -194,19 +195,16 @@ get_realm_role_json() {
 ensure_composite_role() {
   parent="$1"
   child="$2"
-
   log "Checking composite role: ${parent} -> ${child}"
   parent_json="$(get_realm_role_json "$parent")"
   parent_id="$(printf '%s' "$parent_json" | jq -r '.id')"
   [ -n "$parent_id" ] && [ "$parent_id" != "null" ] || fail "Missing id for role '${parent}'"
-
   existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/roles-by-id/${parent_id}/composites" \
     | jq -r '.[].name' || true)"
   if printf '%s\n' "$existing" | grep -qx "$child"; then
     log "Composite already present: ${parent} -> ${child}"
     return 0
   fi
-
   log "Adding composite role: ${parent} -> ${child}"
   child_json="$(get_realm_role_json "$child")"
   kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/roles-by-id/${parent_id}/composites" "[$child_json]"
@@ -227,7 +225,6 @@ get_user_id_by_username() {
 create_or_update_bootstrap_user() {
   log "Looking up bootstrap user: ${ADMIN_USERNAME}"
   user_id="$(get_user_id_by_username "${ADMIN_USERNAME}" || true)"
-
   user_body="$(cat <<EOF
 {
   "username":  $(json_escape "${ADMIN_USERNAME}"),
@@ -239,12 +236,9 @@ create_or_update_bootstrap_user() {
 }
 EOF
 )"
-
   if [ -z "$user_id" ]; then
     log "Bootstrap user not found — creating: ${ADMIN_USERNAME}"
     kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users" "$user_body"
-
-    # Keycloak user-search indexing is async — retry the lookup
     i=0
     while [ "$i" -lt 10 ]; do
       user_id="$(get_user_id_by_username "${ADMIN_USERNAME}" || true)"
@@ -260,7 +254,6 @@ EOF
     kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}" "$user_body"
     log "Bootstrap user updated: ${ADMIN_USERNAME} (id=${user_id})"
   fi
-
   BOOTSTRAP_USER_ID="$user_id"
   export BOOTSTRAP_USER_ID
 }
@@ -282,7 +275,6 @@ EOF
 assign_realm_role_to_user_if_missing() {
   user_id="$1"
   role_name="$2"
-
   log "Checking realm role '${role_name}' on user ${user_id}"
   existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/realm" \
     | jq -r '.[].name' || true)"
@@ -290,7 +282,6 @@ assign_realm_role_to_user_if_missing() {
     log "User ${user_id} already has realm role: ${role_name}"
     return 0
   fi
-
   log "Assigning realm role '${role_name}' to user ${user_id}"
   role_json="$(get_realm_role_json "$role_name")"
   kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/realm" "[$role_json]"
@@ -318,21 +309,17 @@ assign_client_roles_to_user_if_missing() {
   user_id="$1"
   client_uuid="$2"
   roles_csv="$3"
-
   log "Checking client roles for user ${user_id} on client ${client_uuid}"
   existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/clients/${client_uuid}" \
     | jq -r '.[].name' || true)"
-
   payload="["
   first="true"
-
   OLD_IFS="$IFS"
   IFS=','
   for role in $roles_csv; do
     IFS="$OLD_IFS"
     trimmed="$(printf '%s' "$role" | tr -d '[:space:]')"
     [ -n "$trimmed" ] || continue
-
     if printf '%s\n' "$existing" | grep -qx "$trimmed"; then
       log "User ${user_id} already has client role: ${trimmed}"
     else
@@ -349,9 +336,7 @@ assign_client_roles_to_user_if_missing() {
     IFS=','
   done
   IFS="$OLD_IFS"
-
   payload="${payload}]"
-
   if [ "$payload" != "[]" ]; then
     log "Assigning queued client roles to user ${user_id}"
     kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/clients/${client_uuid}" "$payload"
@@ -363,19 +348,8 @@ assign_client_roles_to_user_if_missing() {
 
 # ---------------------------------------------------------------------------
 # Client scope helpers
-#
-# Keycloak built-in client scopes (roles, profile, email, web-origins, acr,
-# openid, address, phone, microprofile-jwt) are normally created automatically
-# when a realm is initialised. However when a realm is imported with
-# OVERWRITE_EXISTING these built-ins are wiped and only the scopes defined in
-# the import JSON survive. This phase recreates any missing built-in scopes
-# with their standard protocol mappers, then assigns the correct default and
-# optional scopes to each client — idempotently.
 # ---------------------------------------------------------------------------
 
-# Returns the UUID of a client scope by name, or empty string if not found.
-# tr strips the trailing newline that jq -r always appends, which would
-# otherwise be embedded in URLs and cause curl to reject them.
 get_scope_id_by_name() {
   scope_name="$1"
   kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/client-scopes" \
@@ -383,74 +357,63 @@ get_scope_id_by_name() {
     | tr -d '\n'
 }
 
-# Creates a client scope if it doesn't already exist, then returns its UUID.
 ensure_client_scope() {
   scope_name="$1"
   scope_body="$2"
-
   log "Checking client scope: ${scope_name}"
   existing_id="$(get_scope_id_by_name "$scope_name" || true)"
-
   if [ -n "$existing_id" ]; then
     log "Client scope already exists: ${scope_name} (id=${existing_id})"
     printf '%s' "$existing_id"
     return 0
   fi
-
   log "Creating client scope: ${scope_name}"
-  # POST returns 201 with a Location header but no body — fetch UUID after
   code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
     -X POST \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json" \
     "${KEYCLOAK_URL}/admin/realms/${REALM}/client-scopes" \
     --data "$scope_body")"
-  if [ "$code" != "201" ]; then
+  if [ "$code" != "201" ] && [ "$code" != "409" ]; then
     cat /tmp/kc.out >&2 || true
     fail "POST client-scope '${scope_name}' failed with HTTP $code"
   fi
-
+  if [ "$code" = "409" ]; then
+    log "Client scope '${scope_name}' already exists (409) — skipping creation"
+  fi
   new_id="$(get_scope_id_by_name "$scope_name")"
   [ -n "$new_id" ] || fail "Created scope '${scope_name}' but could not retrieve its UUID"
   log "Created client scope: ${scope_name} (id=${new_id})"
   printf '%s' "$new_id"
 }
 
-# Assigns a scope as a default scope on a client if not already present.
 assign_default_scope_to_client_if_missing() {
   client_uuid="$1"
   scope_name="$2"
   scope_id="$3"
-
   log "Checking default scope '${scope_name}' on client ${client_uuid}"
   existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/default-client-scopes" \
     | jq -r '.[].name' || true)"
-
   if printf '%s\n' "$existing" | grep -qx "$scope_name"; then
     log "Default scope '${scope_name}' already assigned to client ${client_uuid}"
     return 0
   fi
-
   log "Assigning default scope '${scope_name}' to client ${client_uuid}"
   kc_put_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/default-client-scopes/${scope_id}"
   log "Assigned default scope '${scope_name}' to client ${client_uuid}"
 }
 
-# Assigns a scope as an optional scope on a client if not already present.
 assign_optional_scope_to_client_if_missing() {
   client_uuid="$1"
   scope_name="$2"
   scope_id="$3"
-
   log "Checking optional scope '${scope_name}' on client ${client_uuid}"
   existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/optional-client-scopes" \
     | jq -r '.[].name' || true)"
-
   if printf '%s\n' "$existing" | grep -qx "$scope_name"; then
     log "Optional scope '${scope_name}' already assigned to client ${client_uuid}"
     return 0
   fi
-
   log "Assigning optional scope '${scope_name}' to client ${client_uuid}"
   kc_put_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/optional-client-scopes/${scope_id}"
   log "Assigned optional scope '${scope_name}' to client ${client_uuid}"
@@ -458,10 +421,6 @@ assign_optional_scope_to_client_if_missing() {
 
 # ---------------------------------------------------------------------------
 # Built-in scope definitions
-#
-# These replicate exactly what Keycloak creates automatically at realm init.
-# Each function ensures the scope + its protocol mappers exist, and returns
-# the scope UUID via stdout.
 # ---------------------------------------------------------------------------
 
 ensure_scope_roles() {
@@ -814,7 +773,6 @@ EOF
 configure_client_scopes() {
   log_section "Phase 4: built-in client scopes"
 
-  # Ensure every built-in scope exists, capturing UUIDs
   log "Ensuring built-in client scopes exist..."
   SCOPE_ID_ROLES="$(ensure_scope_roles)"
   SCOPE_ID_PROFILE="$(ensure_scope_profile)"
@@ -832,15 +790,10 @@ configure_client_scopes() {
 
   log "All client scopes verified"
 
-  # ------------------------------------------------------------------
   # datafabric-public
-  # default:   web-origins, roles, profile, email, acr, openid, tenant_details
-  # optional:  address, phone, offline_access
-  # ------------------------------------------------------------------
   log "Configuring scopes for client: ${DATAFABRIC_PUBLIC_CLIENT_ID}"
   pub_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_PUBLIC_CLIENT_ID}")"
   [ -n "$pub_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_PUBLIC_CLIENT_ID}'"
-
   assign_default_scope_to_client_if_missing  "$pub_uuid" "web-origins"    "$SCOPE_ID_WEB_ORIGINS"
   assign_default_scope_to_client_if_missing  "$pub_uuid" "roles"           "$SCOPE_ID_ROLES"
   assign_default_scope_to_client_if_missing  "$pub_uuid" "profile"         "$SCOPE_ID_PROFILE"
@@ -852,30 +805,10 @@ configure_client_scopes() {
   assign_optional_scope_to_client_if_missing "$pub_uuid" "phone"           "$SCOPE_ID_PHONE"
   assign_optional_scope_to_client_if_missing "$pub_uuid" "offline_access"  "$SCOPE_ID_OFFLINE"
 
-  # ------------------------------------------------------------------
-  # datafabric-confidential (default service-to-service client)
-  # default:   roles, acr, openid, tenant_details
-  # optional:  offline_access
-  # ------------------------------------------------------------------
-  log "Configuring scopes for client: ${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_ID}"
-  conf_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_ID}")"
-  [ -n "$conf_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_ID}'"
-
-  assign_default_scope_to_client_if_missing  "$conf_uuid" "roles"          "$SCOPE_ID_ROLES"
-  assign_default_scope_to_client_if_missing  "$conf_uuid" "acr"            "$SCOPE_ID_ACR"
-  assign_default_scope_to_client_if_missing  "$conf_uuid" "openid"         "$SCOPE_ID_OPENID"
-  assign_default_scope_to_client_if_missing  "$conf_uuid" "tenant_details" "$SCOPE_ID_TENANT"
-  assign_optional_scope_to_client_if_missing "$conf_uuid" "offline_access" "$SCOPE_ID_OFFLINE"
-
-  # ------------------------------------------------------------------
   # datafabric-admin-public
-  # default:   web-origins, roles, profile, email, acr, openid
-  # optional:  address, phone, offline_access
-  # ------------------------------------------------------------------
   log "Configuring scopes for client: ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
   admin_pub_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}")"
   [ -n "$admin_pub_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}'"
-
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "web-origins"   "$SCOPE_ID_WEB_ORIGINS"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "roles"          "$SCOPE_ID_ROLES"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "profile"        "$SCOPE_ID_PROFILE"
@@ -886,15 +819,10 @@ configure_client_scopes() {
   assign_optional_scope_to_client_if_missing "$admin_pub_uuid" "phone"          "$SCOPE_ID_PHONE"
   assign_optional_scope_to_client_if_missing "$admin_pub_uuid" "offline_access" "$SCOPE_ID_OFFLINE"
 
-  # ------------------------------------------------------------------
   # datafabric-admin-confidential
-  # default:   roles, acr, openid
-  # optional:  offline_access
-  # ------------------------------------------------------------------
   log "Configuring scopes for client: ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
   admin_conf_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}")"
   [ -n "$admin_conf_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
-
   assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "roles"          "$SCOPE_ID_ROLES"
   assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "acr"            "$SCOPE_ID_ACR"
   assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "openid"         "$SCOPE_ID_OPENID"
@@ -917,6 +845,25 @@ configure_platform_roles() {
   log "Platform roles configured"
 }
 
+configure_services_roles() {
+  log_section "Phase 1a: services realm roles"
+  if [ -z "${DATAFABRIC_TENANT_GROUP_ROLES}" ]; then
+    log "DATAFABRIC_TENANT_GROUP_ROLES is empty — skipping services roles"
+    return 0
+  fi
+  OLD_IFS="$IFS"
+  IFS=','
+  for role in ${DATAFABRIC_TENANT_GROUP_ROLES}; do
+    IFS="$OLD_IFS"
+    trimmed="$(printf '%s' "$role" | tr -d '[:space:]')"
+    [ -n "$trimmed" ] || continue
+    ensure_realm_role "$trimmed" "Data Fabric tenant service role: ${trimmed}"
+    IFS=','
+  done
+  IFS="$OLD_IFS"
+  log "Services roles configured"
+}
+
 configure_bootstrap_user() {
   log_section "Phase 2: bootstrap admin user"
   create_or_update_bootstrap_user
@@ -927,25 +874,20 @@ configure_bootstrap_user() {
 
 configure_admin_confidential_service_account() {
   log_section "Phase 3: admin confidential client service account"
-
   log "Resolving client uuid for: ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
   admin_client_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}")"
   [ -n "$admin_client_uuid" ] || fail "Could not resolve client uuid for '${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
   log "Resolved client uuid: ${admin_client_uuid}"
-
   log "Resolving service account user for client: ${admin_client_uuid}"
   service_account_user_id="$(get_service_account_user_id "${admin_client_uuid}")"
   [ -n "$service_account_user_id" ] || fail "Could not resolve service account user for '${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
   log "Resolved service account user id: ${service_account_user_id}"
-
   log "Resolving uuid for built-in client: realm-management"
   realm_mgmt_uuid="$(get_client_uuid_by_client_id "realm-management")"
   [ -n "$realm_mgmt_uuid" ] || fail "Could not resolve realm-management client uuid"
   log "Resolved realm-management uuid: ${realm_mgmt_uuid}"
-
   assign_realm_role_to_user_if_missing "${service_account_user_id}" "${DATAFABRIC_ROLE_PLATFORM_ADMIN}"
   assign_client_roles_to_user_if_missing "${service_account_user_id}" "${realm_mgmt_uuid}" "${KEYCLOAK_REALM_MGMT_ROLES}"
-
   log "Service account configured for: ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
 }
 
@@ -954,10 +896,13 @@ configure_admin_confidential_service_account() {
 # ---------------------------------------------------------------------------
 
 main() {
-  # Sanitise KEYCLOAK_REALM_MGMT_ROLES: YAML folded scalars (>) replace
-  # newlines with spaces. Normalise to clean comma-separated list.
   KEYCLOAK_REALM_MGMT_ROLES="$(
     printf '%s' "${KEYCLOAK_REALM_MGMT_ROLES:-}" \
+      | tr -d '[:space:]' \
+      | sed 's/,\+/,/g; s/^,//; s/,$//'
+  )"
+  DATAFABRIC_TENANT_GROUP_ROLES="$(
+    printf '%s' "${DATAFABRIC_TENANT_GROUP_ROLES:-}" \
       | tr -d '[:space:]' \
       | sed 's/,\+/,/g; s/^,//; s/,$//'
   )"
@@ -977,7 +922,6 @@ main() {
   require_env KEYCLOAK_REALM_MGMT_ROLES
   require_env DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID
   require_env DATAFABRIC_PUBLIC_CLIENT_ID
-  require_env DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_ID
   require_env DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID
 
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
@@ -987,6 +931,7 @@ main() {
   wait_for_keycloak
   fetch_admin_token
   configure_platform_roles
+  configure_services_roles
   configure_bootstrap_user
   configure_admin_confidential_service_account
   configure_client_scopes

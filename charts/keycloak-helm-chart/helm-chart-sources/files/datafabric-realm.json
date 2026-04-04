@@ -115,27 +115,6 @@
             ]
         },
         {
-            "clientId": "${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_ID}",
-            "name": "${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_NAME}",
-            "description": "Confidential client for default non-UI clients and service-to-service access",
-            "enabled": true,
-            "protocol": "openid-connect",
-            "publicClient": false,
-            "bearerOnly": false,
-            "standardFlowEnabled": false,
-            "implicitFlowEnabled": false,
-            "directAccessGrantsEnabled": false,
-            "serviceAccountsEnabled": true,
-            "secret": "${DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_SECRET}",
-            "defaultClientScopes": [
-                "roles",
-                "tenant_details"
-            ],
-            "optionalClientScopes": [
-                "offline_access"
-            ]
-        },
-        {
             "clientId": "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}",
             "name": "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_NAME}",
             "description": "Public PKCE client for interactive admin UI access",

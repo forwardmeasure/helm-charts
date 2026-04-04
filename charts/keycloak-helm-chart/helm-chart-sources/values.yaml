@@ -112,10 +112,6 @@ realm:
     webOrigin2: "http://localhost:3000"
     postLogoutRedirectUris: "https://datafabric.asvinau.com/*##http://localhost:3000/*"
 
-  defaultConfidentialClient:
-    clientId: datafabric-confidential
-    name: "DataFabric Confidential API Client"
-
   adminPublicClient:
     clientId: datafabric-admin-public
     name: "DataFabric Admin Public Client"
@@ -139,9 +135,68 @@ bootstrapAdminUser:
   firstName: "Admin"
   lastName: "User"
   passwordSecret: keycloak-bootstrap-admin-user-credentials
+  tenantGroupRoles: "dossier-control,investigation-control,evidence-control,audit-control"
 
   # -----------------------------------------------------------------------
   # Data Fabric platform roles (realm roles)
+  #    1. datafabric-platform-viewer
+  #  🎯 Purpose
+  #
+  #  Read-only visibility into the platform.
+  #
+  #  ✅ Capabilities
+  #  View users
+  #  View roles
+  #  View tenants
+  #  View audit logs
+  #  View system metadata/config
+  #  ❌ Cannot
+  #  Create/update/delete users
+  #  Assign roles
+  #  Create tenants
+  #  Modify configuration
+  #  💡 Think of it as:
+  #
+  #  “Observer / auditor / read-only admin”
+  #
+  #  2. datafabric-access-admin
+  #  🎯 Purpose
+  #
+  #  Identity & access management (IAM) operator.
+  #
+  #  ✅ Capabilities
+  #  Create users
+  #  Update users
+  #  Disable users
+  #  Assign roles to users
+  #  Manage role memberships
+  #  Possibly manage groups
+  #  ❌ Cannot
+  #  Create tenants
+  #  Modify platform configuration
+  #  Perform system-level operations
+  #  💡 Think of it as:
+  #
+  #  “User admin / IAM operator”
+  #
+  #  3. datafabric-platform-admin
+  #  🎯 Purpose
+  #
+  #  Full platform administrator.
+  #
+  #  ✅ Capabilities
+  #
+  #  Everything:
+  #
+  #  Create tenants
+  #  Manage users
+  #  Assign roles
+  #  Configure platform settings
+  #  Manage integrations
+  #  Perform admin actions via APIs
+  #  💡 Think of it as:
+  #
+  #  “Super admin for DataFabric”
   # -----------------------------------------------------------------------
   datafabricRoles:
     viewer: datafabric-platform-viewer
