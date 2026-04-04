@@ -250,16 +250,6 @@ spec:
             - name: DATAFABRIC_PUBLIC_POST_LOGOUT_REDIRECT_URIS
               value: {{ .Values.realm.publicClient.postLogoutRedirectUris | quote }}
 
-            - name: DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_ID
-              value: {{ .Values.realm.defaultConfidentialClient.clientId | quote }}
-            - name: DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_NAME
-              value: {{ .Values.realm.defaultConfidentialClient.name | quote }}
-            - name: DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.realm.clientSecretsSecret }}
-                  key: DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_SECRET
-
             - name: DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID
               value: {{ .Values.realm.adminPublicClient.clientId | quote }}
             - name: DATAFABRIC_ADMIN_PUBLIC_CLIENT_NAME
