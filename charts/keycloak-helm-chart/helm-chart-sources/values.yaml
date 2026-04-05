@@ -93,7 +93,6 @@ realm:
   features: "scripts,authorization"
 
   # Secret must contain:
-  # - DATAFABRIC_DEFAULT_CONFIDENTIAL_CLIENT_SECRET
   # - DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_SECRET
   clientSecretsSecret: keycloak-realm-client-secrets
 
@@ -102,15 +101,6 @@ realm:
   ssoSessionMaxLifespan: "36000"
   offlineSessionIdleTimeout: "2592000"
   accessCodeLifespan: "60"
-
-  publicClient:
-    clientId: datafabric-public
-    name: "DataFabric Public SPA Client"
-    redirectUri1: "https://datafabric.asvinau.com/*"
-    redirectUri2: "http://localhost:3000/*"
-    webOrigin1: "https://datafabric.asvinau.com"
-    webOrigin2: "http://localhost:3000"
-    postLogoutRedirectUris: "https://datafabric.asvinau.com/*##http://localhost:3000/*"
 
   adminPublicClient:
     clientId: datafabric-admin-public
