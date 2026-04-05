@@ -106,7 +106,6 @@ print_config_banner() {
   log "DATAFABRIC_ROLE_ACCESS_ADMIN            = ${DATAFABRIC_ROLE_ACCESS_ADMIN}"
   log "DATAFABRIC_ROLE_PLATFORM_ADMIN          = ${DATAFABRIC_ROLE_PLATFORM_ADMIN}"
   log "DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID = ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
-  log "DATAFABRIC_PUBLIC_CLIENT_ID             = ${DATAFABRIC_PUBLIC_CLIENT_ID}"
   log "DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID       = ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
   log "KEYCLOAK_REALM_MGMT_ROLES               = ${KEYCLOAK_REALM_MGMT_ROLES}"
   log "DATAFABRIC_TENANT_GROUP_ROLES           = ${DATAFABRIC_TENANT_GROUP_ROLES:-<empty>}"
@@ -132,6 +131,34 @@ wait_for_keycloak() {
       fail "Keycloak not ready after ${KEYCLOAK_READY_MAX_ATTEMPTS} attempts (last HTTP status: ${http_code})"
     fi
     log "Keycloak not ready yet (attempt ${attempt}/${KEYCLOAK_READY_MAX_ATTEMPTS}, HTTP ${http_code}) — retrying in ${KEYCLOAK_READY_SLEEP_SECONDS}s"
+    attempt=$((attempt + 1))
+    sleep "${KEYCLOAK_READY_SLEEP_SECONDS}"
+  done
+}
+
+# ---------------------------------------------------------------------------
+# Realm import readiness
+# ---------------------------------------------------------------------------
+
+# wait_for_keycloak confirms only that the realm endpoint responds with HTTP 200.
+# It does NOT confirm that the realm import has completed and all built-in clients
+# (e.g. realm-management) are visible. This function waits for realm-management
+# specifically, since Phase 3 depends on it to assign service account roles.
+# Without this guard, the bootstrap Job races against the async realm import and
+# Phase 3 fails silently or with a 403.
+wait_for_realm_management_client() {
+  log "Waiting for realm-management client to be visible in realm '${REALM}'..."
+  attempt=1
+  while :; do
+    uuid="$(get_client_uuid_by_client_id "realm-management" 2>/dev/null || true)"
+    if [ -n "$uuid" ] && [ "$uuid" != "null" ]; then
+      log "realm-management client is visible (uuid=${uuid})"
+      return 0
+    fi
+    if [ "$attempt" -ge "${KEYCLOAK_READY_MAX_ATTEMPTS}" ]; then
+      fail "realm-management client not visible after ${KEYCLOAK_READY_MAX_ATTEMPTS} attempts — realm import may have failed or stalled"
+    fi
+    log "realm-management not yet visible (attempt ${attempt}/${KEYCLOAK_READY_MAX_ATTEMPTS}) — retrying in ${KEYCLOAK_READY_SLEEP_SECONDS}s"
     attempt=$((attempt + 1))
     sleep "${KEYCLOAK_READY_SLEEP_SECONDS}"
   done
@@ -790,31 +817,16 @@ configure_client_scopes() {
 
   log "All client scopes verified"
 
-  # datafabric-public
-  log "Configuring scopes for client: ${DATAFABRIC_PUBLIC_CLIENT_ID}"
-  pub_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_PUBLIC_CLIENT_ID}")"
-  [ -n "$pub_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_PUBLIC_CLIENT_ID}'"
-  assign_default_scope_to_client_if_missing  "$pub_uuid" "web-origins"    "$SCOPE_ID_WEB_ORIGINS"
-  assign_default_scope_to_client_if_missing  "$pub_uuid" "roles"           "$SCOPE_ID_ROLES"
-  assign_default_scope_to_client_if_missing  "$pub_uuid" "profile"         "$SCOPE_ID_PROFILE"
-  assign_default_scope_to_client_if_missing  "$pub_uuid" "email"           "$SCOPE_ID_EMAIL"
-  assign_default_scope_to_client_if_missing  "$pub_uuid" "acr"             "$SCOPE_ID_ACR"
-  assign_default_scope_to_client_if_missing  "$pub_uuid" "openid"          "$SCOPE_ID_OPENID"
-  assign_default_scope_to_client_if_missing  "$pub_uuid" "tenant_details"  "$SCOPE_ID_TENANT"
-  assign_optional_scope_to_client_if_missing "$pub_uuid" "address"         "$SCOPE_ID_ADDRESS"
-  assign_optional_scope_to_client_if_missing "$pub_uuid" "phone"           "$SCOPE_ID_PHONE"
-  assign_optional_scope_to_client_if_missing "$pub_uuid" "offline_access"  "$SCOPE_ID_OFFLINE"
-
   # datafabric-admin-public
   log "Configuring scopes for client: ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
   admin_pub_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}")"
   [ -n "$admin_pub_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}'"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "web-origins"   "$SCOPE_ID_WEB_ORIGINS"
+  assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "acr"            "$SCOPE_ID_ACR"
+  assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "openid"         "$SCOPE_ID_OPENID"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "roles"          "$SCOPE_ID_ROLES"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "profile"        "$SCOPE_ID_PROFILE"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "email"          "$SCOPE_ID_EMAIL"
-  assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "acr"            "$SCOPE_ID_ACR"
-  assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "openid"         "$SCOPE_ID_OPENID"
   assign_optional_scope_to_client_if_missing "$admin_pub_uuid" "address"        "$SCOPE_ID_ADDRESS"
   assign_optional_scope_to_client_if_missing "$admin_pub_uuid" "phone"          "$SCOPE_ID_PHONE"
   assign_optional_scope_to_client_if_missing "$admin_pub_uuid" "offline_access" "$SCOPE_ID_OFFLINE"
@@ -823,9 +835,9 @@ configure_client_scopes() {
   log "Configuring scopes for client: ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
   admin_conf_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}")"
   [ -n "$admin_conf_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
-  assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "roles"          "$SCOPE_ID_ROLES"
   assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "acr"            "$SCOPE_ID_ACR"
   assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "openid"         "$SCOPE_ID_OPENID"
+  assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "roles"          "$SCOPE_ID_ROLES"
   assign_optional_scope_to_client_if_missing "$admin_conf_uuid" "offline_access" "$SCOPE_ID_OFFLINE"
 
   log "Client scopes configured"
@@ -921,7 +933,6 @@ main() {
   require_env DATAFABRIC_ROLE_PLATFORM_ADMIN
   require_env KEYCLOAK_REALM_MGMT_ROLES
   require_env DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID
-  require_env DATAFABRIC_PUBLIC_CLIENT_ID
   require_env DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID
 
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
@@ -930,6 +941,7 @@ main() {
   print_config_banner
   wait_for_keycloak
   fetch_admin_token
+  wait_for_realm_management_client
   configure_platform_roles
   configure_services_roles
   configure_bootstrap_user
