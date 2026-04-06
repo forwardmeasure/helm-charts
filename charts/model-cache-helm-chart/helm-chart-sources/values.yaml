@@ -24,49 +24,58 @@ storageClass:
   reclaimPolicy: Retain
   volumeBindingMode: Immediate
   allowVolumeExpansion: false
-  # Cloud-specific parameters — override in your cloud values file.
   parameters: {}
 
 # ------------------------------------------------------------------------------
 # PersistentVolume
-# Cluster-scoped. Set create: false if the PV already exists.
-# The PV name is suffixed with the release namespace to avoid collisions when
-# the chart is deployed into multiple namespaces.
+# Cluster-scoped.
+#
+# Set create: true to create a workload-specific PV.
+# The PV name must always be set explicitly.
+#
+# For CSI-backed PVs, the actual binding to the backing storage is provided by
+# csi.volumeHandle. The chart exposes this but does not infer it.
 # ------------------------------------------------------------------------------
 persistentVolume:
-  create: true
+  create: false
+  name: ""
   accessMode: ReadWriteMany
-  # Cloud-specific CSI block — override in your cloud values file.
-  # GCP example:
-  #   csi:
-  #     driver: gcsfuse.csi.storage.gke.io
-  #     volumeHandle: my-model-cache-bucket
-  #     volumeAttributes:
-  #       gcsfuseLoggingSeverity: warning
-  csi: {}
+  mountOptions: []
+  csi:
+    driver: ""
+    volumeHandle: ""
+    volumeAttributes: {}
 
 # ------------------------------------------------------------------------------
 # PersistentVolumeClaim
-# Namespace-scoped. Always created — this is the resource workloads reference.
-# The claim name is fixed as model-cache-pvc for consistency across workloads.
+# Namespace-scoped.
+#
+# If persistentVolume.create=true, the PVC binds to persistentVolume.name.
+# If persistentVolume.create=false, existingVolumeName must be set explicitly.
 # ------------------------------------------------------------------------------
 persistentVolumeClaim:
+  create: false
   name: model-cache-pvc
   accessMode: ReadWriteMany
+  existingVolumeName: ""
 
 # ------------------------------------------------------------------------------
 # ServiceAccount
-# Namespace-scoped. Used by all model-serving workloads in this namespace
-# to access the model cache storage backend via Workload Identity or IRSA.
+# Namespace-scoped.
+#
+# Set create: true when this chart should create the KSA used by workloads.
+# imagePullSecrets are attached to the ServiceAccount so workload pods that
+# reuse this ServiceAccount can pull private runtime images reliably.
 # ------------------------------------------------------------------------------
 serviceAccount:
-  create: true
+  create: false
   name: model-cache-sa
-  # Cloud-specific annotations — override in your cloud values file.
-  # GCP Workload Identity example:
-  #   annotations:
-  #     iam.gke.io/gcp-service-account: my-sa@my-project.iam.gserviceaccount.com
-  # AWS IRSA example:
-  #   annotations:
-  #     eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/my-role
   annotations: {}
+
+# ------------------------------------------------------------------------------
+# Optional image pull secrets attached to the ServiceAccount when created.
+# Example:
+# imagePullSecrets:
+#   - name: docker-io-credentials
+# ------------------------------------------------------------------------------
+imagePullSecrets: []

@@ -1359,7 +1359,39 @@ entries:
   model-cache:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-25T00:45:40.430968246-04:00"
+    created: "2026-04-06T18:58:02.826530813-04:00"
+    description: 'Provisions shared model cache infrastructure for model-serving workloads.  This
+      chart supports multiple usage modes:  1. StorageClass-only mode    Creates only
+      the shared cluster-scoped StorageClass.  2. Producer mode    Creates a workload-specific
+      PersistentVolume and optional    PersistentVolumeClaim and ServiceAccount.  3.
+      Consumer mode    Creates a namespace-scoped PersistentVolumeClaim and optional    ServiceAccount
+      that bind to a pre-existing PersistentVolume.  Cloud backends are configured
+      via storageClass.provisioner and persistentVolume.csi.* — override these in
+      your cloud-specific values file. On GCP this can use the GCS FUSE CSI driver.
+      On AWS use S3 Mountpoint or EFS. On bare metal use NFS or local storage.  This
+      chart never derives PersistentVolume names from release namespace or release
+      name. PersistentVolume names must always be set explicitly. '
+    digest: 5cbad02d687317d13bc988b786d0bd1a82d80d9894c70d28a017c3c89dd801aa
+    keywords:
+    - model-cache
+    - storage
+    - pvc
+    - pv
+    - storageclass
+    - object-storage
+    - model-serving
+    - machine-learning
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: model-cache
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/model-cache-helm-chart/model-cache-0.1.8.tgz
+    version: 0.1.8
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-06T18:58:02.826340719-04:00"
     description: 'Provisions the shared model cache infrastructure for model-serving
       workloads. Creates a StorageClass, PersistentVolume, PersistentVolumeClaim,
       and ServiceAccount in the release namespace. Designed to be deployed as a dependency
@@ -1387,7 +1419,7 @@ entries:
     version: 0.1.7
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-25T00:45:40.430801282-04:00"
+    created: "2026-04-06T18:58:02.825879516-04:00"
     description: 'Provisions the shared model cache infrastructure for model-serving
       workloads. Creates a StorageClass, PersistentVolume, PersistentVolumeClaim,
       and ServiceAccount in the release namespace. Designed to be deployed as a dependency
@@ -2135,4 +2167,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-04-05T17:16:05.70488012-04:00"
+generated: "2026-04-06T18:58:02.816576378-04:00"

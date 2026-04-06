@@ -30,28 +30,118 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 
 {{/*
-PersistentVolume name — suffixed with release namespace to avoid collisions
-when the chart is deployed into multiple namespaces pointing at the same
-underlying storage backend.
+PersistentVolume name.
+
+This chart never derives PV names. The name must be explicitly configured.
 */}}
 {{- define "model-cache.pvName" -}}
-{{- printf "%s-%s-pv" .Release.Namespace .Release.Name }}
+{{- required "persistentVolume.name must be set when persistentVolume.create is true" .Values.persistentVolume.name | trunc 253 | trimSuffix "-" -}}
 {{- end }}
 
 {{/*
-Validate that storageClass.provisioner is set when storageClass.create is true.
+PVC target PV name.
+
+Resolution order:
+1. persistentVolumeClaim.existingVolumeName
+2. persistentVolume.name
+
+No derived fallback is used.
+*/}}
+{{- define "model-cache.pvcVolumeName" -}}
+{{- if .Values.persistentVolumeClaim.existingVolumeName }}
+{{- .Values.persistentVolumeClaim.existingVolumeName | trunc 253 | trimSuffix "-" }}
+{{- else }}
+{{- required "persistentVolumeClaim.existingVolumeName must be set when persistentVolume.create is false" .Values.persistentVolume.name | trunc 253 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Validate StorageClass settings.
 */}}
 {{- define "model-cache.validateStorageClass" -}}
-{{- if and .Values.storageClass.create (empty .Values.storageClass.provisioner) }}
-  {{- fail "storageClass.provisioner must be set when storageClass.create is true" }}
+{{- if .Values.storageClass.create }}
+  {{- if empty .Values.storageClass.name }}
+    {{- fail "storageClass.name must be set when storageClass.create is true" }}
+  {{- end }}
+  {{- if empty .Values.storageClass.provisioner }}
+    {{- fail "storageClass.provisioner must be set when storageClass.create is true" }}
+  {{- end }}
 {{- end }}
 {{- end }}
 
 {{/*
-Validate that persistentVolume.csi is set when persistentVolume.create is true.
+Validate PersistentVolume settings.
 */}}
 {{- define "model-cache.validatePersistentVolume" -}}
-{{- if and .Values.persistentVolume.create (empty .Values.persistentVolume.csi) }}
-  {{- fail "persistentVolume.csi must be set when persistentVolume.create is true" }}
+{{- if .Values.persistentVolume.create }}
+  {{- if empty .Values.persistentVolume.name }}
+    {{- fail "persistentVolume.name must be set when persistentVolume.create is true" }}
+  {{- end }}
+  {{- if empty .Values.size }}
+    {{- fail "size must be set when persistentVolume.create is true" }}
+  {{- end }}
+  {{- if empty .Values.storageClass.name }}
+    {{- fail "storageClass.name must be set when persistentVolume.create is true" }}
+  {{- end }}
+  {{- if empty .Values.persistentVolume.accessMode }}
+    {{- fail "persistentVolume.accessMode must be set when persistentVolume.create is true" }}
+  {{- end }}
+  {{- if empty .Values.persistentVolume.csi.driver }}
+    {{- fail "persistentVolume.csi.driver must be set when persistentVolume.create is true" }}
+  {{- end }}
+  {{- if empty .Values.persistentVolume.csi.volumeHandle }}
+    {{- fail "persistentVolume.csi.volumeHandle must be set when persistentVolume.create is true" }}
+  {{- end }}
+  {{- if .Values.persistentVolumeClaim.create }}
+    {{- if empty .Release.Namespace }}
+      {{- fail "persistentVolumeClaim.create is true, but .Release.Namespace is empty. Set a release namespace or disable persistentVolumeClaim.create." }}
+    {{- end }}
+    {{- if empty .Values.persistentVolumeClaim.name }}
+      {{- fail "persistentVolumeClaim.name must be set when persistentVolumeClaim.create is true" }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Validate PersistentVolumeClaim settings.
+*/}}
+{{- define "model-cache.validatePersistentVolumeClaim" -}}
+{{- if .Values.persistentVolumeClaim.create }}
+  {{- if empty .Release.Namespace }}
+    {{- fail "persistentVolumeClaim.create is true, but .Release.Namespace is empty. Set a release namespace or disable persistentVolumeClaim.create." }}
+  {{- end }}
+  {{- if empty .Values.persistentVolumeClaim.name }}
+    {{- fail "persistentVolumeClaim.name must be set when persistentVolumeClaim.create is true" }}
+  {{- end }}
+  {{- if empty .Values.persistentVolumeClaim.accessMode }}
+    {{- fail "persistentVolumeClaim.accessMode must be set when persistentVolumeClaim.create is true" }}
+  {{- end }}
+  {{- if empty .Values.storageClass.name }}
+    {{- fail "storageClass.name must be set when persistentVolumeClaim.create is true" }}
+  {{- end }}
+  {{- if empty .Values.size }}
+    {{- fail "size must be set when persistentVolumeClaim.create is true" }}
+  {{- end }}
+  {{- if and .Values.persistentVolume.create (empty .Values.persistentVolume.name) }}
+    {{- fail "persistentVolume.name must be set when persistentVolume.create is true and persistentVolumeClaim.create is true" }}
+  {{- end }}
+  {{- if and (not .Values.persistentVolume.create) (empty .Values.persistentVolumeClaim.existingVolumeName) }}
+    {{- fail "persistentVolumeClaim.existingVolumeName must be set when persistentVolumeClaim.create is true and persistentVolume.create is false" }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Validate ServiceAccount settings.
+*/}}
+{{- define "model-cache.validateServiceAccount" -}}
+{{- if .Values.serviceAccount.create }}
+  {{- if empty .Release.Namespace }}
+    {{- fail "serviceAccount.create is true, but .Release.Namespace is empty. Set a release namespace or disable serviceAccount.create." }}
+  {{- end }}
+  {{- if empty .Values.serviceAccount.name }}
+    {{- fail "serviceAccount.name must be set when serviceAccount.create is true" }}
+  {{- end }}
 {{- end }}
 {{- end }}
