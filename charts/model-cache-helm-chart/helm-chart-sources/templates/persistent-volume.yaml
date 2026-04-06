@@ -14,9 +14,20 @@ spec:
     - {{ .Values.persistentVolume.accessMode }}
   persistentVolumeReclaimPolicy: {{ .Values.storageClass.reclaimPolicy }}
   storageClassName: {{ .Values.storageClass.name }}
+  {{- with .Values.persistentVolume.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.persistentVolumeClaim.create }}
   claimRef:
     namespace: {{ .Release.Namespace }}
     name: {{ .Values.persistentVolumeClaim.name }}
+  {{- end }}
   csi:
-    {{- toYaml .Values.persistentVolume.csi | nindent 4 }}
+    driver: {{ .Values.persistentVolume.csi.driver }}
+    volumeHandle: {{ .Values.persistentVolume.csi.volumeHandle }}
+    {{- with .Values.persistentVolume.csi.volumeAttributes }}
+    volumeAttributes:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
 {{- end }}
