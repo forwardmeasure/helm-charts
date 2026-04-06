@@ -1,4 +1,5 @@
-{{- /* prettier-ignore */ -}}
+{{- include "model-cache.validatePersistentVolumeClaim" . }}
+{{- if .Values.persistentVolumeClaim.create }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -10,7 +11,8 @@ spec:
   accessModes:
     - {{ .Values.persistentVolumeClaim.accessMode }}
   storageClassName: {{ .Values.storageClass.name }}
-  volumeName: {{ include "model-cache.pvName" . }}
+  volumeName: {{ include "model-cache.pvcVolumeName" . }}
   resources:
     requests:
       storage: {{ .Values.size }}
+{{- end }}
