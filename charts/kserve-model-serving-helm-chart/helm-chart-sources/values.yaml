@@ -34,8 +34,10 @@ serviceAccount:
 
 # ------------------------------------------------------------------------------
 # Image pull secrets
-# Referenced on the ServiceAccount so all pods in the namespace
-# can pull from private registries without per-pod configuration.
+# Applied to:
+# 1. the ServiceAccount when this chart creates it
+# 2. the KServe predictor spec so pods can pull private images even when using
+#    a pre-existing ServiceAccount
 # ------------------------------------------------------------------------------
 imagePullSecrets: []
 # Example:

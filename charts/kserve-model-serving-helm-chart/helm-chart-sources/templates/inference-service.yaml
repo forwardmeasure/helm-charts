@@ -1,3 +1,5 @@
+{{- include "kserve-model-serving.validateExternalModelCache" . }}
+
 {{- range .Values.models }}
 {{- if .enabled }}
 {{- include "kserve-model-serving.validateModel" (dict "model" . "Values" $.Values) }}
@@ -26,6 +28,10 @@ metadata:
 spec:
   predictor:
     serviceAccountName: {{ if $.Values.externalModelCache }}{{ include "kserve-model-serving.serviceAccountName" (dict "model" . "Values" $.Values) }}{{ else }}{{ $.Values.serviceAccount.name }}{{ end }}
+    {{- with $.Values.imagePullSecrets }}
+    imagePullSecrets:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
     minReplicas: {{ .scaling.minReplicas | default 0 }}
     maxReplicas: {{ .scaling.maxReplicas | default 1 }}
     timeout: {{ .scaling.timeoutSeconds | default 1800 }}
@@ -70,16 +76,6 @@ spec:
           - name: model-cache
             mountPath: {{ $.Values.modelCache.mountPath }}
     {{- end }}
-    {{- /*
-    -------------------------------------------------------------------------
-    kserve-custom: Bring Your Own Container runtime.
-    Used for any custom Python model (FlowState, BERT, NER, Jaro-Winkler, etc.)
-    that manages its own model loading and serving via the KServe Python SDK.
-    No ClusterServingRuntime or storageUri — the container is self-contained.
-    sha takes precedence over digest over tag for image resolution.
-    command/args are optional — override ENTRYPOINT/CMD when set.
-    -------------------------------------------------------------------------
-    */}}
     {{- if eq .runtime "kserve-custom" }}
     containers:
       - name: kserve-container
@@ -131,15 +127,11 @@ spec:
             readOnly: true
         {{- end }}
     {{- else }}
-    {{- /* ----------------------------------------------------------------
-    Standard managed runtimes: vllm | huggingface | triton
-    ---------------------------------------------------------------- */}}
     model:
       modelFormat:
         name: {{ .runtime }}
       runtime: {{ if eq .runtime "vllm" }}kserve-vllmserver{{ else if eq .runtime "huggingface" }}kserve-huggingfaceserver{{ else if eq .runtime "triton" }}kserve-tritonserver{{ else }}{{ .runtime }}{{ end }}
       {{- if $.Values.externalModelCache }}
-      {{- /* No storageUri — model pre-loaded by init container, storage initializer bypassed */}}
       {{- else }}
       storageUri: "hf://{{ .huggingFaceRepo }}"
       {{- end }}
