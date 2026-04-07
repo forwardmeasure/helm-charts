@@ -25,7 +25,7 @@ Create a default fully qualified app name.
 Common labels
 */}}
 {{- define "kserve-model-serving.labels" -}}
-helm.sh/chart: {{ include "kserve-model-serving.name" . }}-{{ .Chart.Version }}
+helm.sh/chart: {{ printf "%s-%s" (include "kserve-model-serving.name" .) .Chart.Version | replace "+" "_" }}
 app.kubernetes.io/name: {{ include "kserve-model-serving.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
@@ -37,11 +37,13 @@ When externalModelCache is true, prefer per-model override, then
 modelCache.serviceAccountName, then chart-level serviceAccount.name.
 */}}
 {{- define "kserve-model-serving.serviceAccountName" -}}
-{{- if and (hasKey .model "modelCache") (hasKey .model.modelCache "serviceAccountName") (.model.modelCache.serviceAccountName) }}
-{{- .model.modelCache.serviceAccountName }}
-{{- else }}
-{{- .Values.modelCache.serviceAccountName }}
-{{- end }}
+{{- if and (hasKey .model "modelCache") (hasKey .model.modelCache "serviceAccountName") (.model.modelCache.serviceAccountName) -}}
+{{- .model.modelCache.serviceAccountName -}}
+{{- else if .Values.modelCache.serviceAccountName -}}
+{{- .Values.modelCache.serviceAccountName -}}
+{{- else -}}
+{{- .Values.serviceAccount.name -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -106,6 +108,23 @@ Usage: include "kserve-model-serving.customImageRef" .customImage
 {{- end }}
 
 {{/*
+Validate chart-level settings required for external model cache mode.
+*/}}
+{{- define "kserve-model-serving.validateExternalModelCache" -}}
+{{- if .Values.externalModelCache }}
+  {{- if empty .Values.modelCache.pvcName }}
+    {{- fail "modelCache.pvcName must be set when externalModelCache is true" }}
+  {{- end }}
+  {{- if empty .Values.modelCache.serviceAccountName }}
+    {{- fail "modelCache.serviceAccountName must be set when externalModelCache is true" }}
+  {{- end }}
+  {{- if empty .Values.modelCache.mountPath }}
+    {{- fail "modelCache.mountPath must be set when externalModelCache is true" }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
 Validate a model entry has required fields.
 */}}
 {{- define "kserve-model-serving.validateModel" -}}
@@ -115,16 +134,23 @@ Validate a model entry has required fields.
 {{- if not .model.runtime }}
 {{- fail (printf "model '%s' missing required field: runtime" .model.name) }}
 {{- end }}
+{{- if not .model.resources }}
+{{- fail (printf "model '%s' missing required field: resources" .model.name) }}
+{{- end }}
+{{- if not .model.scaling }}
+{{- fail (printf "model '%s' missing required field: scaling" .model.name) }}
+{{- end }}
+
 {{- if eq .model.runtime "kserve-custom" }}
-{{- if not .model.customImage }}
-{{- fail (printf "model '%s' with runtime kserve-custom missing required field: customImage" .model.name) }}
-{{- end }}
-{{- if not .model.customImage.repository }}
-{{- fail (printf "model '%s' customImage missing required field: repository" .model.name) }}
-{{- end }}
+  {{- if not .model.customImage }}
+  {{- fail (printf "model '%s' with runtime kserve-custom missing required field: customImage" .model.name) }}
+  {{- end }}
+  {{- if not .model.customImage.repository }}
+  {{- fail (printf "model '%s' customImage missing required field: repository" .model.name) }}
+  {{- end }}
 {{- else }}
-{{- if not .model.huggingFaceRepo }}
-{{- fail (printf "model '%s' missing required field: huggingFaceRepo" .model.name) }}
-{{- end }}
+  {{- if not .model.huggingFaceRepo }}
+  {{- fail (printf "model '%s' missing required field: huggingFaceRepo" .model.name) }}
+  {{- end }}
 {{- end }}
 {{- end }}
