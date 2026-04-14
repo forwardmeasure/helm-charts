@@ -36,20 +36,19 @@ spec:
     # config-autoscaler maps directly to the config-autoscaler ConfigMap in
     # the knative-serving namespace. The operator owns and reconciles it.
     #
-    # allow-zero-initial-scale: must be true for scale-to-zero to work on
-    #   freshly created revisions. Without this, Knative keeps at least one
-    #   pod running even when minScale: 0 is set on the revision.
-    # min-scale: cluster-wide default — overridden per-revision via the
+    # allowZeroInitialScale: must be true for scale-to-zero to work on freshly
+    #   created revisions. Without this, Knative keeps at least one pod running
+    #   even when minScale: 0 is set on the revision annotation.
+    # minScale: cluster-wide default — overridden per-revision via the
     #   autoscaling.knative.dev/minScale annotation on the Knative Service.
     #
-    # Values are configured under serving.config.autoscaler in the Helmfile
-    # using camelCase keys to avoid Helm template access issues with hyphens.
+    # Triple-parenthesis safe navigation avoids nil pointer panics when
+    # intermediate keys are absent from the values overlay.
     # -------------------------------------------------------------------------
     config-autoscaler:
       allow-zero-initial-scale: {{ (((.Values.serving.config).autoscaler).allowZeroInitialScale) | default "true" | quote }}
       min-scale: {{ (((.Values.serving.config).autoscaler).minScale) | default "0" | toString | quote }}
       scale-to-zero-grace-period: {{ (((.Values.serving.config).autoscaler).scaleToZeroGracePeriod) | default "30s" | quote }}
       scale-to-zero-pod-retention-period: {{ (((.Values.serving.config).autoscaler).scaleToZeroPodRetentionPeriod) | default "0s" | quote }}
-
   additionalManifests:
     - URL: https://github.com/knative/net-istio/releases/download/knative-v{{ .Values.knativeVersion }}/net-istio.yaml
