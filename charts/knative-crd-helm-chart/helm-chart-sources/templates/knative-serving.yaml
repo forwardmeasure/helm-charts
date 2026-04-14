@@ -32,5 +32,22 @@ spec:
         - name: {{ .Values.serving.localGatewayName }}
           namespace: {{ .Values.serving.namespace }}
           service: {{ .Values.serving.platformLocalGatewayName }}.{{ .Values.serving.istioNamespace }}.svc.cluster.local
+    # -------------------------------------------------------------------------
+    # Autoscaler configuration
+    #
+    # config-autoscaler maps directly to the config-autoscaler ConfigMap in
+    # the knative-serving namespace. The operator owns and reconciles it.
+    #
+    # allow-zero-initial-scale: must be true for scale-to-zero to work on
+    #   freshly created revisions. Without this, Knative keeps at least one
+    #   pod running even when minScale: 0 is set on the revision.
+    # min-scale: cluster-wide default — overridden per-revision via the
+    #   autoscaling.knative.dev/minScale annotation on the Knative Service.
+    # -------------------------------------------------------------------------
+    config-autoscaler:
+      allow-zero-initial-scale: "true"
+      min-scale: "0"
+      scale-to-zero-grace-period: "30s"
+      scale-to-zero-pod-retention-period: "0s"
   additionalManifests:
     - URL: https://github.com/knative/net-istio/releases/download/knative-v{{ .Values.knativeVersion }}/net-istio.yaml
