@@ -41,6 +41,9 @@ spec:
     #   even when minScale: 0 is set on the revision annotation.
     # minScale: cluster-wide default — overridden per-revision via the
     #   autoscaling.knative.dev/minScale annotation on the Knative Service.
+    # targetBurstCapacity: set to 0 so the activator only enters the request
+    #   path when a revision is at zero replicas. When > 0, the activator stays
+    #   permanently in the path and prevents scale-to-zero.
     #
     # Triple-parenthesis safe navigation avoids nil pointer panics when
     # intermediate keys are absent from the values overlay.
@@ -50,5 +53,6 @@ spec:
       min-scale: {{ (((.Values.serving.config).autoscaler).minScale) | default "0" | toString | quote }}
       scale-to-zero-grace-period: {{ (((.Values.serving.config).autoscaler).scaleToZeroGracePeriod) | default "30s" | quote }}
       scale-to-zero-pod-retention-period: {{ (((.Values.serving.config).autoscaler).scaleToZeroPodRetentionPeriod) | default "0s" | quote }}
+      target-burst-capacity: {{ (((.Values.serving.config).autoscaler).targetBurstCapacity) | default "0" | toString | quote }}
   additionalManifests:
     - URL: https://github.com/knative/net-istio/releases/download/knative-v{{ .Values.knativeVersion }}/net-istio.yaml
