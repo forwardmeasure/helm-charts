@@ -5,29 +5,41 @@ fullnameOverride: ""
 podAnnotations: {}
 
 # ---------------------------------------------------------------------------
-# Profile selects a pre-defined resource/model/image configuration bundle.
+# Runtime mode and pipeline selection
 #
-# Available profiles:
-#   cpu-light  - CPU only, SmolVLM 256M picture description, low RAM.
-#                Good for development, testing, or light workloads.
-#   cpu-full   - CPU only, granite_vision 2B picture description, high RAM.
-#                Production-grade quality without GPU infrastructure.
-#   gpu-full   - CUDA image, granite_vision 2B, GPU node scheduling,
-#                batch processing enabled. Best throughput and quality.
+# Supported combinations:
+#
+#   mode=cpu, pipeline=standard    ✅
+#   mode=cpu, pipeline=vlm-small   ✅
+#   mode=cpu, pipeline=vlm-large   ❌
+#
+#   mode=gpu, pipeline=standard    ✅
+#   mode=gpu, pipeline=vlm-small   ✅
+#   mode=gpu, pipeline=vlm-large   ✅
+#
+# Notes:
+# - vlm-small on CPU is supported but expected to be slow.
+# - vlm-large is GPU-only by design.
 # ---------------------------------------------------------------------------
-profile: cpu-light
+mode: cpu
+pipeline: standard
 
 image:
-  repository: quay.io/docling-project/docling-serve
-  tag: latest
-  pullPolicy: IfNotPresent
+  cpu:
+    repository: quay.io/docling-project/docling-serve-cpu
+    tag: v1.16.1
+    pullPolicy: IfNotPresent
+  gpu:
+    repository: quay.io/docling-project/docling-serve-cu128
+    tag: v1.16.1
+    pullPolicy: IfNotPresent
 
 containerPort: 5001
 
 env:
-  HF_HOME: /cache/huggingface
-  HF_HUB_CACHE: /cache/huggingface
-  DOCLING_SERVE_ARTIFACTS_PATH: /cache/docling/models
+  HF_HOME: /opt/docling-serve/cache/huggingface
+  HF_HUB_CACHE: /opt/docling-serve/cache/huggingface
+  DOCLING_SERVE_ARTIFACTS_PATH: /opt/docling-serve/models
   HF_HUB_ENABLE_HF_TRANSFER: "1"
   DOCLING_REPO_TYPE: model
   DOCLING_SERVE_ENABLE_UI: "1"
@@ -35,28 +47,25 @@ env:
   DOCLING_SERVE_ENG_LOC_NUM_WORKERS: "1"
   DOCLING_SERVE_ENG_LOC_SHARE_MODELS: "true"
 
-cache:
-  mountPath: /cache
+# ---------------------------------------------------------------------------
+# Mounted model store and optional cache
+# ---------------------------------------------------------------------------
+paths:
+  models: /opt/docling-serve/models
+  cache: /opt/docling-serve/cache
 
 # ---------------------------------------------------------------------------
 # Persistence
 #
 # Two valid configurations:
 #
-# 1. existingClaim is set — use a pre-existing PVC (e.g. from model-cache
-#    chart). No PV or PVC is created by this chart.
+# 1. existingClaim is set — use a pre-existing PVC.
+# 2. existingClaim is empty and create: true — this chart creates its own PV/PVC.
 #
-# 2. existingClaim is empty and create: true — this chart creates its own
-#    PV and PVC. Used for standalone/dev deployments.
-#
-# Note: existingClaim takes precedence over create. Setting create: true
-# alongside existingClaim is ignored.
+# existingClaim takes precedence over create.
 # ---------------------------------------------------------------------------
 persistence:
-  # Set to reference a pre-existing PVC (e.g. model-cache-pvc).
-  # When set, create is ignored and no PV/PVC is created.
   existingClaim: ""
-  # Set to true for standalone/dev deployments without model-cache chart.
   create: true
   accessMode: ReadWriteOnce
   size: 64Gi
@@ -64,18 +73,17 @@ persistence:
 
 # ---------------------------------------------------------------------------
 # ServiceAccount
-#
-# create: true  — this chart creates its own SA using name and annotations.
-# create: false — use a pre-existing SA (e.g. model-cache-sa from the
-#                 model-cache chart). name must still be set so the
-#                 Deployment references the correct SA.
 # ---------------------------------------------------------------------------
 serviceAccount:
   create: true
   name: model-cache-sa
   annotations: {}
 
+# ---------------------------------------------------------------------------
+# Optional init container used for permission fixups
+# ---------------------------------------------------------------------------
 initContainer:
+  enabled: true
   image: alpine:3.20
   resources:
     requests:
@@ -86,11 +94,61 @@ initContainer:
       memory: 64Mi
 
 # ---------------------------------------------------------------------------
-# GPU configuration - only active when profile=gpu-full or gpu.enabled=true.
+# Optional model download job inside the pod.
+#
+# Preferred production approach:
+#   enabled: false
+# and mount a PVC that already contains the model weights.
+#
+# Set enabled: true only if you want this chart to populate the PVC.
+# ---------------------------------------------------------------------------
+modelDownload:
+  enabled: false
+  image:
+    cpu:
+      repository: quay.io/docling-project/docling-serve-cpu
+      tag: v1.16.1
+      pullPolicy: IfNotPresent
+    gpu:
+      repository: quay.io/docling-project/docling-serve-cu128
+      tag: v1.16.1
+      pullPolicy: IfNotPresent
+  resources:
+    cpu:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    gpu:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 6Gi
+
+  # Named docling-tools model tokens to download for the ensemble pipeline.
+  ensembleModels:
+    - layout
+    - tableformer
+    - code_formula
+    - picture_classifier
+    - easyocr
+    - rapidocr
+
+  # Hugging Face repos to download for VLM pipelines.
+  hfRepos:
+    vlm-small: "ibm-granite/granite-docling-258M"
+    vlm-large: "ibm-granite/granite-4.0-3b-vision"
+
+# ---------------------------------------------------------------------------
+# GPU configuration
+#
+# Only active when mode=gpu.
 # ---------------------------------------------------------------------------
 gpu:
-  enabled: false
-  type: "NVIDIA-L4"
   count: 1
   nodeSelector:
     cloud.google.com/gke-accelerator: nvidia-l4
@@ -98,12 +156,9 @@ gpu:
     - key: nvidia.com/gpu
       operator: Exists
       effect: NoSchedule
-  cudaImage:
-    repository: quay.io/docling-project/docling-serve-cu128
-    tag: main
-    pullPolicy: IfNotPresent
 
 gpuEnv:
+  LD_LIBRARY_PATH: "/usr/local/nvidia/lib64:/opt/app-root/lib/python3.12/site-packages/nvidia/cuda_runtime/lib"
   DOCLING_DEVICE: "cuda:0"
   NVIDIA_VISIBLE_DEVICES: "all"
   ORT_DISABLE_AZURE: "1"
@@ -113,102 +168,83 @@ gpuEnv:
   DOCLING_SERVE_OCR_BATCH_SIZE: "16"
 
 # ---------------------------------------------------------------------------
-# Per-profile configuration bundles.
+# Per-mode and per-pipeline resources / startup behavior
 # ---------------------------------------------------------------------------
-profiles:
-  cpu-light:
-    vlmModelId: "HuggingFaceTB/SmolVLM-256M-Instruct"
-    codeformulaModelId: "ds4sd/CodeFormulaV2"
-    models:
-      - layout
-      - tableformer
-      - code_formula
-      - picture_classifier
-      - easyocr
-      - rapidocr
-      - smolvlm
-    resources:
+resources:
+  cpu:
+    standard:
       requests:
         cpu: 500m
         memory: 2Gi
       limits:
         cpu: 2000m
         memory: 6Gi
-    modelDownloadResources:
-      requests:
-        cpu: 500m
-        memory: 1Gi
-      limits:
-        cpu: 2000m
-        memory: 4Gi
-    startupProbeFailureThreshold: 10
-    livenessInitialDelaySeconds: 60
-    readinessInitialDelaySeconds: 30
-    gpu: false
+      startupProbeFailureThreshold: 10
+      livenessInitialDelaySeconds: 60
+      readinessInitialDelaySeconds: 30
 
-  cpu-full:
-    vlmModelId: "ibm-granite/granite-vision-3.3-2b"
-    codeformulaModelId: "ds4sd/CodeFormulaV2"
-    models:
-      - layout
-      - tableformer
-      - code_formula
-      - picture_classifier
-      - easyocr
-      - rapidocr
-      - granite_vision
-      - smoldocling
-      - smolvlm
-    resources:
+    vlm-small:
       requests:
-        cpu: 500m
-        memory: 6Gi
+        cpu: 1000m
+        memory: 4Gi
       limits:
         cpu: 4000m
-        memory: 16Gi
-    modelDownloadResources:
-      requests:
-        cpu: 500m
-        memory: 2Gi
-      limits:
-        cpu: 2000m
-        memory: 6Gi
-    startupProbeFailureThreshold: 20
-    livenessInitialDelaySeconds: 180
-    readinessInitialDelaySeconds: 120
-    gpu: false
+        memory: 12Gi
+      startupProbeFailureThreshold: 20
+      livenessInitialDelaySeconds: 180
+      readinessInitialDelaySeconds: 120
 
-  gpu-full:
-    vlmModelId: "ibm-granite/granite-vision-3.3-2b"
-    codeformulaModelId: "ds4sd/CodeFormulaV2"
-    models:
-      - layout
-      - tableformer
-      - code_formula
-      - picture_classifier
-      - easyocr
-      - rapidocr
-      - granite_vision
-      - smoldocling
-      - smolvlm
-    resources:
+  gpu:
+    standard:
       requests:
         cpu: 500m
+        memory: 4Gi
+      limits:
+        cpu: 4000m
+        memory: 12Gi
+      startupProbeFailureThreshold: 10
+      livenessInitialDelaySeconds: 60
+      readinessInitialDelaySeconds: 30
+
+    vlm-small:
+      requests:
+        cpu: 1000m
         memory: 8Gi
       limits:
         cpu: 4000m
         memory: 16Gi
-    modelDownloadResources:
+      startupProbeFailureThreshold: 8
+      livenessInitialDelaySeconds: 60
+      readinessInitialDelaySeconds: 30
+
+    vlm-large:
       requests:
-        cpu: 500m
-        memory: 2Gi
-      limits:
         cpu: 2000m
-        memory: 6Gi
-    startupProbeFailureThreshold: 6
-    livenessInitialDelaySeconds: 60
-    readinessInitialDelaySeconds: 30
-    gpu: true
+        memory: 16Gi
+      limits:
+        cpu: 8000m
+        memory: 32Gi
+      startupProbeFailureThreshold: 10
+      livenessInitialDelaySeconds: 120
+      readinessInitialDelaySeconds: 60
+
+# ---------------------------------------------------------------------------
+# Pipeline-to-model mapping
+#
+# These are runtime identifiers the deployment template can use to set env vars.
+# They should correspond to directories present under /opt/docling-serve/models
+# when models are mounted from PVC.
+# ---------------------------------------------------------------------------
+pipelines:
+  standard:
+    type: ensemble
+    vlmModelId: ""
+  vlm-small:
+    type: vlm
+    vlmModelId: "ibm-granite/granite-docling-258M"
+  vlm-large:
+    type: vlm
+    vlmModelId: "ibm-granite/granite-4.0-3b-vision"
 
 probes:
   liveness:
@@ -225,12 +261,15 @@ service:
   port: 5001
   name: http
 
-models:
-  image:
-    repository: quay.io/docling-project/docling-serve-cpu
-    tag: main
-    pullPolicy: IfNotPresent
-  list: []
-  extras: []
-  checksumManifest: ".model-manifest.sha256"
-  resources: {}
+# ---------------------------------------------------------------------------
+# HuggingFace token
+#
+# When secretName is set the chart injects HF_TOKEN and
+# HUGGING_FACE_HUB_TOKEN into the download-models init container.
+# Required for authenticated downloads and gated models.
+# The secret is owned by platform-secrets and created via ESO.
+# Leave secretName empty to disable token injection.
+# ---------------------------------------------------------------------------
+hfToken:
+  secretName: ""
+  secretKey: token

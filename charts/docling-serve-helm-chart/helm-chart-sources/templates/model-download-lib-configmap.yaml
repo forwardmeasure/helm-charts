@@ -1,35 +1,44 @@
-# prettier-ignore
----
-# ---------------------------------------------------------------------------
-# ConfigMap containing the shared model download library.
-# Mounted into init containers at /scripts/model-download-lib.sh.
-# All workloads that download models should mount this ConfigMap.
-# ---------------------------------------------------------------------------
+{{- /*
+ConfigMap containing the shared model download library.
+Mounted into init containers at /scripts/model-download-lib.sh.
+All workloads that download models should mount this ConfigMap.
+*/ -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: model-download-lib
-  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "docling-serve.labels" . | nindent 4 }} 
+    {{- include "docling-serve.labels" . | nindent 4 }}
 data:
   model-download-lib.sh: |
     #!/bin/sh
     # ---------------------------------------------------------------------------
     # model-download-lib.sh
     # Reusable shell library for downloading HuggingFace/docling model weights
-    # to a shared GCS-backed PVC.
+    # to a shared PVC-backed model store.
     #
     # Usage in init container scripts:
     #   . /scripts/model-download-lib.sh
-    #   model_download_named "layout tableformer easyocr" "/models" "my-workload"
-    #   model_download_hf_repo "ibm-granite/granite-vision-3.3-2b" "/models" "my-workload"
-    #   model_write_manifest "/models" "my-workload"
+    #   model_download_named "layout tableformer easyocr" "/opt/docling-serve/models" "my-workload"
+    #   model_download_hf_repo "ibm-granite/granite-docling-258M" "/opt/docling-serve/models" "my-workload"
+    #   model_write_manifest "/opt/docling-serve/models" "my-workload" layout tableformer ibm-granite--granite-docling-258M
+    #
+    # GCS FUSE staging strategy:
+    #   Both docling-tools and hf download write .incomplete files and call
+    #   chmod during download. GCS FUSE does not support chmod and returns
+    #   EPERM, causing downloaders to stall. This library stages all downloads
+    #   to HF_STAGING_ROOT (local emptyDir) and copies completed model files
+    #   to the GCS FUSE mount only after each download succeeds.
+    #
+    #   Required environment variables (set by deployment.yaml):
+    #     HF_STAGING_ROOT   — local emptyDir mount path (default: /tmp/hf-staging)
+    #     HF_HOME           — HF library internal cache (set to staging subdir)
+    #     HF_HUB_CACHE      — HF hub cache (set to staging subdir)
     #
     # Locking strategy:
     #   Each model directory gets a .download.lock sentinel file while being
     #   downloaded. Other init containers that see the lock file will wait up
-    #   to LOCK_TIMEOUT_SECS before proceeding (handles crashed downloaders).
+    #   to LOCK_TIMEOUT_SECS before proceeding.
     #
     # Manifest strategy:
     #   Each workload writes its own .<workload>.manifest file listing only
@@ -37,34 +46,55 @@ data:
     #   invalidates another workload's manifest or triggers re-downloads.
     # ---------------------------------------------------------------------------
 
+    set -eu
+
     LOCK_TIMEOUT_SECS="${LOCK_TIMEOUT_SECS:-600}"
     LOCK_POLL_SECS="${LOCK_POLL_SECS:-10}"
+    HF_RETRY_ATTEMPTS="${HF_RETRY_ATTEMPTS:-3}"
+    HF_RETRY_SLEEP_SECS="${HF_RETRY_SLEEP_SECS:-5}"
+    HF_STAGING_ROOT="${HF_STAGING_ROOT:-/tmp/hf-staging}"
+
+    # Ensure staging root and HF home exist
+    mkdir -p "${HF_STAGING_ROOT}/hf-home"
+
+    # ---------------------------------------------------------------------------
+    # _repo_to_dir_name REPO_ID
+    # Converts org/repo to org--repo (HuggingFace local_dir convention)
+    # ---------------------------------------------------------------------------
+    _repo_to_dir_name() {
+      echo "${1}" | sed 's|/|--|g'
+    }
 
     # ---------------------------------------------------------------------------
     # _acquire_lock MODEL_DIR
     # Creates a .download.lock sentinel in MODEL_DIR.
-    # Waits if a lock already exists (another init container is downloading).
-    # Returns 0 if lock acquired, 1 if timed out waiting.
+    # Waits if a lock already exists.
     # ---------------------------------------------------------------------------
     _acquire_lock() {
       local model_dir="$1"
       local lock_file="${model_dir}/.download.lock"
       local elapsed=0
 
-      while [ -f "${lock_file}" ]; do
-        if [ "${elapsed}" -ge "${LOCK_TIMEOUT_SECS}" ]; then
-          echo "⚠️  Lock timeout after ${LOCK_TIMEOUT_SECS}s on ${model_dir}. Stale lock? Proceeding anyway."
-          break
-        fi
-        echo "⏳ Waiting for lock on ${model_dir} (${elapsed}s / ${LOCK_TIMEOUT_SECS}s)..."
-        sleep "${LOCK_POLL_SECS}"
-        elapsed=$((elapsed + LOCK_POLL_SECS))
-      done
-
-      # Write our PID and hostname as lock content for debugging
       mkdir -p "${model_dir}"
-      echo "locked by ${HOSTNAME} pid $$ at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${lock_file}"
-      echo "🔒 Lock acquired on ${model_dir}"
+
+      while :; do
+        if [ -f "${lock_file}" ]; then
+          if [ "${elapsed}" -ge "${LOCK_TIMEOUT_SECS}" ]; then
+            echo "⚠️  Lock timeout after ${LOCK_TIMEOUT_SECS}s on ${model_dir}. Removing stale lock."
+            rm -f "${lock_file}"
+          else
+            echo "⏳ Waiting for lock on ${model_dir} (${elapsed}s / ${LOCK_TIMEOUT_SECS}s)..."
+            sleep "${LOCK_POLL_SECS}"
+            elapsed=$((elapsed + LOCK_POLL_SECS))
+            continue
+          fi
+        fi
+
+        if ( set -C; echo "locked by ${HOSTNAME:-unknown} pid $$ at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${lock_file}" ) 2>/dev/null; then
+          echo "🔒 Lock acquired on ${model_dir}"
+          return 0
+        fi
+      done
     }
 
     # ---------------------------------------------------------------------------
@@ -78,51 +108,109 @@ data:
 
     # ---------------------------------------------------------------------------
     # _model_exists MODEL_DIR
-    # Returns 0 if the model directory exists and contains at least one file.
+    # Returns 0 if the model directory exists and contains at least one file
+    # other than .download.lock.
     # ---------------------------------------------------------------------------
     _model_exists() {
       local model_dir="$1"
-      [ -d "${model_dir}" ] && [ -n "$(find "${model_dir}" -type f ! -name '.download.lock' -maxdepth 2 | head -1)" ]
+      [ -d "${model_dir}" ] && [ -n "$(find "${model_dir}" -type f ! -name '.download.lock' | head -1)" ]
+    }
+
+    # ---------------------------------------------------------------------------
+    # _copy_to_gcs_fuse STAGING_DIR DEST_DIR WORKLOAD
+    # Copies completed model files from local staging to GCS FUSE mount.
+    # Uses python3 shutil.copytree — available in all docling images.
+    # Skips .download.lock files which are transient.
+    # ---------------------------------------------------------------------------
+    _copy_to_gcs_fuse() {
+      local staging_dir="$1"
+      local dest_dir="$2"
+      local workload="$3"
+      echo "📦 [${workload}] Copying from local staging ${staging_dir} to GCS FUSE ${dest_dir}..."
+      mkdir -p "${dest_dir}"
+      python3 -c "
+    import os, shutil, sys
+
+    def copy_file_only(src, dst, follow_symlinks=True):
+        '''Copy file content only — no chmod, no metadata.'''
+        shutil.copyfile(src, dst)
+
+    def copytree_no_perms(src, dst, ignore=None):
+        '''
+        Recursively copy src to dst skipping all permission operations.
+        GCS FUSE returns EPERM on chmod — this function never calls it.
+        '''
+        os.makedirs(dst, exist_ok=True)
+        entries = list(os.scandir(src))
+        if ignore:
+            ignored = ignore(src, [e.name for e in entries])
+        else:
+            ignored = set()
+        errors = []
+        for entry in entries:
+            if entry.name in ignored:
+                continue
+            s = entry.path
+            d = os.path.join(dst, entry.name)
+            try:
+                if entry.is_dir(follow_symlinks=False):
+                    copytree_no_perms(s, d, ignore=ignore)
+                else:
+                    copy_file_only(s, d)
+            except Exception as e:
+                errors.append((s, d, str(e)))
+        if errors:
+            raise shutil.Error(errors)
+
+    copytree_no_perms(
+        sys.argv[1],
+        sys.argv[2],
+        ignore=shutil.ignore_patterns('.download.lock', '.cache'),
+    )
+    " "${staging_dir}" "${dest_dir}"
+      echo "✅ [${workload}] Copy to GCS FUSE complete."
     }
 
     # ---------------------------------------------------------------------------
     # model_download_named TOKENS CACHE_DIR WORKLOAD_NAME
-    # Downloads named docling-tools model tokens to CACHE_DIR.
-    # Skips tokens whose target directory already exists and is populated.
+    # Downloads named docling-tools model tokens.
+    # Stages to local disk first then copies to GCS FUSE.
     # TOKENS is a space-separated string of token names.
     # ---------------------------------------------------------------------------
     model_download_named() {
       local tokens="$1"
       local cache_dir="$2"
       local workload="$3"
+      local staging_dir="${HF_STAGING_ROOT}/docling-named"
 
-      echo "📦 [${workload}] Downloading named model tokens: ${tokens}"
-      mkdir -p "${cache_dir}"
+      echo "📦 [${workload}] Downloading named model tokens to local staging: ${tokens}"
+      mkdir -p "${staging_dir}"
 
-      # docling-tools downloads all tokens in one call - we can't easily
-      # check per-token existence without knowing the exact output dir name.
-      # So we call it with all tokens and let it skip existing ones.
       # shellcheck disable=SC2086
       docling-tools models download \
-        --output-dir="${cache_dir}" \
+        --output-dir="${staging_dir}" \
         ${tokens}
+
+      echo "📦 [${workload}] Named token download complete. Copying to GCS FUSE..."
+      _copy_to_gcs_fuse "${staging_dir}" "${cache_dir}" "${workload}"
+      echo "✅ [${workload}] Named model tokens ready."
     }
 
     # ---------------------------------------------------------------------------
     # model_download_hf_repo REPO_ID CACHE_DIR WORKLOAD_NAME
-    # Downloads a HuggingFace repo to CACHE_DIR using docling-tools.
-    # Skips if the model directory already exists and is populated.
+    # Downloads a HuggingFace repo.
+    # Stages to local disk first then copies to GCS FUSE.
+    # Skips if the GCS FUSE model directory already exists and is populated.
     # Uses a lock file to prevent concurrent downloads of the same model.
+    # Retries on transient failure and cleans up partial downloads.
     # ---------------------------------------------------------------------------
     model_download_hf_repo() {
       local repo_id="$1"
       local cache_dir="$2"
       local workload="$3"
-
-      # Derive the expected directory name (HF convention: org--repo)
-      local model_dir="${cache_dir}/$(echo "${repo_id}" | tr '/' '-' | sed 's/-/--/1')"
-      # More accurate: replace first / with --
-      model_dir="${cache_dir}/$(echo "${repo_id}" | sed 's|/|--|')"
+      local model_dir="${cache_dir}/$(_repo_to_dir_name "${repo_id}")"
+      local staging_dir="${HF_STAGING_ROOT}/hf-repos/$(_repo_to_dir_name "${repo_id}")"
+      local attempts=0
 
       if _model_exists "${model_dir}"; then
         echo "✅ [${workload}] ${repo_id} already present at ${model_dir}, skipping."
@@ -131,55 +219,70 @@ data:
 
       _acquire_lock "${model_dir}"
 
-      # Re-check after acquiring lock - another pod may have downloaded while we waited
+      # Re-check after acquiring lock
       if _model_exists "${model_dir}"; then
         echo "✅ [${workload}] ${repo_id} downloaded by another pod while waiting, skipping."
         _release_lock "${model_dir}"
         return 0
       fi
 
-      echo "⬇️  [${workload}] Downloading ${repo_id}..."
-      if docling-tools models download-hf-repo "${repo_id}" --output-dir="${cache_dir}"; then
-        echo "✅ [${workload}] ${repo_id} downloaded successfully."
-      else
-        echo "❌ [${workload}] Failed to download ${repo_id}."
-        _release_lock "${model_dir}"
-        return 1
-      fi
+      while [ "${attempts}" -lt "${HF_RETRY_ATTEMPTS}" ]; do
+        attempts=$((attempts + 1))
+        echo "⬇️  [${workload}] Downloading ${repo_id} to local staging ${staging_dir} (attempt ${attempts}/${HF_RETRY_ATTEMPTS})..."
+        mkdir -p "${staging_dir}"
 
+        # Pass --cache-dir so HuggingFace internal bookkeeping (.incomplete
+        # files, lock files) goes to HF_HOME and never into staging_dir.
+        if hf download "${repo_id}" \
+            --local-dir "${staging_dir}" \
+            --cache-dir "${HF_HOME}"; then
+          echo "✅ [${workload}] ${repo_id} downloaded to local staging."
+          _copy_to_gcs_fuse "${staging_dir}" "${model_dir}" "${workload}"
+          _release_lock "${model_dir}"
+          return 0
+        fi
+
+        echo "⚠️  [${workload}] Failed to download ${repo_id} on attempt ${attempts}."
+        rm -rf "${staging_dir}"
+
+        if [ "${attempts}" -lt "${HF_RETRY_ATTEMPTS}" ]; then
+          sleep "${HF_RETRY_SLEEP_SECS}"
+        fi
+      done
+
+      echo "❌ [${workload}] Failed to download ${repo_id} after ${HF_RETRY_ATTEMPTS} attempts."
       _release_lock "${model_dir}"
+      return 1
     }
 
     # ---------------------------------------------------------------------------
     # model_write_manifest CACHE_DIR WORKLOAD_NAME MODEL_DIRS...
     # Writes a per-workload checksum manifest covering only the specified
-    # model directories. Does not touch other workloads' manifests.
-    # MODEL_DIRS is a space-separated list of directory names relative to CACHE_DIR.
+    # model directories. MODEL_DIRS must be relative directory names under CACHE_DIR.
     # ---------------------------------------------------------------------------
     model_write_manifest() {
       local cache_dir="$1"
       local workload="$2"
       shift 2
-      local model_dirs="$*"
       local manifest="${cache_dir}/.${workload}.manifest"
+      local find_roots=""
+      local dir=""
 
       echo "📝 [${workload}] Writing manifest to ${manifest}..."
 
-      # Build find arguments for the specific model directories
-      local find_args=""
-      for dir in ${model_dirs}; do
+      for dir in "$@"; do
         if [ -d "${cache_dir}/${dir}" ]; then
-          find_args="${find_args} ${cache_dir}/${dir}"
+          find_roots="${find_roots} ${cache_dir}/${dir}"
         fi
       done
 
-      if [ -z "${find_args}" ]; then
+      if [ -z "${find_roots}" ]; then
         echo "⚠️  [${workload}] No model directories found for manifest."
         return 1
       fi
 
       # shellcheck disable=SC2086
-      find ${find_args} -type f ! -name '.download.lock' \
+      find ${find_roots} -type f ! -name '.download.lock' \
         | sort \
         | xargs sha256sum \
         | sed "s|${cache_dir}/||g" \
@@ -204,7 +307,6 @@ data:
       fi
 
       echo "🔍 [${workload}] Verifying manifest..."
-      # sha256sum -c expects paths relative to CWD
       if (cd "${cache_dir}" && sha256sum -c "${manifest}" --quiet 2>/dev/null); then
         echo "✅ [${workload}] Manifest verification passed."
         return 0

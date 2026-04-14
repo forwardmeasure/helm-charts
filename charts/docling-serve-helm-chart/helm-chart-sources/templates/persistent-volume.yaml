@@ -1,19 +1,25 @@
 {{- /*
-  PersistentVolume for docling-serve model cache.
+PersistentVolume for docling-serve model store.
 
-  Only rendered when persistence.existingClaim is NOT set and
-  persistence.create is true. When existingClaim is set the PV is assumed
-  to already exist externally (e.g. created by the model-cache chart).
+Only rendered when:
+- persistence.existingClaim is NOT set, and
+- persistence.create is true
+
+When persistence.existingClaim is set, the PV is assumed to already exist
+externally and this template is skipped.
+
+Note:
+- The CSI/source-specific block is expected to be patched in by an
+  environment- or cloud-specific overlay.
 */ -}}
 {{- if and (not .Values.persistence.existingClaim) .Values.persistence.create }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ .Release.Namespace }}-model-cache-pv
+  name: {{ printf "%s-model-cache-pv" .Release.Namespace }}
   labels:
     {{- include "docling-serve.labels" . | nindent 4 }}
     purpose: model-cache
-    namespace: {{ .Release.Namespace }}
 spec:
   capacity:
     storage: {{ .Values.persistence.size }}
@@ -21,9 +27,9 @@ spec:
   accessModes:
     - {{ .Values.persistence.accessMode }}
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: {{ .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
   claimRef:
     namespace: {{ .Release.Namespace }}
     name: {{ printf "%s-cache" (include "docling-serve.fullname" .) }}
-  # csi block is patched in by the cloud-specific overlay.
+  # CSI/source-specific block is patched in by the cloud-specific overlay.
 {{- end }}
