@@ -1,7 +1,6 @@
 # ---------------------------------------------------------------------------
 # values.yaml — knative-crd chart defaults
 # ---------------------------------------------------------------------------
-
 knativeVersion: "1.21.0"
 
 serving:
@@ -20,6 +19,23 @@ serving:
     # DNS domain for Knative services — override per environment
     domain: ""
     progressDeadline: "1800s"
+    # -------------------------------------------------------------------------
+    # Autoscaler configuration
+    #
+    # camelCase keys here map to hyphenated keys in the config-autoscaler
+    # ConfigMap via the KnativeServing spec.config.config-autoscaler block.
+    #
+    # allowZeroInitialScale: must be true for scale-to-zero to work on freshly
+    #   created revisions. Without this, Knative keeps at least one pod running
+    #   even when minScale: 0 is set on the revision annotation.
+    # minScale: cluster-wide default minimum replicas. Overridden per-service
+    #   via autoscaling.knative.dev/minScale annotation on the Knative Service.
+    # -------------------------------------------------------------------------
+    autoscaler:
+      allowZeroInitialScale: "true"
+      minScale: "0"
+      scaleToZeroGracePeriod: "30s"
+      scaleToZeroPodRetentionPeriod: "0s"
 
 eventing:
   namespace: knative-eventing
