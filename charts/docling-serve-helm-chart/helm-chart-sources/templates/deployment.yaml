@@ -1,5 +1,12 @@
-{{- $p := index .Values.profiles .Values.profile -}}
-{{- $gpuEnabled := or $p.gpu (and .Values.gpu .Values.gpu.enabled) -}}
+{{- $mode := .Values.mode -}}
+{{- $pipeline := .Values.pipeline -}}
+
+{{- if and (eq $mode "cpu") (eq $pipeline "vlm-large") -}}
+{{- fail "Invalid configuration: cpu mode does not support vlm-large pipeline" -}}
+{{- end }}
+
+{{- $isGpu := eq $mode "gpu" -}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,24 +14,28 @@ metadata:
   labels:
     {{- include "docling-serve.labels" . | nindent 4 }}
   annotations:
-    docling-serve/profile: {{ .Values.profile | quote }}
+    docling-serve/mode: {{ $mode | quote }}
+    docling-serve/pipeline: {{ $pipeline | quote }}
+
 spec:
   replicas: {{ .Values.replicaCount }}
+
   selector:
     matchLabels:
       {{- include "docling-serve.selectorLabels" . | nindent 6 }}
+
   template:
     metadata:
       labels:
         {{- include "docling-serve.selectorLabels" . | nindent 8 }}
-        docling-serve/profile: {{ .Values.profile | quote }}
-      {{- with .Values.podAnnotations }}
+        docling-serve/mode: {{ $mode | quote }}
+        docling-serve/pipeline: {{ $pipeline | quote }}
       annotations:
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
+
     spec:
-      # SA created by this chart (serviceAccount.create: true) or
-      # pre-existing (serviceAccount.create: false, e.g. from model-cache chart)
       serviceAccountName: {{ .Values.serviceAccount.name }}
 
       {{- with .Values.imagePullSecrets }}
@@ -32,193 +43,218 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 
-      {{- if $gpuEnabled }}
+      {{- if $isGpu }}
       nodeSelector:
-        nvidia.com/gpu.product: {{ .Values.gpu.type | quote }}
-        {{- range $k, $v := (.Values.gpu.nodeSelector | default dict) }}
-        {{ $k }}: {{ $v | quote }}
-        {{- end }}
+        {{- toYaml .Values.gpu.nodeSelector | nindent 8 }}
       tolerations:
-        {{- toYaml (.Values.gpu.tolerations | default list) | nindent 8 }}
-      runtimeClassName: nvidia
+        {{- toYaml .Values.gpu.tolerations | nindent 8 }}
       {{- end }}
 
       volumes:
         - name: model-cache
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim | default (printf "%s-cache" (include "docling-serve.fullname" .)) }}
+
+        {{- if .Values.modelDownload.enabled }}
         - name: model-download-lib
           configMap:
             name: model-download-lib
             defaultMode: 0755
+        # Local staging area for HuggingFace and docling-tools downloads.
+        # GCS FUSE does not support chmod on in-flight .incomplete files and
+        # returns EPERM, causing downloaders to stall. Staging to a local
+        # emptyDir avoids this — completed model files are copied to the GCS
+        # FUSE mount only after each download succeeds.
+        - name: hf-download-staging
+          emptyDir: {}
+        {{- end }}
 
+      # ---------------------------------------------------------------------
+      # Init containers
+      # ---------------------------------------------------------------------
       initContainers:
 
-        # Step 1: Fix permissions on the cache directory.
-        - name: fix-cache-perms
+        {{- if .Values.initContainer.enabled }}
+        - name: fix-permissions
           image: {{ .Values.initContainer.image }}
-          command: ["sh", "-lc"]
+          command: ["sh", "-c"]
           args:
             - |
-              set -eux
-              mkdir -p {{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH }}
-              chmod -R 0777 {{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH }}
+              mkdir -p {{ .Values.paths.models }}
+              chmod -R 0777 {{ .Values.paths.models }}
           volumeMounts:
             - name: model-cache
-              mountPath: {{ .Values.cache.mountPath }}
+              mountPath: {{ .Values.paths.models }}
           securityContext:
             runAsUser: 0
-            runAsGroup: 0
-            allowPrivilegeEscalation: false
           resources:
             {{- toYaml .Values.initContainer.resources | nindent 12 }}
+        {{- end }}
 
-        # Step 2: Download model weights for profile {{ .Values.profile }}.
-        # Sources model-download-lib.sh from ConfigMap for locking and
-        # per-workload manifest logic. Models already present on the shared
-        # PVC (downloaded by another workload) are skipped automatically.
+        {{- if .Values.modelDownload.enabled }}
         - name: download-models
-          {{- if $gpuEnabled }}
-          image: "{{ .Values.gpu.cudaImage.repository }}:{{ .Values.gpu.cudaImage.tag }}"
-          imagePullPolicy: {{ .Values.gpu.cudaImage.pullPolicy }}
-          {{- else }}
-          image: "{{ .Values.models.image.repository }}:{{ .Values.models.image.tag }}"
-          imagePullPolicy: {{ .Values.models.image.pullPolicy }}
-          {{- end }}
+          image: {{ if $isGpu }}{{ .Values.modelDownload.image.gpu.repository }}:{{ .Values.modelDownload.image.gpu.tag }}{{ else }}{{ .Values.modelDownload.image.cpu.repository }}:{{ .Values.modelDownload.image.cpu.tag }}{{ end }}
+          imagePullPolicy: {{ if $isGpu }}{{ .Values.modelDownload.image.gpu.pullPolicy }}{{ else }}{{ .Values.modelDownload.image.cpu.pullPolicy }}{{ end }}
           resources:
-            {{- toYaml $p.modelDownloadResources | nindent 12 }}
-            {{- if $gpuEnabled }}
-            limits:
-              nvidia.com/gpu: {{ .Values.gpu.count | default 1 }}
+            {{- if $isGpu }}
+            {{- toYaml .Values.modelDownload.resources.gpu | nindent 12 }}
+            {{- else }}
+            {{- toYaml .Values.modelDownload.resources.cpu | nindent 12 }}
             {{- end }}
           env:
-            - name: DOCLING_SERVE_ARTIFACTS_PATH
-              value: {{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH | quote }}
-            - name: PROFILE
-              value: {{ .Values.profile | quote }}
-          command: ["sh", "-lc"]
+            # Redirect HuggingFace internal cache to local staging so that
+            # .incomplete files and lock files never touch GCS FUSE.
+            - name: HF_HOME
+              value: /tmp/hf-staging/hf-home
+            - name: HF_HUB_CACHE
+              value: /tmp/hf-staging/hf-home
+            - name: HF_HUB_DISABLE_SYMLINKS_WARNING
+              value: "1"
+            - name: HF_STAGING_ROOT
+              value: /tmp/hf-staging
+            # HuggingFace API token — required for higher rate limits and
+            # authenticated access to gated models. Without this, downloads
+            # of large model files are throttled and stall mid-stream.
+            {{- if .Values.hfToken.secretName }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hfToken.secretName }}
+                  key: {{ .Values.hfToken.secretKey }}
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.hfToken.secretName }}
+                  key: {{ .Values.hfToken.secretKey }}
+            {{- end }}
+          command: ["sh", "-c"]
           args:
             - |
-              set -eu
+              set -e
               . /scripts/model-download-lib.sh
 
+              CACHE="{{ .Values.paths.models }}"
               WORKLOAD="docling-serve"
-              CACHE_DIR="{{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH }}"
 
-              # Verify existing manifest - skip all downloads if valid
-              if model_verify_manifest "${CACHE_DIR}" "${WORKLOAD}"; then
-                echo "Model cache valid for ${WORKLOAD}. Nothing to do."
-                exit 0
+              echo "🚀 Starting model download for ${WORKLOAD}"
+              echo "   GCS FUSE cache: ${CACHE}"
+              echo "   Local staging:  ${HF_STAGING_ROOT}"
+
+              # Always ensure ensemble models
+              model_download_named "{{ join " " .Values.modelDownload.ensembleModels }}" "$CACHE" "$WORKLOAD"
+
+              # VLM models (conditional on pipeline)
+              if [ "{{ $pipeline }}" = "vlm-small" ]; then
+                model_download_hf_repo "{{ index .Values.modelDownload.hfRepos "vlm-small" }}" "$CACHE" "$WORKLOAD"
               fi
 
-              echo "Downloading models for profile: {{ .Values.profile }}"
+              if [ "{{ $pipeline }}" = "vlm-large" ]; then
+                model_download_hf_repo "{{ index .Values.modelDownload.hfRepos "vlm-large" }}" "$CACHE" "$WORKLOAD"
+              fi
 
-              # Download named tokens for this profile
-              model_download_named \
-                "{{- range $i, $m := $p.models }}{{ if $i }} {{ end }}{{ $m }}{{- end }}" \
-                "${CACHE_DIR}" \
-                "${WORKLOAD}"
+              # Write manifest
+              model_write_manifest "$CACHE" "$WORKLOAD" \
+                $(find "$CACHE" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
 
-              {{- range .Values.models.extras }}
-              model_download_hf_repo "{{ . }}" "${CACHE_DIR}" "${WORKLOAD}"
-              {{- end }}
-
-              # Write per-workload manifest covering all model dirs
-              model_write_manifest "${CACHE_DIR}" "${WORKLOAD}" \
-                $(ls "${CACHE_DIR}" | grep -v '^\.' | tr '\n' ' ')
-
-              echo "Download complete for ${WORKLOAD}."
+              echo "✅ Model preparation complete"
           volumeMounts:
             - name: model-cache
-              mountPath: {{ .Values.cache.mountPath }}
+              mountPath: {{ .Values.paths.models }}
             - name: model-download-lib
               mountPath: /scripts
+            - name: hf-download-staging
+              mountPath: /tmp/hf-staging
+        {{- end }}
 
       containers:
         - name: docling-serve
-          {{- if $gpuEnabled }}
-          image: "{{ .Values.gpu.cudaImage.repository }}:{{ .Values.gpu.cudaImage.tag }}"
-          imagePullPolicy: {{ .Values.gpu.cudaImage.pullPolicy }}
-          {{- else }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- end }}
-          ports:
-            - name: http
-              containerPort: {{ .Values.containerPort }}
-              protocol: TCP
 
+          # ---------------------------------------------------------------
+          # Image
+          # ---------------------------------------------------------------
+          image: "{{ if $isGpu }}{{ .Values.image.gpu.repository }}:{{ .Values.image.gpu.tag }}{{ else }}{{ .Values.image.cpu.repository }}:{{ .Values.image.cpu.tag }}{{ end }}"
+          imagePullPolicy: {{ if $isGpu }}{{ .Values.image.gpu.pullPolicy }}{{ else }}{{ .Values.image.cpu.pullPolicy }}{{ end }}
+
+          ports:
+            - containerPort: {{ .Values.containerPort }}
+              name: http
+
+          # ---------------------------------------------------------------
+          # Environment
+          # ---------------------------------------------------------------
           env:
-            - name: HF_HOME
-              value: {{ .Values.env.HF_HOME | quote }}
-            - name: HF_HUB_CACHE
-              value: {{ .Values.env.HF_HUB_CACHE | quote }}
+            - name: DOCLING_PROFILE
+              value: {{ $pipeline | quote }}
+
             - name: DOCLING_SERVE_ARTIFACTS_PATH
-              value: {{ .Values.env.DOCLING_SERVE_ARTIFACTS_PATH | quote }}
-            - name: HF_HUB_ENABLE_HF_TRANSFER
-              value: {{ .Values.env.HF_HUB_ENABLE_HF_TRANSFER | quote }}
+              value: {{ .Values.paths.models | quote }}
+
+            {{- if and (eq $mode "cpu") (eq $pipeline "vlm-small") }}
+            - name: DOCLING_WARNING
+              value: "Running vlm-small on CPU. Expect high latency."
+            {{- end }}
+
+            {{- if eq $pipeline "vlm-small" }}
             - name: DOCLING_VLM_MODEL_ID
-              value: {{ $p.vlmModelId | quote }}
-            - name: DOCLING_CODEFORMULA_MODEL_ID
-              value: {{ $p.codeformulaModelId | quote }}
-            - name: DOCLING_REPO_TYPE
-              value: {{ .Values.env.DOCLING_REPO_TYPE | quote }}
-            - name: DOCLING_SERVE_ENABLE_UI
-              value: {{ .Values.env.DOCLING_SERVE_ENABLE_UI | quote }}
-            - name: DOCLING_SERVE_LOAD_MODELS_AT_BOOT
-              value: {{ .Values.env.DOCLING_SERVE_LOAD_MODELS_AT_BOOT | quote }}
-            - name: DOCLING_SERVE_ENG_LOC_NUM_WORKERS
-              value: {{ .Values.env.DOCLING_SERVE_ENG_LOC_NUM_WORKERS | quote }}
-            - name: DOCLING_SERVE_ENG_LOC_SHARE_MODELS
-              value: {{ .Values.env.DOCLING_SERVE_ENG_LOC_SHARE_MODELS | quote }}
-            {{- if $gpuEnabled }}
-            - name: DOCLING_DEVICE
-              value: {{ .Values.gpuEnv.DOCLING_DEVICE | quote }}
-            - name: NVIDIA_VISIBLE_DEVICES
-              value: {{ .Values.gpuEnv.NVIDIA_VISIBLE_DEVICES | quote }}
-            - name: ORT_DISABLE_AZURE
-              value: {{ .Values.gpuEnv.ORT_DISABLE_AZURE | quote }}
-            - name: RAPIDOCR_ORT_PROVIDERS
-              value: {{ .Values.gpuEnv.RAPIDOCR_ORT_PROVIDERS | quote }}
-            - name: DOCLING_SERVE_LAYOUT_BATCH_SIZE
-              value: {{ .Values.gpuEnv.DOCLING_SERVE_LAYOUT_BATCH_SIZE | quote }}
-            - name: DOCLING_SERVE_TABLE_BATCH_SIZE
-              value: {{ .Values.gpuEnv.DOCLING_SERVE_TABLE_BATCH_SIZE | quote }}
-            - name: DOCLING_SERVE_OCR_BATCH_SIZE
-              value: {{ .Values.gpuEnv.DOCLING_SERVE_OCR_BATCH_SIZE | quote }}
+              value: {{ (index .Values.pipelines "vlm-small").vlmModelId | quote }}
+            {{- end }}
+
+            {{- if eq $pipeline "vlm-large" }}
+            - name: DOCLING_VLM_MODEL_ID
+              value: {{ (index .Values.pipelines "vlm-large").vlmModelId | quote }}
+            {{- end }}
+
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+
+            {{- if $isGpu }}
+            {{- range $k, $v := .Values.gpuEnv }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
             {{- end }}
 
           volumeMounts:
             - name: model-cache
-              mountPath: {{ .Values.cache.mountPath }}
+              mountPath: {{ .Values.paths.models }}
 
+          # ---------------------------------------------------------------
+          # Resources
+          # ---------------------------------------------------------------
           resources:
-            {{- toYaml $p.resources | nindent 12 }}
-            {{- if $gpuEnabled }}
+            {{- $res := (index .Values.resources $mode $pipeline) }}
+            requests:
+              {{- toYaml $res.requests | nindent 14 }}
             limits:
-              nvidia.com/gpu: {{ .Values.gpu.count | default 1 }}
-            {{- end }}
+              {{- toYaml $res.limits | nindent 14 }}
+              {{- if $isGpu }}
+              nvidia.com/gpu: {{ .Values.gpu.count }}
+              {{- end }}
 
-          # startupProbe gates liveness/readiness until the app is up.
-          # Budget = startupProbeFailureThreshold * periodSeconds.
-          # Profile {{ .Values.profile }} budget: {{ mul $p.startupProbeFailureThreshold 30 }}s
+          # ---------------------------------------------------------------
+          # Probes
+          # ---------------------------------------------------------------
           startupProbe:
             httpGet:
               path: {{ .Values.probes.liveness.path }}
               port: http
             periodSeconds: 30
-            failureThreshold: {{ $p.startupProbeFailureThreshold }}
+            failureThreshold: {{ (index .Values.resources $mode $pipeline).startupProbeFailureThreshold }}
+
           livenessProbe:
             httpGet:
               path: {{ .Values.probes.liveness.path }}
               port: http
-            initialDelaySeconds: {{ $p.livenessInitialDelaySeconds }}
+            initialDelaySeconds: {{ (index .Values.resources $mode $pipeline).livenessInitialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+
           readinessProbe:
             httpGet:
               path: {{ .Values.probes.readiness.path }}
               port: http
-            initialDelaySeconds: {{ $p.readinessInitialDelaySeconds }}
+            initialDelaySeconds: {{ (index .Values.resources $mode $pipeline).readinessInitialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
