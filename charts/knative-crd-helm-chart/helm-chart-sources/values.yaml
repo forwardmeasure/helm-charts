@@ -30,12 +30,16 @@ serving:
     #   even when minScale: 0 is set on the revision annotation.
     # minScale: cluster-wide default minimum replicas. Overridden per-service
     #   via autoscaling.knative.dev/minScale annotation on the Knative Service.
+    # targetBurstCapacity: set to 0 so the activator only enters the request
+    #   path when a revision is at zero replicas. When > 0, the activator stays
+    #   permanently in the path and blocks scale-to-zero.
     # -------------------------------------------------------------------------
     autoscaler:
       allowZeroInitialScale: "true"
       minScale: "0"
       scaleToZeroGracePeriod: "30s"
       scaleToZeroPodRetentionPeriod: "0s"
+      targetBurstCapacity: "0"
 
 eventing:
   namespace: knative-eventing
