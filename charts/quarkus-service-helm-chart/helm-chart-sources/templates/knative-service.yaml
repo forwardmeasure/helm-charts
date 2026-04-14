@@ -23,8 +23,8 @@ spec:
         autoscaling.knative.dev/class: {{ .scaling.class | default "kpa.autoscaling.knative.dev" | quote }}
         autoscaling.knative.dev/metric: {{ .scaling.metric | default "concurrency" | quote }}
         autoscaling.knative.dev/target: {{ .scaling.target | default "10" | quote }}
-        autoscaling.knative.dev/minScale: {{ .scaling.minReplicas | default 1 | quote }}
-        autoscaling.knative.dev/maxScale: {{ .scaling.maxReplicas | default 5 | quote }}
+        autoscaling.knative.dev/minScale: {{ .scaling.minReplicas | toString | default "1" | quote }}
+        autoscaling.knative.dev/maxScale: {{ .scaling.maxReplicas | toString | default "5" | quote }}
         {{- with $.Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
