@@ -1,0 +1,54 @@
+{{- /*
+  ============================================================================
+  Kafka Topic provisioning via Strimzi KafkaTopic CRD.
+
+  Iterates kafka.topics[] and produces one KafkaTopic resource per entry.
+  Only rendered when kafka.topics is non-empty.
+
+  Topic names are assembled as: <kafka.topicPrefix>.<topic.suffix>
+  The prefix is environment-specific and must match what is provisioned in
+  Strimzi for the target environment. The suffix is the fixed semantic
+  identifier for the topic (e.g. ingest-evidence, extraction.dlq).
+
+  All topic configuration fields have sane defaults and can be overridden
+  per topic. See values.yaml kafka.topics[] for the full schema.
+  ============================================================================
+*/}}
+{{- if and .Values.kafka .Values.kafka.topics }}
+{{- $root := $ }}
+{{- range .Values.kafka.topics }}
+{{- $topic := . }}
+{{- $topicName := include "quarkus-service.kafkaTopicName" (dict "root" $root "topic" $topic) }}
+---
+# ---------------------------------------------------------------------------
+# KafkaTopic: {{ $topicName }}
+# {{ $topic.description | default "Managed by Helm via Strimzi Topic Operator." }}
+# ---------------------------------------------------------------------------
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: {{ $topicName }}
+  namespace: {{ include "quarkus-service.kafkaNamespace" $root }}
+  labels:
+    strimzi.io/cluster: {{ include "quarkus-service.kafkaClusterName" $root }}
+    app.kubernetes.io/part-of: data-fabric
+    {{- include "quarkus-service.labels" $root | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-name: {{ $root.Release.Name }}
+    meta.helm.sh/release-namespace: {{ $root.Release.Namespace }}
+spec:
+  partitions: {{ $topic.partitions | default $root.Values.kafka.defaults.partitions | default 12 }}
+  replicas: {{ $topic.replicas | default $root.Values.kafka.defaults.replicas | default 3 }}
+  config:
+    retention.ms: {{ $topic.retentionMs | default $root.Values.kafka.defaults.retentionMs | default "604800000" | quote }}
+    cleanup.policy: {{ $topic.cleanupPolicy | default $root.Values.kafka.defaults.cleanupPolicy | default "delete" }}
+    compression.type: {{ $topic.compressionType | default $root.Values.kafka.defaults.compressionType | default "lz4" }}
+    min.insync.replicas: {{ $topic.minInsyncReplicas | default $root.Values.kafka.defaults.minInsyncReplicas | default 2 | quote }}
+    {{- if or $topic.maxMessageBytes $root.Values.kafka.defaults.maxMessageBytes }}
+    max.message.bytes: {{ $topic.maxMessageBytes | default $root.Values.kafka.defaults.maxMessageBytes | quote }}
+    {{- end }}
+    {{- if or $topic.segmentMs $root.Values.kafka.defaults.segmentMs }}
+    segment.ms: {{ $topic.segmentMs | default $root.Values.kafka.defaults.segmentMs | quote }}
+    {{- end }}
+{{- end }}
+{{- end }}
