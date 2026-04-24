@@ -59,7 +59,7 @@ Supports jvm and native runtime modes — image config is per-service.
 
 {{/*
 Kubernetes Secret name for ESO-materialised secrets.
-Convention: <release>-<namespace>-<secretName>
+Convention: <release>-<secretName>
 Centralised here so all templates use the same naming pattern.
 Usage: include "quarkus-service.k8sSecretName" (dict "root" $ "secretName" "my-secret")
 */}}
@@ -187,4 +187,32 @@ Validate a service entry has all required fields.
 {{- if not .root.Values.liquibaseWait }}
 {{- fail "chart-level liquibaseWait is not configured" }}
 {{- end }}
+{{- end }}
+
+{{/*
+Resolve the fully qualified Kafka topic name for a topic entry.
+Assembles: <kafka.topicPrefix>.<topic.suffix>
+Usage: include "quarkus-service.kafkaTopicName" (dict "root" $ "topic" .topic)
+*/}}
+{{- define "quarkus-service.kafkaTopicName" -}}
+{{- $prefix := .root.Values.kafka.topicPrefix | default "com.forwardmeasure" -}}
+{{- printf "%s.%s" $prefix .topic.suffix -}}
+{{- end }}
+
+{{/*
+Resolve the Kafka namespace for KafkaTopic resources.
+Prefer chart-level kafka.namespace, default to "kafka".
+Usage: include "quarkus-service.kafkaNamespace" $
+*/}}
+{{- define "quarkus-service.kafkaNamespace" -}}
+{{- .Values.kafka.namespace | default "kafka" -}}
+{{- end }}
+
+{{/*
+Resolve the Strimzi cluster name for KafkaTopic resources.
+Prefer chart-level kafka.clusterName, default to "kafka-cluster".
+Usage: include "quarkus-service.kafkaClusterName" $
+*/}}
+{{- define "quarkus-service.kafkaClusterName" -}}
+{{- .Values.kafka.clusterName | default "kafka-cluster" -}}
 {{- end }}

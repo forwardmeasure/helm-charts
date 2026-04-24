@@ -107,9 +107,80 @@ liquibaseWait:
       memory: "64Mi"
 
 # ------------------------------------------------------------------------------
-# Services
-# Each entry produces a Knative Service + Cloud SQL proxy sidecar (if enabled).
-# Per-service secrets (unique to that service) are declared here under secrets[].
-# Shared secrets across services are declared at the top-level secrets[] above.
+# Kafka topic provisioning via Strimzi KafkaTopic CRD.
+#
+# namespace:    Kubernetes namespace where KafkaTopic resources are created.
+#               Must match the namespace of the Strimzi operator and Kafka
+#               cluster — typically "kafka".
+#
+# clusterName:  Value of the strimzi.io/cluster label. Must match the
+#               metadata.name of the Kafka custom resource in the cluster.
+#               Run: kubectl get kafka -A to find the correct name.
+#
+# topicPrefix:  Prepended to every topic suffix to form the full topic name.
+#               Format: <topicPrefix>.<topic.suffix>
+#               Should match the naming convention used across the platform
+#               and must match what is provisioned in Strimzi per environment.
+#               Example: com.forwardmeasure.entity-resolution
+#
+# defaults:     Chart-level defaults applied to all topics unless overridden
+#               per-topic. Any field can be overridden at the topic level.
+#
+# topics:       List of KafkaTopic resources to provision. Each entry produces
+#               one KafkaTopic in the Kafka namespace.
+#
+# Topic entry fields:
+#   suffix:           Required. Appended to topicPrefix to form the topic name.
+#                     Example: ingest-evidence
+#                     Results in: com.forwardmeasure.entity-resolution.ingest-evidence
+#   description:      Optional. Human-readable comment rendered in the manifest.
+#   partitions:       Number of partitions. Default: kafka.defaults.partitions.
+#   replicas:         Replication factor. Default: kafka.defaults.replicas.
+#   retentionMs:      Message retention in milliseconds. Default: 7 days (604800000).
+#   cleanupPolicy:    delete or compact. Default: delete.
+#   compressionType:  none, gzip, snappy, lz4, zstd, producer. Default: lz4.
+#   minInsyncReplicas: Minimum in-sync replicas for writes. Default: 2.
+#   maxMessageBytes:  Maximum message size in bytes. Omitted if not set.
+#   segmentMs:        Time after which an active log segment is rolled.
+#                     Omitted if not set.
 # ------------------------------------------------------------------------------
+kafka:
+  namespace: kafka
+  clusterName: kafka-cluster
+  topicPrefix: com.forwardmeasure.entity-resolution
+
+  defaults:
+    partitions: 12
+    replicas: 3
+    retentionMs: "604800000" # 7 days
+    cleanupPolicy: delete
+    compressionType: lz4
+    minInsyncReplicas: 2
+
+  # Topics provisioned by this release.
+  # Add one entry per topic the service owns.
+  topics: []
+  # Example:
+  #   - suffix: ingest-evidence
+  #     description: >
+  #       Durable ingestion commands. Produced by EvidenceIngestionPipelineSupport,
+  #       consumed by DurableEvidenceIngestionRoute.
+  #     partitions: 12
+  #     replicas: 3
+  #     retentionMs: "604800000"
+  #     minInsyncReplicas: 2
+  #
+  #   - suffix: extraction.dlq
+  #     description: >
+  #       Dead-letter queue for failed extraction pipeline messages.
+  #     partitions: 3
+  #     replicas: 3
+  #     retentionMs: "2592000000"   # 30 days
+
+  # ------------------------------------------------------------------------------
+  # Services
+  # Each entry produces a Knative Service + Cloud SQL proxy sidecar (if enabled).
+  # Per-service secrets (unique to that service) are declared here under secrets[].
+  # Shared secrets across services are declared at the top-level secrets[] above.
+  # ------------------------------------------------------------------------------
 services: []
