@@ -47,3 +47,19 @@ eventing:
     bootstrapServers: "kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
     authSecretName: ""
     authSecretNamespace: ""
+
+# ---------------------------------------------------------------------------
+# Brokers — list of Knative Broker resources to provision.
+# Each entry produces one Broker in the specified namespace.
+# The Kafka broker class is used by default (config-kafka-broker-eventing
+# sets default-broker-class: Kafka).
+#
+# Fields:
+#   name:      Broker resource name
+#   namespace: Namespace to create the broker in
+# ---------------------------------------------------------------------------
+brokers: []
+
+# Example:
+#   - name: data-fabric-broker
+#     namespace: data-fabric
