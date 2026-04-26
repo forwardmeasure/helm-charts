@@ -1,0 +1,23 @@
+{{- range .Values.brokers }}
+---
+# ---------------------------------------------------------------------------
+# Knative Broker: {{ .name }}
+# Namespace: {{ .namespace }}
+# Uses the Kafka broker class configured in config-kafka-broker-eventing
+# (default-broker-class: Kafka). Bootstrap servers and topic defaults
+# are taken from kafka-broker-config in the knative-eventing namespace.
+# ---------------------------------------------------------------------------
+apiVersion: eventing.knative.dev/v1
+kind: Broker
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  annotations:
+    eventing.knative.dev/broker.class: Kafka
+spec:
+  config:
+    apiVersion: v1
+    kind: ConfigMap
+    name: kafka-broker-config
+    namespace: knative-eventing
+{{- end }}
