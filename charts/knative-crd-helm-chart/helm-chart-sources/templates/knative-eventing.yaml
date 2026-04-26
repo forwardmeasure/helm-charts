@@ -10,6 +10,16 @@ spec:
     - URL: https://github.com/knative-extensions/eventing-kafka-broker/releases/download/knative-v{{ .Values.knativeVersion }}/eventing-kafka-controller.yaml
     - URL: https://github.com/knative-extensions/eventing-kafka-broker/releases/download/knative-v{{ .Values.knativeVersion }}/eventing-kafka-broker.yaml
   config:
+    # -------------------------------------------------------------------------
+    # kafka-broker-config is created by the eventing-kafka-broker additional
+    # manifest with a hardcoded bootstrap server value. By declaring it here
+    # the operator reconciles it with the correct environment-specific value
+    # from values.yaml, overriding whatever the manifest installed.
+    # -------------------------------------------------------------------------
+    kafka-broker-config:
+      bootstrap.servers: {{ .Values.eventing.kafka.bootstrapServers | quote }}
+      default.topic.partitions: "10"
+      default.topic.replication.factor: "3"
     config-kafka-broker-data-plane:
       default.topic.partitions: "10"
       default.topic.replication.factor: "3"
