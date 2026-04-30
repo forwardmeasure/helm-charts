@@ -1862,6 +1862,45 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.1.tgz
     version: 0.1.1
+  quarks-funqy-service:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-30T10:15:53.602021571-04:00"
+    description: 'Generic Knative Funqy serverless function chart. Deploys one or
+      more Quarkus Funqy functions per release, each independently configurable with
+      its own image, resources, secrets, scaling policy, and CloudEvent trigger bindings.  Supports
+      both JVM fast-jar and GraalVM native runtime modes — controlled per function
+      via the image tag or digest. Native builds produce images of approximately 60-80MB
+      with sub-millisecond cold start. JVM builds are used during development for
+      faster iteration.  Each function entry produces: - A Knative Service (serving.knative.dev/v1)
+      with KPA scale-to-zero - One Knative Trigger per entry in the function''s triggers
+      list - ExternalSecrets for injected credentials via External Secrets Operator  Designed
+      to be deployed once per function family with function-specific configuration
+      per entry in the functions list. Follows the same overlay pattern as the quarkus-service
+      chart — overlays supply image, secrets, scaling, and environment configuration.  Does
+      not include: - Cloud SQL Auth Proxy — functions connect to PostgreSQL via an
+      existing   proxy or not at all - Liquibase wait init container — functions do
+      not own schema migrations - Liveness and readiness probes — Knative manages
+      pod lifecycle for   scale-to-zero functions; standard HTTP probes interfere
+      with KPA scaling - Kafka topic provisioning — functions consume CloudEvents
+      via the Knative   Broker, not directly from Kafka '
+    digest: db284e66ae90376918debd9ce66e078a505b816fcae2ca7b8de0804d70b606fe
+    keywords:
+    - quarkus
+    - funqy
+    - knative
+    - serverless
+    - cloudevents
+    - screening
+    - entity-resolution
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: quarks-funqy-service
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/quarkus-funqy-helm-chart/quarks-funqy-service-0.1.1.tgz
+    version: 0.1.1
   quarkus-service:
   - apiVersion: v2
     appVersion: 1.0.0
@@ -2365,4 +2404,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-04-26T13:54:58.978766852-04:00"
+generated: "2026-04-30T10:15:53.601630834-04:00"
