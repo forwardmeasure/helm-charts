@@ -1,0 +1,187 @@
+# ==============================================================================
+# funqy-service chart — default values
+# ==============================================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Pod annotations applied to all Knative Service pods in this release.
+# Excludes port 8080 from Istio sidecar interception — Knative delivers
+# CloudEvents directly to the function container on port 8080.
+podAnnotations:
+  traffic.sidecar.istio.io/excludeInboundPorts: "8080"
+
+# ------------------------------------------------------------------------------
+# Image pull secrets
+# ------------------------------------------------------------------------------
+imagePullSecrets:
+  - name: docker-io-credentials
+
+# ------------------------------------------------------------------------------
+# ServiceAccount
+# create: true  — chart creates its own SA
+# create: false — use a pre-existing SA; name must still be set
+# annotations:  empty by default; GCP Workload Identity applied via overlay:
+#   iam.gke.io/gcp-service-account: <gsa>@<project>.iam.gserviceaccount.com
+# ------------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: funqy-serving-sa
+  labels: {}
+  annotations: {}
+
+# ------------------------------------------------------------------------------
+# External Secrets Operator — chart-level defaults
+# Applied to all ExternalSecrets unless overridden per function.
+# ------------------------------------------------------------------------------
+externalSecret:
+  clusterSecretStore: fake-secret-store
+  refreshInterval: 1h
+
+# ------------------------------------------------------------------------------
+# Release-level shared secrets
+# Produces one ExternalSecret per entry, named <release>-<secretName>.
+# Use for secrets shared across multiple functions in this release.
+#
+# Format:
+#   secrets:
+#     - secretName: opensearch
+#       entries:
+#         - secretKey: opensearch-username
+#           remoteKey: /screening/opensearch/username
+#         - secretKey: opensearch-password
+#           remoteKey: /screening/opensearch/password
+#
+# Functions reference these via secretName in their secrets list — the chart
+# resolves the Kubernetes secret name as <release>-<secretName>.
+# ------------------------------------------------------------------------------
+secrets: []
+
+# ------------------------------------------------------------------------------
+# Knative Broker reference
+# All Triggers produced by this chart subscribe to this broker.
+# Override per-trigger if functions consume from different brokers.
+# ------------------------------------------------------------------------------
+broker:
+  namespace: data-fabric
+  name: data-fabric-broker
+
+# ------------------------------------------------------------------------------
+# Cloud SQL Auth Proxy sidecar — chart-level defaults
+# Applied to all functions with cloudSqlProxy.enabled: true.
+# Proxy listens on localhost:<port>, handles IAM auth via Workload Identity.
+# App connects to localhost:<port> with standard PostgreSQL JDBC.
+# privateIp: true — required when Cloud SQL instance has no public IP.
+# ------------------------------------------------------------------------------
+cloudSqlProxy:
+  image:
+    registry: gcr.io
+    repository: cloud-sql-connectors/cloud-sql-proxy
+    tag: "2.14.1"
+    digest: ""
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+  port: 5432
+  privateIp: true
+
+# ------------------------------------------------------------------------------
+# Functions
+# Each entry produces a Knative Service and one Trigger per triggers entry.
+#
+# Required per function:
+#   name:         Knative Service name and pod label value
+#   image:        Image configuration (registry, repository, tag or digest)
+#   triggers:     At least one Knative Trigger binding
+#
+# Optional per function:
+#   enabled:      Default true. Set false to disable without removing from values.
+#   runtime:      jvm (default) or native — informational label only,
+#                 actual runtime is determined by the image.
+#   port:         Container port. Default 8080.
+#   scaling:      KPA scaling configuration.
+#   resources:    CPU and memory requests and limits.
+#   env:          Key/value environment variable map.
+#   secrets:      List of ESO-injected secrets as env vars.
+#   annotations:  Additional Knative Service metadata annotations.
+#   podAnnotations: Additional pod template annotations.
+#
+# Trigger entry fields:
+#   name:           Trigger resource name (must be unique in the namespace)
+#   cloudEventType: CloudEvent type attribute to filter on (required)
+#   cloudEventSource: Optional CloudEvent source attribute filter
+#   broker:         Optional per-trigger broker override. Defaults to
+#                   chart-level broker.name in broker.namespace.
+#
+# Scaling fields:
+#   class:              autoscaling.knative.dev/class — default kpa.autoscaling.knative.dev
+#   metric:             concurrency (default) or rps
+#   target:             Concurrent requests per pod before scaling up. Default 5.
+#   minReplicas:        Minimum pod count. Default 0 (scale to zero).
+#   maxReplicas:        Maximum pod count. Default 10.
+#   scaleDownDelay:     Time to wait before scaling down. Default 0s.
+#   timeoutSeconds:     Request timeout before Knative cancels. Default 300.
+#   containerConcurrency: Hard concurrency limit per container. Default 0 (unlimited).
+# ------------------------------------------------------------------------------
+functions: []
+
+# Example:
+#
+# functions:
+#   - name: screening-serverless-service
+#     enabled: true
+#     runtime: native
+#     port: 8080
+#
+#     image:
+#       registry: gcr.io
+#       repository: data-fabric-397316/screening-serverless-service
+#       tag: latest
+#       digest: ""
+#       pullPolicy: IfNotPresent
+#
+#     scaling:
+#       class: kpa.autoscaling.knative.dev
+#       metric: concurrency
+#       target: "5"
+#       minReplicas: 0
+#       maxReplicas: 10
+#       scaleDownDelay: 0s
+#       timeoutSeconds: 300
+#       containerConcurrency: 0
+#
+#     resources:
+#       requests:
+#         cpu: "100m"
+#         memory: "128Mi"
+#       limits:
+#         cpu: "1000m"
+#         memory: "256Mi"
+#
+#     triggers:
+#       - name: screening-requested-trigger
+#         cloudEventType: com.forwardmeasure.entity-resolution.screening.requested
+#
+#     cloudSqlProxy:
+#       enabled: true
+#       secretName: screening-serverless-service  # optional override, defaults to function name
+#
+#     secrets:
+#       - envVar: DATAFABRIC_SCREENING_OPENSEARCH_USERNAME
+#         secretName: opensearch
+#         secretKey: opensearch-username
+#       - envVar: DATAFABRIC_SCREENING_OPENSEARCH_PASSWORD
+#         secretName: opensearch
+#         secretKey: opensearch-password
+#
+#     env:
+#       QUARKUS_LOG_LEVEL: INFO
+#       DATAFABRIC_SCREENING_FUNCTION_HIT_THRESHOLD: "0.75"
+#       DATAFABRIC_SCREENING_OPENSEARCH_HOST: opensearch-cluster-master.opensearch-cluster.svc.cluster.local
+#       DATAFABRIC_SCREENING_OPENSEARCH_PORT: "9200"
+#       DATAFABRIC_SCREENING_OPENSEARCH_SCHEME: http

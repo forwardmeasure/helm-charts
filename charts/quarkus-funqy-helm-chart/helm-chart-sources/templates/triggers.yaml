@@ -1,0 +1,36 @@
+{{- $root := $ -}}
+{{- range .Values.functions }}
+{{- if ne (.enabled | toString) "false" }}
+{{- $function := . }}
+{{- range .triggers }}
+---
+# ---------------------------------------------------------------------------
+# Knative Trigger: {{ .name }}
+# Filters CloudEvents of type: {{ .cloudEventType }}
+# Routes to function: {{ $function.name }}
+# ---------------------------------------------------------------------------
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: {{ .name }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "funqy-service.functionLabels" (dict "function" $function "root" $root) | nindent 4 }}
+    funqy-service/trigger: {{ .name }}
+spec:
+  broker: {{ .broker | default $root.Values.broker.name }}
+  filter:
+    attributes:
+      type: {{ .cloudEventType | quote }}
+      {{- if .cloudEventSource }}
+      source: {{ .cloudEventSource | quote }}
+      {{- end }}
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: {{ $function.name }}
+      namespace: {{ $root.Release.Namespace }}
+{{- end }}
+{{- end }}
+{{- end }}

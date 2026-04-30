@@ -1,0 +1,140 @@
+{{- range .Values.functions }}
+{{- if ne (.enabled | toString) "false" }}
+{{- $function := . }}
+{{- include "funqy-service.validateFunction" (dict "function" . "root" $) }}
+{{- $scaling   := .scaling   | default dict }}
+{{- $resources := .resources | default dict }}
+{{- $requests  := $resources.requests | default dict }}
+{{- $limits    := $resources.limits   | default dict }}
+---
+# ---------------------------------------------------------------------------
+# Knative Service: {{ .name }}
+# Runtime: {{ .runtime | default "jvm" }}
+# Scales to zero between CloudEvent deliveries.
+# ---------------------------------------------------------------------------
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "funqy-service.functionLabels" (dict "function" . "root" $) | nindent 4 }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  template:
+    metadata:
+      annotations:
+        # --------------------------------------------------------------------
+        # KPA scaling — scale to zero by default.
+        # target: concurrent requests per pod before a new pod is started.
+        # scaleDownDelay: 0s means scale down immediately after last request.
+        # --------------------------------------------------------------------
+        autoscaling.knative.dev/class: {{ $scaling.class | default "kpa.autoscaling.knative.dev" | quote }}
+        autoscaling.knative.dev/metric: {{ $scaling.metric | default "concurrency" | quote }}
+        autoscaling.knative.dev/target: {{ $scaling.target | default "5" | quote }}
+        autoscaling.knative.dev/minScale: {{ $scaling.minReplicas | toString | default "0" | quote }}
+        autoscaling.knative.dev/maxScale: {{ $scaling.maxReplicas | toString | default "10" | quote }}
+        autoscaling.knative.dev/scale-down-delay: {{ $scaling.scaleDownDelay | default "0s" | quote }}
+        {{- with $.Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "funqy-service.functionLabels" (dict "function" . "root" $) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $.Values.serviceAccount.name }}
+      timeoutSeconds: {{ $scaling.timeoutSeconds | default 300 }}
+      containerConcurrency: {{ $scaling.containerConcurrency | default 0 }}
+      containers:
+        # --------------------------------------------------------------------
+        # Funqy function container.
+        # No liveness/readiness/startup probes — Knative KPA manages pod
+        # lifecycle for scale-to-zero functions. Standard HTTP probes cause
+        # false positives during scale-up and interfere with KPA metrics.
+        # --------------------------------------------------------------------
+        - name: {{ .name }}
+          image: {{ include "funqy-service.imageRef" (dict "image" .image) }}
+          imagePullPolicy: {{ .image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http1
+              containerPort: {{ .port | default 8080 }}
+              protocol: TCP
+          env:
+            - name: QUARKUS_RUNTIME_MODE
+              value: {{ .runtime | default "jvm" | quote }}
+            {{- if .secrets }}
+            {{- range .secrets }}
+            - name: {{ .envVar }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "funqy-service.k8sSecretName" (dict "root" $ "secretName" .secretName) }}
+                  key: {{ .secretKey }}
+            {{- end }}
+            {{- end }}
+            {{- if and .cloudSqlProxy .cloudSqlProxy.enabled }}
+            # --------------------------------------------------------------------
+            # JDBC URL constructed from the injected DATA_FABRIC_SVC_DB_NAME secret.
+            # DATA_FABRIC_SVC_DB_NAME must be present in the function's secrets list
+            # so Kubernetes can resolve the $(DATA_FABRIC_SVC_DB_NAME) reference.
+            # Only rendered when cloudSqlProxy is enabled for this function.
+            # --------------------------------------------------------------------
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: "jdbc:postgresql://localhost:5432/$(DATA_FABRIC_SVC_DB_NAME)"
+            {{- end }}
+            {{- range $key, $val := .env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+          resources:
+            requests:
+              cpu: {{ $requests.cpu | default "100m" | quote }}
+              memory: {{ $requests.memory | default "128Mi" | quote }}
+            limits:
+              cpu: {{ $limits.cpu | default "1000m" | quote }}
+              memory: {{ $limits.memory | default "256Mi" | quote }}
+
+        # --------------------------------------------------------------------
+        # Cloud SQL Auth Proxy sidecar
+        # Listens on localhost:5432, proxies to Cloud SQL via IAM/Workload
+        # Identity. App connects to localhost:5432 — standard PostgreSQL JDBC,
+        # no socket factory required.
+        # Only rendered when cloudSqlProxy.enabled is true for this function.
+        # Secret name defaults to the function name, overridable via
+        # cloudSqlProxy.secretName.
+        # --------------------------------------------------------------------
+        {{- if and .cloudSqlProxy .cloudSqlProxy.enabled }}
+        {{- $proxy := $.Values.cloudSqlProxy }}
+        - name: cloud-sql-proxy
+          image: {{ include "funqy-service.cloudSqlProxyImageRef" $proxy }}
+          imagePullPolicy: {{ $proxy.image.pullPolicy | default "IfNotPresent" }}
+          args:
+            - "--structured-logs"
+            - "--port={{ $proxy.port | default 5432 }}"
+            {{- if $proxy.privateIp }}
+            - "--private-ip"
+            {{- end }}
+            - "$(DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE)"
+          env:
+            - name: DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "funqy-service.cloudSqlProxySecretName" (dict "function" $function "root" $) }}
+                  key: db-cloud-sql-instance
+          resources:
+            requests:
+              cpu: {{ $proxy.resources.requests.cpu | default "100m" | quote }}
+              memory: {{ $proxy.resources.requests.memory | default "128Mi" | quote }}
+            limits:
+              cpu: {{ $proxy.resources.limits.cpu | default "500m" | quote }}
+              memory: {{ $proxy.resources.limits.memory | default "256Mi" | quote }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+        {{- end }}
+{{- end }}
+{{- end }}
