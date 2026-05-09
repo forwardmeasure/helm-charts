@@ -29,6 +29,10 @@ spec:
       default.replication.factor: {{ .Values.config.defaultReplicationFactor }}
       min.insync.replicas: {{ .Values.config.minInsyncReplicas }}
       log.retention.hours: {{ .Values.config.logRetentionHours }}
+      {{- if .Values.config.messageMaxBytes }}
+      message.max.bytes: {{ .Values.config.messageMaxBytes }}
+      {{- end }}
+      
   entityOperator:
     topicOperator: {}
     userOperator: {}
