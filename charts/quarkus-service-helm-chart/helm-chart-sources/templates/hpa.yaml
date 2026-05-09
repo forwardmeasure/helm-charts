@@ -1,0 +1,65 @@
+{{- range .Values.services }}
+{{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
+{{- if and .scaling .scaling.maxReplicas (gt (.scaling.maxReplicas | int) (.scaling.minReplicas | default 1 | int)) }}
+---
+# ---------------------------------------------------------------------------
+# HorizontalPodAutoscaler: {{ .name }}
+# Only rendered for deploymentMode: deployment services where
+# maxReplicas > minReplicas.
+# ---------------------------------------------------------------------------
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .name }}
+  minReplicas: {{ .scaling.minReplicas | default 1 }}
+  maxReplicas: {{ .scaling.maxReplicas }}
+  metrics:
+    {{- if .scaling.cpuTarget }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .scaling.cpuTarget }}
+    {{- end }}
+    {{- if .scaling.memoryTarget }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .scaling.memoryTarget }}
+    {{- end }}
+    {{- if not (or .scaling.cpuTarget .scaling.memoryTarget) }}
+    # Default: scale on CPU utilization at 70%
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    {{- end }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: {{ .scaling.scaleDownStabilizationSeconds | default 300 }}
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: {{ .scaling.scaleUpStabilizationSeconds | default 30 }}
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+{{- end }}
+{{- end }}
+{{- end }}
