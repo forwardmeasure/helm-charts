@@ -5,7 +5,7 @@
 nameOverride: ""
 fullnameOverride: ""
 
-# Pod annotations applied to all Knative Service pods in this release.
+# Pod annotations applied to all pods in this release.
 podAnnotations:
   traffic.sidecar.istio.io/excludeInboundPorts: "8080"
 
@@ -130,19 +130,19 @@ liquibaseWait:
 #               one KafkaTopic in the Kafka namespace.
 #
 # Topic entry fields:
-#   suffix:           Required. Appended to topicPrefix to form the topic name.
-#                     Example: ingest-evidence
-#                     Results in: com.forwardmeasure.entity-resolution.ingest-evidence
-#   description:      Optional. Human-readable comment rendered in the manifest.
-#   partitions:       Number of partitions. Default: kafka.defaults.partitions.
-#   replicas:         Replication factor. Default: kafka.defaults.replicas.
-#   retentionMs:      Message retention in milliseconds. Default: 7 days (604800000).
-#   cleanupPolicy:    delete or compact. Default: delete.
-#   compressionType:  none, gzip, snappy, lz4, zstd, producer. Default: lz4.
+#   suffix:            Required. Appended to topicPrefix to form the topic name.
+#                      Example: ingest-evidence
+#                      Results in: com.forwardmeasure.entity-resolution.ingest-evidence
+#   description:       Optional. Human-readable comment rendered in the manifest.
+#   partitions:        Number of partitions. Default: kafka.defaults.partitions.
+#   replicas:          Replication factor. Default: kafka.defaults.replicas.
+#   retentionMs:       Message retention in milliseconds. Default: 7 days (604800000).
+#   cleanupPolicy:     delete or compact. Default: delete.
+#   compressionType:   none, gzip, snappy, lz4, zstd, producer. Default: lz4.
 #   minInsyncReplicas: Minimum in-sync replicas for writes. Default: 2.
-#   maxMessageBytes:  Maximum message size in bytes. Omitted if not set.
-#   segmentMs:        Time after which an active log segment is rolled.
-#                     Omitted if not set.
+#   maxMessageBytes:   Maximum message size in bytes. Omitted if not set.
+#   segmentMs:         Time after which an active log segment is rolled.
+#                      Omitted if not set.
 # ------------------------------------------------------------------------------
 kafka:
   namespace: kafka
@@ -157,8 +157,6 @@ kafka:
     compressionType: lz4
     minInsyncReplicas: 2
 
-  # Topics provisioned by this release.
-  # Add one entry per topic the service owns.
   topics: []
   # Example:
   #   - suffix: ingest-evidence
@@ -176,11 +174,44 @@ kafka:
   #     partitions: 3
   #     replicas: 3
   #     retentionMs: "2592000000"   # 30 days
-
-  # ------------------------------------------------------------------------------
-  # Services
-  # Each entry produces a Knative Service + Cloud SQL proxy sidecar (if enabled).
-  # Per-service secrets (unique to that service) are declared here under secrets[].
-  # Shared secrets across services are declared at the top-level secrets[] above.
-  # ------------------------------------------------------------------------------
+#       retentionBytes:    Maximum size in bytes per partition before oldest segments
+#                      are deleted. Omitted if not set. Recommended for high-volume
+#                      pass-through topics to enforce a hard disk cap independent
+#                      of retention time.
+# ------------------------------------------------------------------------------
+# Services
+# Each entry produces a Kubernetes workload for one service in this release.
+# Per-service secrets (unique to that service) are declared under secrets[].
+# Shared secrets across services are declared at the top-level secrets[] above.
+#
+# deploymentMode: knative (default) | deployment
+#   knative    — Knative Service with scale-to-zero and Knative traffic
+#                management. Use for pure HTTP request/response workloads.
+#   deployment — Standard Kubernetes Deployment + ClusterIP Service + HPA.
+#                Use for services requiring stable long-lived connections
+#                (Spark driver, persistent Kafka consumers, etc.).
+#
+# scaling fields:
+#
+#   Both modes:
+#     minReplicas:   Minimum replicas.
+#     maxReplicas:   Maximum replicas.
+#
+#   knative only:
+#     target:               Concurrency target per pod.
+#     timeoutSeconds:       Request timeout in seconds.
+#     containerConcurrency: Max concurrent requests per pod (0 = unlimited).
+#     class:                Autoscaler class (default: kpa.autoscaling.knative.dev).
+#     metric:               Autoscaler metric (default: concurrency).
+#
+#   deployment only (HPA — only rendered when maxReplicas > minReplicas):
+#     cpuTarget:                      CPU utilisation % to trigger scale-up.
+#                                     Default: 70. Omit to disable CPU scaling.
+#     memoryTarget:                   Memory utilisation % to trigger scale-up.
+#                                     Omit to disable memory scaling.
+#     scaleDownStabilizationSeconds:  HPA scale-down stabilisation window.
+#                                     Default: 300.
+#     scaleUpStabilizationSeconds:    HPA scale-up stabilisation window.
+#                                     Default: 30.
+# ------------------------------------------------------------------------------
 services: []
