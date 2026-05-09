@@ -44,11 +44,12 @@ spec:
     cleanup.policy: {{ $topic.cleanupPolicy | default $root.Values.kafka.defaults.cleanupPolicy | default "delete" }}
     compression.type: {{ $topic.compressionType | default $root.Values.kafka.defaults.compressionType | default "lz4" }}
     min.insync.replicas: {{ $topic.minInsyncReplicas | default $root.Values.kafka.defaults.minInsyncReplicas | default 2 | quote }}
+
     {{- if or $topic.maxMessageBytes $root.Values.kafka.defaults.maxMessageBytes }}
     max.message.bytes: {{ $topic.maxMessageBytes | default $root.Values.kafka.defaults.maxMessageBytes | quote }}
     {{- end }}
-    {{- if or $topic.segmentMs $root.Values.kafka.defaults.segmentMs }}
-    segment.ms: {{ $topic.segmentMs | default $root.Values.kafka.defaults.segmentMs | quote }}
+    {{- if or $topic.retentionBytes $root.Values.kafka.defaults.retentionBytes }}
+    retention.bytes: {{ $topic.retentionBytes | default $root.Values.kafka.defaults.retentionBytes | quote }}
     {{- end }}
     {{- if or $topic.segmentMs $root.Values.kafka.defaults.segmentMs }}
     segment.ms: {{ $topic.segmentMs | default $root.Values.kafka.defaults.segmentMs | quote }}
