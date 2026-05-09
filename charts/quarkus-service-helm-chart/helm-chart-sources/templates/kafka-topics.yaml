@@ -24,7 +24,7 @@
 # KafkaTopic: {{ $topicName }}
 # {{ $topic.description | default "Managed by Helm via Strimzi Topic Operator." }}
 # ---------------------------------------------------------------------------
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: {{ $topicName }}
@@ -46,6 +46,9 @@ spec:
     min.insync.replicas: {{ $topic.minInsyncReplicas | default $root.Values.kafka.defaults.minInsyncReplicas | default 2 | quote }}
     {{- if or $topic.maxMessageBytes $root.Values.kafka.defaults.maxMessageBytes }}
     max.message.bytes: {{ $topic.maxMessageBytes | default $root.Values.kafka.defaults.maxMessageBytes | quote }}
+    {{- end }}
+    {{- if or $topic.segmentMs $root.Values.kafka.defaults.segmentMs }}
+    segment.ms: {{ $topic.segmentMs | default $root.Values.kafka.defaults.segmentMs | quote }}
     {{- end }}
     {{- if or $topic.segmentMs $root.Values.kafka.defaults.segmentMs }}
     segment.ms: {{ $topic.segmentMs | default $root.Values.kafka.defaults.segmentMs | quote }}
