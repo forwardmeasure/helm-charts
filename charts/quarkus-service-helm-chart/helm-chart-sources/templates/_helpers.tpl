@@ -44,7 +44,6 @@ quarkus-service/runtime: {{ .service.runtime | default "jvm" }}
 {{/*
 Container image reference resolver.
 digest takes precedence over tag.
-Supports jvm and native runtime modes — image config is per-service.
 */}}
 {{- define "quarkus-service.imageRef" -}}
 {{- $registry := .image.registry | default "docker.io" -}}
@@ -58,9 +57,8 @@ Supports jvm and native runtime modes — image config is per-service.
 {{- end }}
 
 {{/*
-Kubernetes Secret name for ESO-materialised secrets.
+Kubernetes Secret name for release-level (shared) ESO-materialised secrets.
 Convention: <release>-<secretName>
-Centralised here so all templates use the same naming pattern.
 Usage: include "quarkus-service.k8sSecretName" (dict "root" $ "secretName" "my-secret")
 */}}
 {{- define "quarkus-service.k8sSecretName" -}}
@@ -68,8 +66,54 @@ Usage: include "quarkus-service.k8sSecretName" (dict "root" $ "secretName" "my-s
 {{- end }}
 
 {{/*
+Kubernetes Secret name for per-service ESO-materialised secrets.
+Convention: <release>-<serviceName>-<secretName>
+Usage: include "quarkus-service.k8sPerServiceSecretName" (dict "root" $ "serviceName" "my-service" "secretName" "my-secret")
+*/}}
+{{- define "quarkus-service.k8sPerServiceSecretName" -}}
+{{- printf "%s-%s-%s" .root.Release.Name .serviceName .secretName -}}
+{{- end }}
+
+{{/*
+Resolve the Kubernetes Secret name for a secret reference in a service's
+secrets list.
+
+Three resolution modes, checked in order:
+
+1. existingSecretName — if set, the secret already exists in the cluster
+   (created by another release, e.g. platform-secrets). Use it directly
+   with no name transformation and no ExternalSecret generated.
+
+2. Shared secret — secretName appears in Values.secrets[]. Uses the
+   release-level naming convention: <release>-<secretName>.
+
+3. Per-service secret — secretName not in shared block. Uses the
+   per-service convention: <release>-<serviceName>-<secretName>.
+   An ExternalSecret is generated for this case by external-secret.yaml
+   Pass 2.
+
+Usage: include "quarkus-service.resolveSecretName" (dict "root" $ "service" $svc "secretEntry" .)
+*/}}
+{{- define "quarkus-service.resolveSecretName" -}}
+{{- if .secretEntry.existingSecretName -}}
+{{- .secretEntry.existingSecretName -}}
+{{- else -}}
+{{- $isShared := false -}}
+{{- range .root.Values.secrets -}}
+  {{- if eq .secretName $.secretEntry.secretName -}}
+    {{- $isShared = true -}}
+  {{- end -}}
+{{- end -}}
+{{- if $isShared -}}
+{{- include "quarkus-service.k8sSecretName" (dict "root" .root "secretName" .secretEntry.secretName) -}}
+{{- else -}}
+{{- include "quarkus-service.k8sPerServiceSecretName" (dict "root" .root "serviceName" .service.name "secretName" .secretEntry.secretName) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Resolve the effective secret store name.
-Prefer per-service override, then chart-level default.
 */}}
 {{- define "quarkus-service.secretStoreName" -}}
 {{- if and (hasKey .service "externalSecret") (hasKey .service.externalSecret "clusterSecretStore") (.service.externalSecret.clusterSecretStore) }}
@@ -81,7 +125,6 @@ Prefer per-service override, then chart-level default.
 
 {{/*
 Resolve the effective ESO refresh interval.
-Prefer per-service override, then chart-level default.
 */}}
 {{- define "quarkus-service.secretRefreshInterval" -}}
 {{- if and (hasKey .service "externalSecret") (hasKey .service.externalSecret "refreshInterval") (.service.externalSecret.refreshInterval) }}
@@ -93,8 +136,6 @@ Prefer per-service override, then chart-level default.
 
 {{/*
 Resolve the Cloud SQL proxy secret name for a service.
-Prefer per-service cloudSqlProxy.secretName override, then fall back to
-the service name itself — convention: secrets are named after their service.
 Usage: include "quarkus-service.cloudSqlProxySecretName" (dict "service" . "root" $)
 */}}
 {{- define "quarkus-service.cloudSqlProxySecretName" -}}
@@ -108,11 +149,7 @@ Usage: include "quarkus-service.cloudSqlProxySecretName" (dict "service" . "root
 {{- end }}
 
 {{/*
-Resolve whether the liquibase wait init container should be rendered
-for a given service.
-Resolution order:
-  1. Per-service liquibaseWait.enabled — explicit opt-in or opt-out
-  2. Chart-level liquibaseWait.enabled — default for all services
+Resolve whether the liquibase wait init container should be rendered.
 Usage: include "quarkus-service.liquibaseWaitEnabled" (dict "service" . "root" $)
 Returns "true" or "false" as a string.
 */}}
@@ -125,9 +162,7 @@ Returns "true" or "false" as a string.
 {{- end }}
 
 {{/*
-Resolve the liquibase service internal URL for the wait init container.
-Format: http://<serviceName>.<serviceNamespace>.svc.cluster.local
-Matches the Knative internal DNS pattern confirmed in the cluster.
+Resolve the liquibase service internal URL.
 Usage: include "quarkus-service.liquibaseServiceUrl" .root
 */}}
 {{- define "quarkus-service.liquibaseServiceUrl" -}}
@@ -136,12 +171,6 @@ Usage: include "quarkus-service.liquibaseServiceUrl" .root
 
 {{/*
 Resolve the tenant ID for the liquibase wait init container.
-Resolution order:
-  1. Per-service liquibaseWait.tenantId — static override
-  2. Falls back to reading DATAFABRIC_DEFAULT_TENANT env var at runtime
-     (the script uses the env var directly if no static override is set)
-Usage: include "quarkus-service.liquibaseWaitTenantId" (dict "service" . "root" $)
-Returns static tenant ID string, or empty string to signal env var fallback.
 */}}
 {{- define "quarkus-service.liquibaseWaitTenantId" -}}
 {{- if and (hasKey .service "liquibaseWait") (hasKey .service.liquibaseWait "tenantId") (.service.liquibaseWait.tenantId) -}}
@@ -153,7 +182,6 @@ Returns static tenant ID string, or empty string to signal env var fallback.
 
 {{/*
 Cloud SQL Auth Proxy image reference resolver.
-digest takes precedence over tag.
 */}}
 {{- define "quarkus-service.cloudSqlProxyImageRef" -}}
 {{- $registry := .image.registry | default "gcr.io" -}}
@@ -190,8 +218,7 @@ Validate a service entry has all required fields.
 {{- end }}
 
 {{/*
-Resolve the fully qualified Kafka topic name for a topic entry.
-Assembles: <kafka.topicPrefix>.<topic.suffix>
+Resolve the fully qualified Kafka topic name.
 Usage: include "quarkus-service.kafkaTopicName" (dict "root" $ "topic" .topic)
 */}}
 {{- define "quarkus-service.kafkaTopicName" -}}
@@ -201,8 +228,6 @@ Usage: include "quarkus-service.kafkaTopicName" (dict "root" $ "topic" .topic)
 
 {{/*
 Resolve the Kafka namespace for KafkaTopic resources.
-Prefer chart-level kafka.namespace, default to "kafka".
-Usage: include "quarkus-service.kafkaNamespace" $
 */}}
 {{- define "quarkus-service.kafkaNamespace" -}}
 {{- .Values.kafka.namespace | default "kafka" -}}
@@ -210,9 +235,213 @@ Usage: include "quarkus-service.kafkaNamespace" $
 
 {{/*
 Resolve the Strimzi cluster name for KafkaTopic resources.
-Prefer chart-level kafka.clusterName, default to "kafka-cluster".
-Usage: include "quarkus-service.kafkaClusterName" $
 */}}
 {{- define "quarkus-service.kafkaClusterName" -}}
 {{- .Values.kafka.clusterName | default "kafka-cluster" -}}
+{{- end }}
+
+{{/*
+============================================================================
+Shared pod spec helpers
+Used by both knative-service.yaml and deployment.yaml.
+============================================================================
+*/}}
+
+{{/*
+Init containers — liquibase wait and any custom init containers.
+Renders the full initContainers: block including the key, or nothing if
+no init containers are needed.
+Usage: include "quarkus-service.initContainers" (dict "service" . "root" $)
+*/}}
+{{- define "quarkus-service.initContainers" -}}
+{{- $svc := .service -}}
+{{- $root := .root -}}
+{{- $liquibaseEnabled := include "quarkus-service.liquibaseWaitEnabled" (dict "service" $svc "root" $root) -}}
+{{- $hasCustomInit := and $svc.initContainers (gt (len $svc.initContainers) 0) -}}
+{{- if or (eq $liquibaseEnabled "true") $hasCustomInit }}
+initContainers:
+  {{- if eq $liquibaseEnabled "true" }}
+  {{- $lw := $root.Values.liquibaseWait }}
+  - name: wait-for-liquibase
+    image: {{ $lw.image | default "curlimages/curl:latest" }}
+    imagePullPolicy: {{ $lw.imagePullPolicy | default "IfNotPresent" }}
+    env:
+      - name: LIQUIBASE_SERVICE_URL
+        value: {{ include "quarkus-service.liquibaseServiceUrl" $root | quote }}
+      - name: MAX_ATTEMPTS
+        value: {{ $lw.maxAttempts | default 30 | quote }}
+      - name: SLEEP_SECONDS
+        value: {{ $lw.sleepSeconds | default 10 | quote }}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "Waiting for public schema migrations to complete"
+        ATTEMPTS=0
+        STATUS_URL="${LIQUIBASE_SERVICE_URL}/migration/schemas/public/ready"
+        until [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; do
+          ATTEMPTS=$((ATTEMPTS + 1))
+          echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: polling ${STATUS_URL}"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${STATUS_URL}")
+          if [ "${HTTP_CODE}" = "200" ]; then
+            echo "Public schema migrations complete"
+            exit 0
+          fi
+          echo "Schema not ready (HTTP ${HTTP_CODE}) — waiting ${SLEEP_SECONDS}s"
+          sleep ${SLEEP_SECONDS}
+        done
+        echo "Timed out waiting for public schema migrations after $((MAX_ATTEMPTS * SLEEP_SECONDS))s"
+        exit 1
+    resources:
+      requests:
+        cpu: {{ $lw.resources.requests.cpu | default "50m" | quote }}
+        memory: {{ $lw.resources.requests.memory | default "32Mi" }}
+      limits:
+        cpu: {{ $lw.resources.limits.cpu | default "100m" | quote }}
+        memory: {{ $lw.resources.limits.memory | default "64Mi" }}
+  {{- end }}
+  {{- if $hasCustomInit }}
+  {{- range $svc.initContainers }}
+  {{- if .enabled }}
+  - name: {{ .name }}
+    image: {{ .image | default "curlimages/curl:latest" }}
+    imagePullPolicy: {{ .imagePullPolicy | default "IfNotPresent" }}
+    {{- with .env }}
+    env:
+      {{- range $key, $val := . }}
+      - name: {{ $key }}
+        value: {{ $val | quote }}
+      {{- end }}
+    {{- end }}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        {{- .script | nindent 8 }}
+    resources:
+      requests:
+        cpu: {{ .resources.requests.cpu | default "50m" | quote }}
+        memory: {{ .resources.requests.memory | default "32Mi" }}
+      limits:
+        cpu: {{ .resources.limits.cpu | default "100m" | quote }}
+        memory: {{ .resources.limits.memory | default "64Mi" }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Main application container.
+Usage: include "quarkus-service.mainContainer" (dict "service" . "root" $)
+*/}}
+{{- define "quarkus-service.mainContainer" -}}
+{{- $svc := .service -}}
+{{- $root := .root -}}
+- name: {{ $svc.name }}
+  image: {{ include "quarkus-service.imageRef" (dict "image" $svc.image) }}
+  imagePullPolicy: {{ $svc.image.pullPolicy | default "IfNotPresent" }}
+  ports:
+    - name: http1
+      containerPort: {{ $svc.port | default 8080 }}
+      protocol: TCP
+  env:
+    - name: QUARKUS_RUNTIME_MODE
+      value: {{ $svc.runtime | default "jvm" | quote }}
+    {{- if eq ($svc.deploymentMode | default $root.Values.deploymentMode | default "knative") "deployment" }}
+    # Pod IP injected via downward API — used by Spark driver so executor
+    # pods can connect back via a routable IP address. The pod name (HOSTNAME)
+    # is not DNS-resolvable from other pods without a headless Service.
+    # Only rendered in deployment mode — Knative admission webhook rejects fieldRef.
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    {{- end }}
+    {{- if $svc.secrets }}
+    {{- range $svc.secrets }}
+    - name: {{ .envVar }}
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "quarkus-service.resolveSecretName" (dict "root" $root "service" $svc "secretEntry" .) }}
+          key: {{ .secretKey }}
+    {{- end }}
+    {{- end }}
+    {{- if and $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
+    - name: QUARKUS_DATASOURCE_JDBC_URL
+      value: "jdbc:postgresql://localhost:5432/$(DATA_FABRIC_SVC_DB_NAME)"
+    {{- end }}
+    {{- range $key, $val := $svc.env }}
+    - name: {{ $key }}
+      value: {{ $val | quote }}
+    {{- end }}
+  resources:
+    requests:
+      cpu: {{ $svc.resources.requests.cpu | default "500m" | quote }}
+      memory: {{ $svc.resources.requests.memory | default "512Mi" }}
+    limits:
+      cpu: {{ $svc.resources.limits.cpu | default "2000m" | quote }}
+      memory: {{ $svc.resources.limits.memory | default "1Gi" }}
+  livenessProbe:
+    httpGet:
+      path: {{ $svc.probes.liveness | default "/q/health/live" }}
+      port: {{ $svc.port | default 8080 }}
+    initialDelaySeconds: {{ $svc.probes.initialDelaySeconds | default 30 }}
+    periodSeconds: {{ $svc.probes.periodSeconds | default 10 }}
+    timeoutSeconds: {{ $svc.probes.timeoutSeconds | default 5 }}
+    failureThreshold: {{ $svc.probes.failureThreshold | default 3 }}
+  readinessProbe:
+    httpGet:
+      path: {{ $svc.probes.readiness | default "/q/health/ready" }}
+      port: {{ $svc.port | default 8080 }}
+    initialDelaySeconds: {{ $svc.probes.initialDelaySeconds | default 10 }}
+    periodSeconds: {{ $svc.probes.periodSeconds | default 5 }}
+    timeoutSeconds: {{ $svc.probes.timeoutSeconds | default 3 }}
+    failureThreshold: {{ $svc.probes.failureThreshold | default 3 }}
+  startupProbe:
+    httpGet:
+      path: {{ $svc.probes.startup | default "/q/health/started" }}
+      port: {{ $svc.port | default 8080 }}
+    initialDelaySeconds: {{ $svc.probes.initialDelaySeconds | default 10 }}
+    periodSeconds: {{ $svc.probes.periodSeconds | default 5 }}
+    failureThreshold: {{ $svc.probes.startupFailureThreshold | default 30 }}
+{{- end }}
+
+{{/*
+Cloud SQL Auth Proxy sidecar container.
+Renders nothing if cloudSqlProxy is not enabled for the service.
+Usage: include "quarkus-service.cloudSqlProxySidecar" (dict "service" . "root" $)
+*/}}
+{{- define "quarkus-service.cloudSqlProxySidecar" -}}
+{{- $svc := .service -}}
+{{- $root := .root -}}
+{{- if and $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
+{{- $proxy := $root.Values.cloudSqlProxy }}
+- name: cloud-sql-proxy
+  image: {{ include "quarkus-service.cloudSqlProxyImageRef" $proxy }}
+  imagePullPolicy: {{ $proxy.image.pullPolicy | default "IfNotPresent" }}
+  args:
+    - "--structured-logs"
+    - "--port={{ $proxy.port | default 5432 }}"
+    {{- if $proxy.privateIp }}
+    - "--private-ip"
+    {{- end }}
+    - "$(DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE)"
+  env:
+    - name: DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "quarkus-service.cloudSqlProxySecretName" (dict "service" $svc "root" $root) }}
+          key: db-cloud-sql-instance
+  resources:
+    requests:
+      cpu: {{ $proxy.resources.requests.cpu | default "100m" | quote }}
+      memory: {{ $proxy.resources.requests.memory | default "128Mi" }}
+    limits:
+      cpu: {{ $proxy.resources.limits.cpu | default "500m" | quote }}
+      memory: {{ $proxy.resources.limits.memory | default "256Mi" }}
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+{{- end }}
 {{- end }}
