@@ -6,7 +6,7 @@ description: |
   Adds cert-manager Certificate CRs, External Secrets Operator integration,
   Istio PeerAuthentication, and OpenSearch security plugin configuration.
 type: application
-version: "0.1.2"
+version: "0.1.3"
 # appVersion tracks the OpenSearch release. Both subchart dependency versions
 # below must be kept in sync with this value.
 appVersion: "3.5.0"

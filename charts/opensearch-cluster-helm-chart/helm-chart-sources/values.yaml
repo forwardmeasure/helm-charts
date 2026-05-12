@@ -83,8 +83,8 @@ securityInit:
   retries: 20
   retryIntervalSeconds: 15
   image:
-    repository: opensearchproject/opensearch
-    tag: "" # defaults to .Chart.AppVersion
+    repository: docker.io/forwardmeasure/opensearch
+    tag: 3.6.0
     pullPolicy: IfNotPresent
   resources:
     requests:
