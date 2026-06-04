@@ -1,4 +1,14 @@
+{{- /*
+  Renders Istio DestinationRule resources.
+  Supports both singular destinationRule (backwards compatible) and
+  destinationRules[] list (for routes that proxy to multiple backends
+  each requiring independent traffic policy, e.g. TLS mode overrides).
+*/ -}}
 {{- range .Values.routes }}
+
+{{- /* ----------------------------------------------------------------
+     Singular destinationRule block — backwards compatible
+     ---------------------------------------------------------------- */}}
 {{- if .destinationRule }}
 {{- if .destinationRule.enabled }}
 ---
@@ -12,7 +22,38 @@ spec:
   trafficPolicy:
     tls:
       mode: {{ .destinationRule.tls.mode }}
-      sni: {{ .destinationRule.tls.sni | quote }}
+      {{- with .destinationRule.tls.sni }}
+      sni: {{ . | quote }}
+      {{- end }}
 {{- end }}
 {{- end }}
+
+{{- /* ----------------------------------------------------------------
+     destinationRules[] list — one DestinationRule per entry.
+     Use when a single route proxies to multiple backend services
+     that each need independent traffic policy.
+     Each entry requires: name, host, namespace, tls.mode
+     ---------------------------------------------------------------- */}}
+{{- if .destinationRules }}
+{{- $route := . }}
+{{- range .destinationRules }}
+{{- if .enabled }}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ $route.name }}-{{ .name }}
+  namespace: {{ .namespace }}
+spec:
+  host: {{ .host }}
+  trafficPolicy:
+    tls:
+      mode: {{ .tls.mode }}
+      {{- with .tls.sni }}
+      sni: {{ . | quote }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- end }}
