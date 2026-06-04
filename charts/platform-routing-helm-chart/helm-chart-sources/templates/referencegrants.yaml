@@ -1,7 +1,9 @@
 {{- /*
-  Generate one ReferenceGrant per unique backend namespace per route.
-  The grant allows HTTPRoutes/TCPRoutes in the gateway namespace to
-  reference Services in the backend namespace.
+  Generate one ReferenceGrant per unique backend service per route.
+  One grant per service works around an Istio bug where multiple services
+  in the same namespace within a single ReferenceGrant to[] list causes
+  the second and subsequent services to resolve as UnknownService in the
+  Envoy config dump.
 */ -}}
 {{- range .Values.routes }}
 {{- $route := . }}
@@ -10,18 +12,23 @@
 {{- if eq $routeKind "TCP" }}
 {{- $fromKind = "TCPRoute" }}
 {{- end }}
-{{- /* Collect unique backend namespaces for this route */ -}}
-{{- $namespaces := dict }}
+{{- /* Collect unique namespace+service pairs for this route */ -}}
+{{- $seen := dict }}
 {{- range .rules }}
-{{- $_ := set $namespaces .backend.namespace .backend.name }}
+{{- $ns := .backend.namespace }}
+{{- $svc := .backend.name }}
+{{- $key := printf "%s|%s" $ns $svc }}
+{{- if not (hasKey $seen $key) }}
+{{- $_ := set $seen $key (dict "ns" $ns "svc" $svc) }}
 {{- end }}
-{{- range $ns, $svcName := $namespaces }}
+{{- end }}
+{{- range $key, $entry := $seen }}
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
-  name: {{ $route.name }}
-  namespace: {{ $ns }}
+  name: {{ $route.name }}-{{ $entry.svc }}
+  namespace: {{ $entry.ns }}
 spec:
   from:
     - group: gateway.networking.k8s.io
@@ -29,7 +36,7 @@ spec:
       namespace: {{ $.Values.gateway.namespace }}
   to:
     - kind: Service
-      name: {{ $svcName }}
+      name: {{ $entry.svc }}
       group: ""
 {{- end }}
 {{- end }}
