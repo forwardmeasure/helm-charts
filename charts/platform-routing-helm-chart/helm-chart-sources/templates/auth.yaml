@@ -1,14 +1,17 @@
+{{- /*
+  Renders Istio RequestAuthentication and AuthorizationPolicy resources.
+  Supports both singular auth (backwards compatible) and auths[] list
+  (for routes that need JWT enforcement on multiple workloads, e.g. a
+  single HTTPRoute that proxies to two different backend services).
+*/ -}}
 {{- range .Values.routes }}
+{{- $route := . }}
+
+{{- /* ----------------------------------------------------------------
+     Singular auth block — backwards compatible
+     ---------------------------------------------------------------- */}}
 {{- if .auth }}
 {{- if .auth.enabled }}
-{{- /*
-  Auth resources must be deployed to the workload's namespace, not the gateway
-  namespace. Istio only enforces RequestAuthentication and AuthorizationPolicy
-  on pods in the same namespace as the policy.
-
-  Use auth.workloadNamespace to specify the namespace of the target workload.
-  Defaults to gateway.namespace for non-Knative / gateway-level enforcement.
-*/}}
 {{- $authNamespace := .auth.workloadNamespace | default $.Values.gateway.namespace }}
 ---
 apiVersion: security.istio.io/v1
@@ -36,24 +39,70 @@ spec:
       {{- toYaml .auth.selector | nindent 6 }}
   action: ALLOW
   rules:
-    # Allow authenticated external traffic — valid JWT required
     - from:
         - source:
             requestPrincipals: ["*"]
-    # Allow internal probe traffic on configured ports.
-    # Covers Knative queue-proxy (8012), kubelet, and activator probes
-    # which do not carry a JWT. Defaults to ["8012"] for Knative services.
-    # Override via auth.internalPorts per route if needed.
     - to:
         - operation:
             ports:
               {{- range (.auth.internalPorts | default $.Values.authDefaults.internalPorts) }}
               - {{ . | quote }}
               {{- end }}
-    # Allow traffic from knative-serving namespace (activator, controller)
     - from:
         - source:
             namespaces: ["knative-serving"]
 {{- end }}
 {{- end }}
+
+{{- /* ----------------------------------------------------------------
+     auths[] list — one RequestAuthentication + AuthorizationPolicy
+     per entry. Use when a single route proxies to multiple workloads
+     that each need independent JWT enforcement.
+     ---------------------------------------------------------------- */}}
+{{- if .auths }}
+{{- range .auths }}
+{{- if .enabled }}
+{{- $authNamespace := .workloadNamespace | default $.Values.gateway.namespace }}
+---
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: {{ $route.name }}-{{ .name }}
+  namespace: {{ $authNamespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .selector | nindent 6 }}
+  jwtRules:
+    - issuer: {{ .issuerUrl | quote }}
+      jwksUri: {{ .jwksUri | quote }}
+      forwardOriginalToken: true
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ $route.name }}-{{ .name }}
+  namespace: {{ $authNamespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .selector | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            requestPrincipals: ["*"]
+    - to:
+        - operation:
+            ports:
+              {{- range (.internalPorts | default $.Values.authDefaults.internalPorts) }}
+              - {{ . | quote }}
+              {{- end }}
+    - from:
+        - source:
+            namespaces: ["knative-serving"]
+{{- end }}
+{{- end }}
+{{- end }}
+
 {{- end }}
