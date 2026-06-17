@@ -141,6 +141,10 @@ liquibaseWait:
 #   compressionType:   none, gzip, snappy, lz4, zstd, producer. Default: lz4.
 #   minInsyncReplicas: Minimum in-sync replicas for writes. Default: 2.
 #   maxMessageBytes:   Maximum message size in bytes. Omitted if not set.
+#   retentionBytes:    Maximum size in bytes per partition before oldest segments
+#                      are deleted. Omitted if not set. Recommended for high-volume
+#                      pass-through topics to enforce a hard disk cap independent
+#                      of retention time.
 #   segmentMs:         Time after which an active log segment is rolled.
 #                      Omitted if not set.
 # ------------------------------------------------------------------------------
@@ -174,10 +178,7 @@ kafka:
   #     partitions: 3
   #     replicas: 3
   #     retentionMs: "2592000000"   # 30 days
-#       retentionBytes:    Maximum size in bytes per partition before oldest segments
-#                      are deleted. Omitted if not set. Recommended for high-volume
-#                      pass-through topics to enforce a hard disk cap independent
-#                      of retention time.
+
 # ------------------------------------------------------------------------------
 # Services
 # Each entry produces a Kubernetes workload for one service in this release.
@@ -204,7 +205,8 @@ kafka:
 #     class:                Autoscaler class (default: kpa.autoscaling.knative.dev).
 #     metric:               Autoscaler metric (default: concurrency).
 #
-#   deployment only (HPA — only rendered when maxReplicas > minReplicas):
+#   deployment only (HPA — only rendered when maxReplicas > minReplicas AND
+#                    keda is not set):
 #     cpuTarget:                      CPU utilisation % to trigger scale-up.
 #                                     Default: 70. Omit to disable CPU scaling.
 #     memoryTarget:                   Memory utilisation % to trigger scale-up.
@@ -213,5 +215,38 @@ kafka:
 #                                     Default: 300.
 #     scaleUpStabilizationSeconds:    HPA scale-up stabilisation window.
 #                                     Default: 30.
+#
+# keda fields (deployment only):
+#   When keda is set, a KEDA ScaledObject is rendered instead of an HPA.
+#   KEDA manages its own internal HPA — the chart HPA is suppressed.
+#
+#   pollingInterval:   How often KEDA polls scalers for metrics (seconds).
+#                      Default: 15.
+#   cooldownPeriod:    Seconds to wait after last active trigger before
+#                      scaling down to minReplicaCount. Default: 300.
+#   minReplicaCount:   Minimum replicas. Falls back to scaling.minReplicas.
+#                      Must be >= 1 for Kafka consumers to avoid losing
+#                      partition assignments on scale-to-zero.
+#   maxReplicaCount:   Maximum replicas. Falls back to scaling.maxReplicas.
+#   triggers:          List of KEDA trigger definitions. Each entry maps
+#                      directly to a ScaledObject trigger block.
+#     type:            Scaler type (e.g. kafka, prometheus, cpu).
+#     metadata:        Key-value map passed verbatim to the scaler.
+#                      All values are quoted strings.
+#
+#   Kafka trigger example:
+#     keda:
+#       pollingInterval: 15
+#       cooldownPeriod: 300
+#       minReplicaCount: 1
+#       maxReplicaCount: 8
+#       triggers:
+#         - type: kafka
+#           metadata:
+#             bootstrapServers: "kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+#             consumerGroup: "entity-intelligence-screening"
+#             topic: "com.forwardmeasure.entity-intelligence.monitored-population.single-entity-screening.request"
+#             lagThreshold: "100"
+#             offsetResetPolicy: "latest"
 # ------------------------------------------------------------------------------
 services: []

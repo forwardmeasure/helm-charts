@@ -1,0 +1,44 @@
+{{- range .Values.services }}
+{{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
+{{- if .keda }}
+---
+# ---------------------------------------------------------------------------
+# ScaledObject: {{ .name }}
+# KEDA-managed autoscaling for {{ .name }}.
+# When this resource is present, KEDA owns the HPA for this deployment —
+# the chart does not render a separate HPA (see hpa.yaml).
+#
+# pollingInterval:  How often KEDA checks the scaler metrics (seconds).
+# cooldownPeriod:   How long to wait after last trigger before scaling to
+#                   minReplicaCount (seconds).
+# minReplicaCount:  Minimum replicas. Must be >= 1 for Kafka consumers to
+#                   avoid losing partition assignments.
+# maxReplicaCount:  Maximum replicas KEDA will scale to.
+# ---------------------------------------------------------------------------
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .name }}
+  pollingInterval: {{ .keda.pollingInterval | default 15 }}
+  cooldownPeriod: {{ .keda.cooldownPeriod | default 300 }}
+  minReplicaCount: {{ .keda.minReplicaCount | default (.scaling.minReplicas | default 1) }}
+  maxReplicaCount: {{ .keda.maxReplicaCount | default (.scaling.maxReplicas | default 4) }}
+  triggers:
+    {{- range .keda.triggers }}
+    - type: {{ .type }}
+      metadata:
+        {{- range $k, $v := .metadata }}
+        {{ $k }}: {{ $v | quote }}
+        {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

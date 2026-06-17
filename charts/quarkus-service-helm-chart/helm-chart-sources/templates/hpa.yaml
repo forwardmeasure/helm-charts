@@ -1,11 +1,14 @@
 {{- range .Values.services }}
 {{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
+{{- if not .keda }}
 {{- if and .scaling .scaling.maxReplicas (gt (.scaling.maxReplicas | int) (.scaling.minReplicas | default 1 | int)) }}
 ---
 # ---------------------------------------------------------------------------
 # HorizontalPodAutoscaler: {{ .name }}
 # Only rendered for deploymentMode: deployment services where
-# maxReplicas > minReplicas.
+# maxReplicas > minReplicas and KEDA is not configured.
+# When keda is set on a service, KEDA manages its own internal HPA and
+# this resource must not be rendered to avoid conflicts.
 # ---------------------------------------------------------------------------
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -60,6 +63,7 @@ spec:
         - type: Pods
           value: 2
           periodSeconds: 60
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
