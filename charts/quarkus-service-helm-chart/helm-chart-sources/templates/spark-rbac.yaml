@@ -7,20 +7,22 @@
   executor pods in this namespace.
 
   Only rendered when at least one service in this release has
+  ENTITY_INTELLIGENCE_INGESTION_SPARK_EXECUTOR_IMAGE or
   DATA_FABRIC_SPARK_EXECUTOR_IMAGE set in its env block — indicating that
   the service acts as a Spark driver submitting jobs to Kubernetes.
 
   Permissions required by the Spark driver:
-    pods:          create, get, list, watch, delete, patch
-    services:      create, get, list, watch, delete
-    configmaps:    create, get, list, watch, delete
-    pods/log:      get, list  (for executor log collection)
+    pods:                    create, get, list, watch, delete, deletecollection, patch
+    services:                create, get, list, watch, delete, deletecollection
+    configmaps:              create, get, list, watch, delete, deletecollection
+    persistentvolumeclaims:  create, get, list, watch, delete, deletecollection
+    pods/log:                get, list  (for executor log collection)
   ============================================================================
 */}}
 {{- $needsSparkRbac := false -}}
 {{- range .Values.services -}}
   {{- if and .enabled .env -}}
-    {{- if hasKey .env "DATA_FABRIC_SPARK_EXECUTOR_IMAGE" -}}
+    {{- if or (hasKey .env "ENTITY_INTELLIGENCE_INGESTION_SPARK_EXECUTOR_IMAGE") (hasKey .env "DATA_FABRIC_SPARK_EXECUTOR_IMAGE") -}}
       {{- $needsSparkRbac = true -}}
     {{- end -}}
   {{- end -}}
@@ -31,7 +33,7 @@
 # ---------------------------------------------------------------------------
 # Role: spark-executor-role
 # Grants the service account permission to manage Spark executor pods,
-# services, and configmaps in this namespace.
+# services, configmaps, and persistent volume claims in this namespace.
 # ---------------------------------------------------------------------------
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -45,8 +47,8 @@ metadata:
     meta.helm.sh/release-namespace: {{ .Release.Namespace }}
 rules:
   - apiGroups: [""]
-    resources: ["pods", "services", "configmaps"]
-    verbs: ["create", "get", "list", "watch", "delete", "patch"]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims"]
+    verbs: ["create", "get", "list", "watch", "delete", "deletecollection", "patch"]
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get", "list"]
