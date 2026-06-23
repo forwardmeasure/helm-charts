@@ -1,0 +1,24 @@
+{{- if .Values.libpostal.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "geocoding.libpostalServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "geocoding.labels" . | nindent 4 }}
+    app.kubernetes.io/component: libpostal
+  {{- with .Values.libpostal.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.libpostal.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.libpostal.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "geocoding.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: libpostal
+{{- end }}

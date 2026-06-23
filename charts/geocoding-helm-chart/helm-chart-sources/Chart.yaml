@@ -1,0 +1,15 @@
+apiVersion: v2
+name: geocoding
+description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
+type: application
+version: "0.0.1"
+appVersion: "5.3.2"
+keywords:
+  - geocoding
+  - nominatim
+  - libpostal
+  - postgis
+  - postgres
+maintainers:
+  - name: Prashanth Nandavanam
+    email: pn@forwardmeasure.com

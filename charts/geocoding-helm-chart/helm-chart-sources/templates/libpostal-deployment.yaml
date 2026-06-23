@@ -1,0 +1,104 @@
+{{- if .Values.libpostal.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "geocoding.libpostalServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "geocoding.labels" . | nindent 4 }}
+    app.kubernetes.io/component: libpostal
+spec:
+  replicas: {{ .Values.libpostal.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "geocoding.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: libpostal
+  template:
+    metadata:
+      labels:
+        {{- include "geocoding.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: libpostal
+      {{- with .Values.libpostal.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "geocoding.serviceAccountName" . }}
+      {{- with .Values.libpostal.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.libpostal.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.libpostal.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.libpostal.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: libpostal
+          image: "{{ .Values.libpostal.image.repository }}:{{ .Values.libpostal.image.tag }}"
+          imagePullPolicy: {{ .Values.libpostal.image.pullPolicy }}
+          {{- with .Values.libpostal.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.libpostal.containerPort }}
+              protocol: TCP
+          env:
+            - name: LIBPOSTAL_HOST
+              value: {{ .Values.libpostal.host | quote }}
+            - name: LIBPOSTAL_PORT
+              value: {{ .Values.libpostal.containerPort | quote }}
+          {{- with .Values.libpostal.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.libpostal.startupProbe.enabled }}
+          startupProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: {{ .Values.libpostal.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.libpostal.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.libpostal.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.libpostal.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.libpostal.readinessProbe.enabled }}
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: {{ .Values.libpostal.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.libpostal.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.libpostal.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.libpostal.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.libpostal.livenessProbe.enabled }}
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: {{ .Values.libpostal.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.libpostal.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.libpostal.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.libpostal.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- with .Values.libpostal.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.libpostal.resources | nindent 12 }}
+      {{- with .Values.libpostal.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
