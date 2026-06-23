@@ -6,6 +6,7 @@ set -euo pipefail
 : "${PGDATABASE:?PGDATABASE is required}"
 : "${PGUSER:?PGUSER is required}"
 : "${PGPASSWORD:?PGPASSWORD is required}"
+export PGMAINTENANCEDATABASE="${PGMAINTENANCEDATABASE:-postgres}"
 
 if [ -z "${NOMINATIM_DATABASE_DSN:-}" ]; then
   NOMINATIM_DATABASE_DSN="pgsql:dbname=${PGDATABASE};host=${PGHOST};port=${PGPORT};user=${PGUSER};password=${PGPASSWORD}"

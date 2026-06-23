@@ -29,7 +29,7 @@ spec:
         {{- end }}
     spec:
       serviceAccountName: {{ include "geocoding.serviceAccountName" . }}
-      restartPolicy: OnFailure
+      restartPolicy: {{ .Values.nominatim.import.restartPolicy }}
       {{- with .Values.nominatim.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -82,6 +82,10 @@ spec:
               value: {{ .Values.nominatim.import.importStyle | quote }}
             - name: NOMINATIM_IMPORT_FLAGS
               value: {{ .Values.nominatim.import.importFlags | quote }}
+            - name: NOMINATIM_IMPORT_MODE
+              value: {{ .Values.nominatim.import.mode | quote }}
+            - name: NOMINATIM_IMPORT_CONTINUE_STEP
+              value: {{ .Values.nominatim.import.continueStep | quote }}
             - name: REVERSE_ONLY
               value: {{ .Values.nominatim.import.reverseOnly | quote }}
             - name: REPLICATION_URL

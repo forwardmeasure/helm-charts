@@ -43,6 +43,10 @@ database:
   # Required when postgres.enabled=false and createSecret=true.
   host: ""
   port: 5432
+  # Database used only for server readiness/bootstrap checks while the target
+  # Nominatim database may not exist yet. Nominatim import creates database.name
+  # in the normal create-from-scratch flow.
+  maintenanceDatabase: postgres
   name: nominatim
   username: nominatim
   # Dev/bootstrap placeholder only. For production, use createSecret=false with
@@ -134,11 +138,8 @@ postgres:
   containerSecurityContext: {}
 
   initdb:
-    enabled: true
-    scripts:
-      00_extensions.sql: |
-        CREATE EXTENSION IF NOT EXISTS postgis;
-        CREATE EXTENSION IF NOT EXISTS hstore;
+    enabled: false
+    scripts: {}
 
   resources:
     requests:
@@ -233,13 +234,19 @@ nominatim:
     threads: "4"
     importStyle: full
     importFlags: ""
+    # create: run a normal Nominatim import, which creates database.name.
+    # continue: resume after a separately prepared database, normally using
+    # --continue import-from-file for restricted database users.
+    mode: create
+    continueStep: import-from-file
     reverseOnly: "false"
     skipIfImported: true
     runCheckDatabase: true
     analyze: true
     warm: false
     cleanupDownloadedPbf: true
-    backoffLimit: 1
+    backoffLimit: 0
+    restartPolicy: Never
     ttlSecondsAfterFinished: 86400
     activeDeadlineSeconds: 0
     podAnnotations: {}

@@ -184,4 +184,10 @@ export NOMINATIM_DATABASE_WEBUSER="${NOMINATIM_DATABASE_WEBUSER:-{{ .Values.nomi
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not .Values.nominatim.import.pbfUrl) (not .Values.nominatim.import.pbfPath) -}}
 {{- fail "nominatim.import.pbfUrl or nominatim.import.pbfPath must be set when nominatim.import.enabled=true" -}}
 {{- end -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not (has .Values.nominatim.import.mode (list "create" "continue"))) -}}
+{{- fail "nominatim.import.mode must be one of: create, continue" -}}
+{{- end -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (eq .Values.nominatim.import.mode "continue") (not .Values.nominatim.import.continueStep) -}}
+{{- fail "nominatim.import.continueStep must be set when nominatim.import.mode=continue" -}}
+{{- end -}}
 {{- end -}}
