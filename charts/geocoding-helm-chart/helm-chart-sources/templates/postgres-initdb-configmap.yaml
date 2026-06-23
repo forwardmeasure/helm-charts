@@ -1,0 +1,12 @@
+{{- if and .Values.postgres.enabled .Values.postgres.initdb.enabled .Values.postgres.initdb.scripts }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "geocoding.postgresServiceName" . }}-initdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "geocoding.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+data:
+  {{- toYaml .Values.postgres.initdb.scripts | nindent 2 }}
+{{- end }}

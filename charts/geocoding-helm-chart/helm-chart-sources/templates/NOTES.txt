@@ -1,0 +1,17 @@
+Geocoding chart installed.
+
+Nominatim service:
+  {{ include "geocoding.nominatimServiceName" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.nominatim.service.port }}
+
+Libpostal service:
+  {{ include "geocoding.libpostalServiceName" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.libpostal.service.port }}
+
+Database secret:
+  {{ include "geocoding.databaseSecretName" . }}
+
+For an external Postgres/PostGIS database, set:
+  postgres.enabled=false
+  database.createSecret=false
+  database.credentialsSecret=<existing-secret>
+
+The external secret must contain PGHOST, PGPORT, PGDATABASE, PGUSER, and PGPASSWORD.
