@@ -9,9 +9,10 @@ set -euo pipefail
 WAIT_SLEEP_SECONDS="${WAIT_SLEEP_SECONDS:-5}"
 WAIT_FOR_IMPORT="${WAIT_FOR_IMPORT:-false}"
 WAIT_FOR_IMPORT_TIMEOUT_SECONDS="${WAIT_FOR_IMPORT_TIMEOUT_SECONDS:-7200}"
+WAIT_DATABASE="${WAIT_DATABASE:-${PGDATABASE}}"
 
-echo "Waiting for Postgres at ${PGHOST}:${PGPORT}/${PGDATABASE}"
-until pg_isready -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}"; do
+echo "Waiting for Postgres at ${PGHOST}:${PGPORT}/${WAIT_DATABASE}"
+until pg_isready -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${WAIT_DATABASE}"; do
   sleep "${WAIT_SLEEP_SECONDS}"
 done
 
