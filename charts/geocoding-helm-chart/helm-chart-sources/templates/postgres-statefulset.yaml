@@ -62,10 +62,7 @@ spec:
               protocol: TCP
           env:
             - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "geocoding.databaseSecretName" . }}
-                  key: PGDATABASE
+              value: {{ .Values.database.maintenanceDatabase | quote }}
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
