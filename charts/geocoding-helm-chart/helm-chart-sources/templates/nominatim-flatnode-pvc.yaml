@@ -1,0 +1,20 @@
+{{- if and .Values.nominatim.enabled .Values.nominatim.flatnode.enabled (not .Values.nominatim.flatnode.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "geocoding.nominatimFlatnodeClaimName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "geocoding.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nominatim
+    app.kubernetes.io/part-of: flatnode
+spec:
+  accessModes:
+    {{- toYaml .Values.nominatim.flatnode.accessModes | nindent 4 }}
+  {{- if .Values.nominatim.flatnode.storageClass }}
+  storageClassName: {{ .Values.nominatim.flatnode.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.nominatim.flatnode.size }}
+{{- end }}

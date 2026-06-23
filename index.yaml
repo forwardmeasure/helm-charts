@@ -96,6 +96,26 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.3.tgz
     version: 0.0.3
+  geocoding:
+  - apiVersion: v2
+    appVersion: 5.3.2
+    created: "2026-06-23T11:27:13.089063936-04:00"
+    description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
+    digest: 14bdaf1a24c942b8263a21e7c1806f6166b90030f3123873d11d4090c564dda3
+    keywords:
+    - geocoding
+    - nominatim
+    - libpostal
+    - postgis
+    - postgres
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: geocoding
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/geocoding-helm-chart/geocoding-0.0.1.tgz
+    version: 0.0.1
   hugegraph:
   - apiVersion: v2
     appVersion: latest
@@ -2536,4 +2556,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-06-17T15:56:44.661613363-04:00"
+generated: "2026-06-23T11:27:13.088136973-04:00"

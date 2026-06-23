@@ -1,0 +1,22 @@
+substitutions:
+  _REGISTRY: docker.io/forwardmeasure
+  _TAG: 0.0.1
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGISTRY}/nominatim:${_TAG}
+      - nominatim
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGISTRY}/libpostal-service:${_TAG}
+      - libpostal
+
+images:
+  - ${_REGISTRY}/nominatim:${_TAG}
+  - ${_REGISTRY}/libpostal-service:${_TAG}
