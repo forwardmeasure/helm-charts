@@ -2,7 +2,7 @@
 set -euo pipefail
 
 . /usr/local/lib/forwardmeasure/nominatim-db-env.sh
-/usr/local/bin/forwardmeasure-wait-for-postgres
+WAIT_DATABASE="${PGMAINTENANCEDATABASE:-postgres}" /usr/local/bin/forwardmeasure-wait-for-postgres
 
 PROJECT_DIR="${PROJECT_DIR:-/nominatim}"
 PBF_URL="${PBF_URL:-}"
@@ -11,6 +11,8 @@ USER_AGENT="${USER_AGENT:-forwardmeasure-geocoding}"
 THREADS="${THREADS:-4}"
 REVERSE_ONLY="${REVERSE_ONLY:-false}"
 NOMINATIM_IMPORT_FLAGS="${NOMINATIM_IMPORT_FLAGS:-}"
+NOMINATIM_IMPORT_MODE="${NOMINATIM_IMPORT_MODE:-create}"
+NOMINATIM_IMPORT_CONTINUE_STEP="${NOMINATIM_IMPORT_CONTINUE_STEP:-import-from-file}"
 SKIP_IF_IMPORTED="${SKIP_IF_IMPORTED:-true}"
 RUN_CHECK_DATABASE="${RUN_CHECK_DATABASE:-true}"
 ANALYZE="${ANALYZE:-true}"
@@ -52,6 +54,19 @@ fi
 cd "${PROJECT_DIR}"
 
 import_args=(import --osm-file "${OSMFILE}" --threads "${THREADS}")
+case "${NOMINATIM_IMPORT_MODE}" in
+  create)
+    ;;
+  continue)
+    if [[ "${NOMINATIM_IMPORT_FLAGS}" != *"--continue"* ]]; then
+      import_args+=(--continue "${NOMINATIM_IMPORT_CONTINUE_STEP}")
+    fi
+    ;;
+  *)
+    echo "Unsupported NOMINATIM_IMPORT_MODE: ${NOMINATIM_IMPORT_MODE}"
+    exit 1
+    ;;
+esac
 if [ "${REVERSE_ONLY}" = "true" ]; then
   import_args+=(--reverse-only)
 fi

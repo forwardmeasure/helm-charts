@@ -41,7 +41,41 @@ database:
   credentialsSecret: nominatim-db-credentials
 ```
 
-The external database must already have PostGIS and hstore available, and the `PGUSER` account must have the privileges required by Nominatim import. For production, prefer managing this secret outside the chart.
+The external PostgreSQL server must have PostGIS and hstore available. Choose
+the import mode based on how the target database is managed:
+
+- `nominatim.import.mode: create` runs the normal Nominatim import. The target
+  `database.name` must not already exist because `nominatim import` creates it.
+  `PGUSER` needs enough privilege to create the database and required
+  extensions.
+- `nominatim.import.mode: continue` skips database creation and runs
+  `nominatim import --continue import-from-file`. Use this when Terraform or a
+  DBA creates the target database and the import user cannot create databases.
+
+For `mode: continue`, the target database must already contain the required
+extensions and the import user must be able to create objects in `public`:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS hstore;
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS postgis_raster;
+GRANT USAGE, CREATE ON SCHEMA public TO nominatim;
+```
+
+On Cloud SQL for PostgreSQL, extension creation must be done by a user in the
+`cloudsqlsuperuser` role, such as the default `postgres` user.
+
+Then configure:
+
+```yaml
+nominatim:
+  import:
+    mode: continue
+    continueStep: import-from-file
+```
+
+For production, prefer managing the database credentials Secret outside the
+chart.
 
 By default, `nominatim.database.webUser` is `nominatim`, matching `database.username`. If you want a restricted query role, create that role in Postgres, make its credentials available to Nominatim, and set `nominatim.database.webUser`.
 
@@ -191,3 +225,8 @@ nominatim:
 Use `nominatim.import.pbfUrl` for a downloadable OpenStreetMap extract or `nominatim.import.pbfPath` for a mounted file. If you use `pbfPath`, mount the data through `nominatim.import.extraVolumes` and `nominatim.import.extraVolumeMounts`.
 
 For larger imports, increase Postgres storage/resources, Nominatim import resources, and consider enabling `nominatim.flatnode`.
+
+The import Job defaults to `restartPolicy: Never` and `backoffLimit: 0` so a
+failed import keeps one failed pod with useful logs. Avoid automatic retries for
+imports: a failed run may leave partial database objects behind and should be
+cleaned up before rerunning.
