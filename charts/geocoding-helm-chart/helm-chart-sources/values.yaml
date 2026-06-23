@@ -1,0 +1,344 @@
+# ---------------------------------------------------------------------------
+# values.yaml - Geocoding Helm chart defaults
+# ---------------------------------------------------------------------------
+
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+# ---------------------------------------------------------------------------
+# ServiceAccount
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# ---------------------------------------------------------------------------
+# Shared database connection
+#
+# When database.createSecret=true, this chart creates a Secret containing:
+# - PGHOST
+# - PGPORT
+# - PGDATABASE
+# - PGUSER
+# - PGPASSWORD
+# - optional PGSSLMODE
+# - optional NOMINATIM_DATABASE_DSN
+#
+# When database.createSecret=false, database.credentialsSecret must reference
+# an existing Secret with the same keys. This is the recommended shape for
+# production and externally managed Postgres/PostGIS instances. Do not put real
+# production credentials directly in values files; Helm stores rendered Secrets
+# in release metadata.
+# ---------------------------------------------------------------------------
+database:
+  createSecret: true
+  credentialsSecret: ""
+  secretAnnotations: {}
+
+  # Defaults to the in-chart PostGIS service when postgres.enabled=true.
+  # Defaults to 127.0.0.1 when cloudSqlProxy.enabled=true.
+  # Required when postgres.enabled=false and createSecret=true.
+  host: ""
+  port: 5432
+  name: nominatim
+  username: nominatim
+  # Dev/bootstrap placeholder only. For production, use createSecret=false with
+  # a Secret managed outside Helm, preferably via External Secrets and GCP
+  # Secret Manager.
+  password: "dev-only-do-not-use"
+  sslMode: ""
+
+  # Optional explicit Nominatim DSN. If empty, the Nominatim containers build
+  # pgsql:dbname=...;host=...;port=...;user=...;password=... from PG* values.
+  dsn: ""
+  # Extra key/value pairs rendered into the generated Secret. These are exposed
+  # to Nominatim through envFrom. Like database.password, values here are stored
+  # in Helm release metadata, so use this only for local/dev bootstrap:
+  # --set-string database.extraSecretStringData.MY_ENV_VAR="${MY_ENV_VAR}"
+  extraSecretStringData: {}
+
+# ---------------------------------------------------------------------------
+# Optional GCP Cloud SQL Auth Proxy
+#
+# Recommended GKE path:
+# - postgres.enabled=false
+# - cloudSqlProxy.enabled=true
+# - use Workload Identity via serviceAccount.annotations
+# - application DB host resolves to 127.0.0.1
+#
+# If Workload Identity is not available, set credentialsSecret and credentialsKey
+# to mount a service account JSON key for the proxy.
+# ---------------------------------------------------------------------------
+cloudSqlProxy:
+  enabled: false
+  image:
+    repository: gcr.io/cloud-sql-connectors/cloud-sql-proxy
+    tag: "2.21.1"
+    pullPolicy: IfNotPresent
+
+  instanceConnectionName: ""
+  instanceConnectionNameSecret:
+    name: ""
+    key: instance-connection-name
+
+  port: 5432
+  address: 127.0.0.1
+  privateIp: true
+  autoIamAuthn: false
+  structuredLogs: true
+
+  credentialsSecret: ""
+  credentialsKey: service_account.json
+  credentialsMountPath: /secrets/cloudsql
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ---------------------------------------------------------------------------
+# Optional PostGIS database
+# ---------------------------------------------------------------------------
+postgres:
+  enabled: true
+
+  image:
+    repository: postgis/postgis
+    tag: "16-3.5"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 5432
+    annotations: {}
+
+  persistence:
+    enabled: true
+    existingClaim: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 50Gi
+    storageClass: ""
+
+  podManagementPolicy: OrderedReady
+  terminationGracePeriodSeconds: 60
+  podAnnotations: {}
+  podSecurityContext:
+    fsGroup: 999
+  containerSecurityContext: {}
+
+  initdb:
+    enabled: true
+    scripts:
+      00_extensions.sql: |
+        CREATE EXTENSION IF NOT EXISTS postgis;
+        CREATE EXTENSION IF NOT EXISTS hstore;
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []
+
+# ---------------------------------------------------------------------------
+# Optional Nominatim API and import job
+# ---------------------------------------------------------------------------
+nominatim:
+  enabled: true
+
+  image:
+    repository: docker.io/forwardmeasure/nominatim
+    tag: "0.0.1"
+    pullPolicy: IfNotPresent
+
+  projectDir: /nominatim
+  httpPort: 8080
+
+  database:
+    # Use the same database role for import and API by default. This works for
+    # external Postgres because the DSN already carries PGUSER/PGPASSWORD.
+    # If you want a restricted web role, create it in Postgres and set this.
+    webUser: nominatim
+
+  service:
+    type: ClusterIP
+    port: 8080
+    annotations: {}
+
+  api:
+    enabled: true
+    replicaCount: 1
+    gunicornWorkers: "2"
+    refreshOnStartup: true
+    waitForImport: true
+    waitTimeoutSeconds: 7200
+    podAnnotations: {}
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+
+    startupProbe:
+      enabled: true
+      path: /status
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 60
+
+    readinessProbe:
+      enabled: true
+      path: /status
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 12
+
+    livenessProbe:
+      enabled: true
+      path: /status
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      timeoutSeconds: 3
+      failureThreshold: 6
+
+    extraEnv: []
+    extraVolumes: []
+    extraVolumeMounts: []
+
+  import:
+    enabled: true
+    # Monaco keeps the default install small enough to prove the wiring.
+    pbfUrl: https://download.geofabrik.de/europe/monaco-latest.osm.pbf
+    pbfPath: ""
+    userAgent: "forwardmeasure-geocoding-helm-chart"
+    threads: "4"
+    importStyle: full
+    importFlags: ""
+    reverseOnly: "false"
+    skipIfImported: true
+    runCheckDatabase: true
+    analyze: true
+    warm: false
+    cleanupDownloadedPbf: true
+    backoffLimit: 1
+    ttlSecondsAfterFinished: 86400
+    activeDeadlineSeconds: 0
+    podAnnotations: {}
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 4Gi
+      limits:
+        cpu: 4000m
+        memory: 12Gi
+
+    replicationUrl: ""
+    replicationUpdateInterval: ""
+    replicationRecheckInterval: ""
+    updateMode: none
+    freeze: "false"
+
+    importWikipedia: "false"
+    importSecondaryWikipedia: "false"
+    importUsPostcodes: "false"
+    importGbPostcodes: "false"
+    importTigerAddresses: "false"
+
+    extraEnv: []
+    extraVolumes: []
+    extraVolumeMounts: []
+
+  flatnode:
+    enabled: false
+    existingClaim: ""
+    mountPath: /nominatim/flatnode
+    file: /nominatim/flatnode/flatnode.file
+    accessModes:
+      - ReadWriteOnce
+    size: 20Gi
+    storageClass: ""
+
+  podSecurityContext: {}
+  containerSecurityContext: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ---------------------------------------------------------------------------
+# Optional Libpostal HTTP service
+# ---------------------------------------------------------------------------
+libpostal:
+  enabled: true
+
+  image:
+    repository: docker.io/forwardmeasure/libpostal-service
+    tag: "0.0.1"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+  host: 0.0.0.0
+  containerPort: 4400
+
+  service:
+    type: ClusterIP
+    port: 4400
+    annotations: {}
+
+  podAnnotations: {}
+  podSecurityContext: {}
+  containerSecurityContext: {}
+
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 90
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 12
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 3
+    failureThreshold: 6
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+  extraVolumes: []
+  extraVolumeMounts: []

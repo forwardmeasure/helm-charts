@@ -1,0 +1,154 @@
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "geocoding.nominatimImportJobName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "geocoding.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nominatim
+    app.kubernetes.io/part-of: import
+spec:
+  backoffLimit: {{ .Values.nominatim.import.backoffLimit }}
+  {{- if gt (int .Values.nominatim.import.ttlSecondsAfterFinished) 0 }}
+  ttlSecondsAfterFinished: {{ .Values.nominatim.import.ttlSecondsAfterFinished }}
+  {{- end }}
+  {{- if gt (int .Values.nominatim.import.activeDeadlineSeconds) 0 }}
+  activeDeadlineSeconds: {{ .Values.nominatim.import.activeDeadlineSeconds }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "geocoding.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nominatim
+        app.kubernetes.io/part-of: import
+      annotations:
+        checksum/db-secret: {{ include "geocoding.databaseSecretName" . | quote }}
+        {{- with .Values.nominatim.import.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "geocoding.serviceAccountName" . }}
+      restartPolicy: OnFailure
+      {{- with .Values.nominatim.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nominatim.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nominatim.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nominatim.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.cloudSqlProxy.enabled }}
+      initContainers:
+        {{- include "geocoding.cloudSqlProxyContainer" . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: import
+          image: "{{ .Values.nominatim.image.repository }}:{{ .Values.nominatim.image.tag }}"
+          imagePullPolicy: {{ .Values.nominatim.image.pullPolicy }}
+          {{- with .Values.nominatim.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "geocoding.databaseSecretName" . }}
+          env:
+            - name: PROJECT_DIR
+              value: {{ .Values.nominatim.projectDir | quote }}
+            - name: PBF_URL
+              value: {{ .Values.nominatim.import.pbfUrl | quote }}
+            - name: PBF_PATH
+              value: {{ .Values.nominatim.import.pbfPath | quote }}
+            - name: USER_AGENT
+              value: {{ .Values.nominatim.import.userAgent | quote }}
+            - name: THREADS
+              value: {{ .Values.nominatim.import.threads | quote }}
+            - name: IMPORT_STYLE
+              value: {{ .Values.nominatim.import.importStyle | quote }}
+            - name: NOMINATIM_IMPORT_STYLE
+              value: {{ .Values.nominatim.import.importStyle | quote }}
+            - name: NOMINATIM_IMPORT_FLAGS
+              value: {{ .Values.nominatim.import.importFlags | quote }}
+            - name: REVERSE_ONLY
+              value: {{ .Values.nominatim.import.reverseOnly | quote }}
+            - name: REPLICATION_URL
+              value: {{ .Values.nominatim.import.replicationUrl | quote }}
+            - name: NOMINATIM_REPLICATION_URL
+              value: {{ .Values.nominatim.import.replicationUrl | quote }}
+            - name: REPLICATION_UPDATE_INTERVAL
+              value: {{ .Values.nominatim.import.replicationUpdateInterval | quote }}
+            - name: REPLICATION_RECHECK_INTERVAL
+              value: {{ .Values.nominatim.import.replicationRecheckInterval | quote }}
+            - name: UPDATE_MODE
+              value: {{ .Values.nominatim.import.updateMode | quote }}
+            - name: FREEZE
+              value: {{ .Values.nominatim.import.freeze | quote }}
+            - name: IMPORT_WIKIPEDIA
+              value: {{ .Values.nominatim.import.importWikipedia | quote }}
+            - name: IMPORT_SECONDARY_WIKIPEDIA
+              value: {{ .Values.nominatim.import.importSecondaryWikipedia | quote }}
+            - name: IMPORT_US_POSTCODES
+              value: {{ .Values.nominatim.import.importUsPostcodes | quote }}
+            - name: IMPORT_GB_POSTCODES
+              value: {{ .Values.nominatim.import.importGbPostcodes | quote }}
+            - name: IMPORT_TIGER_ADDRESSES
+              value: {{ .Values.nominatim.import.importTigerAddresses | quote }}
+            - name: NOMINATIM_DATABASE_WEBUSER
+              value: {{ .Values.nominatim.database.webUser | quote }}
+            - name: SKIP_IF_IMPORTED
+              value: {{ .Values.nominatim.import.skipIfImported | quote }}
+            - name: RUN_CHECK_DATABASE
+              value: {{ .Values.nominatim.import.runCheckDatabase | quote }}
+            - name: ANALYZE
+              value: {{ .Values.nominatim.import.analyze | quote }}
+            - name: WARM
+              value: {{ .Values.nominatim.import.warm | quote }}
+            - name: CLEANUP_DOWNLOADED_PBF
+              value: {{ .Values.nominatim.import.cleanupDownloadedPbf | quote }}
+            {{- if .Values.nominatim.flatnode.enabled }}
+            - name: NOMINATIM_FLATNODE_FILE
+              value: {{ .Values.nominatim.flatnode.file | quote }}
+            {{- end }}
+            {{- with .Values.nominatim.import.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          command:
+            - /usr/local/bin/forwardmeasure-nominatim-import
+          {{- if or .Values.nominatim.flatnode.enabled .Values.nominatim.import.extraVolumeMounts }}
+          volumeMounts:
+            {{- if .Values.nominatim.flatnode.enabled }}
+            - name: flatnode
+              mountPath: {{ .Values.nominatim.flatnode.mountPath }}
+            {{- end }}
+            {{- with .Values.nominatim.import.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.nominatim.import.resources | nindent 12 }}
+      {{- if or (and .Values.cloudSqlProxy.enabled .Values.cloudSqlProxy.credentialsSecret) .Values.nominatim.flatnode.enabled .Values.nominatim.import.extraVolumes }}
+      volumes:
+        {{- include "geocoding.cloudSqlProxyVolumes" . | nindent 8 }}
+        {{- if .Values.nominatim.flatnode.enabled }}
+        - name: flatnode
+          persistentVolumeClaim:
+            claimName: {{ include "geocoding.nominatimFlatnodeClaimName" . }}
+        {{- end }}
+        {{- with .Values.nominatim.import.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+{{- end }}

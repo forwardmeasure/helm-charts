@@ -1,0 +1,154 @@
+{{- if and .Values.nominatim.enabled .Values.nominatim.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "geocoding.nominatimServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "geocoding.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nominatim
+spec:
+  replicas: {{ .Values.nominatim.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "geocoding.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: nominatim
+  template:
+    metadata:
+      labels:
+        {{- include "geocoding.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nominatim
+      annotations:
+        checksum/db-secret: {{ include "geocoding.databaseSecretName" . | quote }}
+        {{- with .Values.nominatim.api.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "geocoding.serviceAccountName" . }}
+      {{- with .Values.nominatim.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nominatim.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nominatim.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nominatim.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "geocoding.cloudSqlProxyContainer" . | nindent 8 }}
+        - name: wait-for-database
+          image: "{{ .Values.nominatim.image.repository }}:{{ .Values.nominatim.image.tag }}"
+          imagePullPolicy: {{ .Values.nominatim.image.pullPolicy }}
+          envFrom:
+            - secretRef:
+                name: {{ include "geocoding.databaseSecretName" . }}
+          env:
+            - name: WAIT_FOR_IMPORT
+              value: {{ .Values.nominatim.api.waitForImport | quote }}
+            - name: WAIT_FOR_IMPORT_TIMEOUT_SECONDS
+              value: {{ .Values.nominatim.api.waitTimeoutSeconds | quote }}
+          command:
+            - /usr/local/bin/forwardmeasure-wait-for-postgres
+          resources:
+            {{- toYaml .Values.nominatim.api.resources | nindent 12 }}
+      containers:
+        - name: nominatim
+          image: "{{ .Values.nominatim.image.repository }}:{{ .Values.nominatim.image.tag }}"
+          imagePullPolicy: {{ .Values.nominatim.image.pullPolicy }}
+          {{- with .Values.nominatim.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.nominatim.httpPort }}
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: {{ include "geocoding.databaseSecretName" . }}
+          env:
+            - name: PROJECT_DIR
+              value: {{ .Values.nominatim.projectDir | quote }}
+            - name: NOMINATIM_HTTP_PORT
+              value: {{ .Values.nominatim.httpPort | quote }}
+            - name: GUNICORN_WORKERS
+              value: {{ .Values.nominatim.api.gunicornWorkers | quote }}
+            - name: NOMINATIM_REFRESH_ON_STARTUP
+              value: {{ .Values.nominatim.api.refreshOnStartup | quote }}
+            - name: NOMINATIM_DATABASE_WEBUSER
+              value: {{ .Values.nominatim.database.webUser | quote }}
+            {{- if .Values.nominatim.flatnode.enabled }}
+            - name: NOMINATIM_FLATNODE_FILE
+              value: {{ .Values.nominatim.flatnode.file | quote }}
+            {{- end }}
+            {{- with .Values.nominatim.api.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          command:
+            - /usr/local/bin/forwardmeasure-nominatim-api
+          {{- if .Values.nominatim.api.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.nominatim.api.startupProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.nominatim.api.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.nominatim.api.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.nominatim.api.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.nominatim.api.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.nominatim.api.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.nominatim.api.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.nominatim.api.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.nominatim.api.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.nominatim.api.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.nominatim.api.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.nominatim.api.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.nominatim.api.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.nominatim.api.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.nominatim.api.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.nominatim.api.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.nominatim.api.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if or .Values.nominatim.flatnode.enabled .Values.nominatim.api.extraVolumeMounts }}
+          volumeMounts:
+            {{- if .Values.nominatim.flatnode.enabled }}
+            - name: flatnode
+              mountPath: {{ .Values.nominatim.flatnode.mountPath }}
+            {{- end }}
+            {{- with .Values.nominatim.api.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.nominatim.api.resources | nindent 12 }}
+      {{- if or (and .Values.cloudSqlProxy.enabled .Values.cloudSqlProxy.credentialsSecret) .Values.nominatim.flatnode.enabled .Values.nominatim.api.extraVolumes }}
+      volumes:
+        {{- include "geocoding.cloudSqlProxyVolumes" . | nindent 8 }}
+        {{- if .Values.nominatim.flatnode.enabled }}
+        - name: flatnode
+          persistentVolumeClaim:
+            claimName: {{ include "geocoding.nominatimFlatnodeClaimName" . }}
+        {{- end }}
+        {{- with .Values.nominatim.api.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+{{- end }}
