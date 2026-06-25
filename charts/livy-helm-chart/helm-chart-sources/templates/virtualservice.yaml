@@ -1,0 +1,27 @@
+{{- if .Values.virtualService.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "livy.fullname" . }}
+  labels:
+    {{- include "livy.labels" . | nindent 4 }}
+  {{- with .Values.virtualService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  hosts:
+    {{- toYaml .Values.virtualService.hosts | nindent 4 }}
+  gateways:
+    {{- toYaml .Values.virtualService.gateways | nindent 4 }}
+  http:
+    {{- if .Values.virtualService.http }}
+    {{- toYaml .Values.virtualService.http | nindent 4 }}
+    {{- else }}
+    - route:
+        - destination:
+            host: {{ include "livy.fullname" . }}
+            port:
+              number: {{ .Values.service.port }}
+    {{- end }}
+{{- end }}
