@@ -1,0 +1,29 @@
+{{- if and .Values.nominatim.enabled .Values.nominatim.api.enabled .Values.nominatim.virtualService.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "geocoding.nominatimServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "geocoding.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nominatim
+  {{- with .Values.nominatim.virtualService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  hosts:
+    {{- toYaml .Values.nominatim.virtualService.hosts | nindent 4 }}
+  gateways:
+    {{- toYaml .Values.nominatim.virtualService.gateways | nindent 4 }}
+  http:
+    {{- if .Values.nominatim.virtualService.http }}
+    {{- toYaml .Values.nominatim.virtualService.http | nindent 4 }}
+    {{- else }}
+    - route:
+        - destination:
+            host: {{ include "geocoding.nominatimServiceName" . }}
+            port:
+              number: {{ .Values.nominatim.service.port }}
+    {{- end }}
+{{- end }}

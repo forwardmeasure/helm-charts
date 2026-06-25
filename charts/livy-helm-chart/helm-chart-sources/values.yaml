@@ -36,6 +36,17 @@ ingress:
           pathType: Prefix
   tls: []
 
+virtualService:
+  enabled: false
+  annotations: {}
+  # Istio hosts (DNS names or short names) this VirtualService applies to
+  hosts: []
+  # Gateways this VirtualService is bound to (e.g. istio-system/my-gateway)
+  gateways: []
+  # Custom HTTP route rules. If omitted, a default catch-all route to the
+  # Livy service is generated.
+  http: []
+
 livy:
   host: 0.0.0.0
   port: 8998
