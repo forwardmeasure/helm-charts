@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "livy.fullname" . }}
+  labels:
+    {{- include "livy.labels" . | nindent 4 }}
+data:
+  livy.conf: |
+    # Managed by Helm.
+{{- $livyConf := dict
+  "livy.server.host" .Values.livy.host
+  "livy.server.port" (toString .Values.livy.port)
+  "livy.ui.enabled" (toString .Values.livy.uiEnabled)
+  "livy.spark.master" .Values.spark.master
+  "livy.spark.deploy-mode" .Values.spark.deployMode
+  "livy.server.request-header.size" (toString .Values.livy.requestHeaderSize)
+  "livy.server.response-header.size" (toString .Values.livy.responseHeaderSize)
+  "livy.server.session.timeout" .Values.livy.sessionTimeout
+  "livy.server.session.state-retain.sec" .Values.livy.sessionStateRetain
+  "livy.server.access-control.enabled" (toString .Values.livy.accessControl.enabled)
+  "livy.server.access-control.allowed-users" .Values.livy.accessControl.allowedUsers
+  "livy.impersonation.enabled" (toString .Values.livy.impersonation.enabled)
+}}
+{{- $livyConf = mergeOverwrite $livyConf .Values.livy.extraConf }}
+{{- range $key := keys $livyConf | sortAlpha }}
+    {{ $key }} = {{ index $livyConf $key }}
+{{- end }}
+  spark-defaults.conf: |
+    # Managed by Helm.
+{{- $sparkConf := dict
+  "spark.master" .Values.spark.master
+  "spark.submit.deployMode" .Values.spark.deployMode
+  "spark.kubernetes.namespace" (include "livy.sparkNamespace" .)
+  "spark.kubernetes.authenticate.driver.serviceAccountName" (include "livy.sparkServiceAccountName" .)
+  "spark.kubernetes.authenticate.executor.serviceAccountName" (include "livy.sparkServiceAccountName" .)
+  "spark.kubernetes.container.image" (include "livy.sparkImage" .)
+  "spark.kubernetes.container.image.pullPolicy" .Values.spark.image.pullPolicy
+  "spark.kubernetes.executor.deleteOnTermination" (toString .Values.spark.kubernetes.deleteOnTermination)
+  "spark.driver.cores" (toString .Values.spark.driver.cores)
+  "spark.driver.memory" .Values.spark.driver.memory
+  "spark.executor.instances" (toString .Values.spark.executor.instances)
+  "spark.executor.cores" (toString .Values.spark.executor.cores)
+  "spark.executor.memory" .Values.spark.executor.memory
+  "spark.dynamicAllocation.enabled" (toString .Values.spark.dynamicAllocation.enabled)
+}}
+{{- if .Values.spark.dynamicAllocation.enabled }}
+{{- $_ := set $sparkConf "spark.dynamicAllocation.minExecutors" (toString .Values.spark.dynamicAllocation.minExecutors) }}
+{{- $_ := set $sparkConf "spark.dynamicAllocation.maxExecutors" (toString .Values.spark.dynamicAllocation.maxExecutors) }}
+{{- end }}
+{{- if .Values.spark.eventLog.enabled }}
+{{- $_ := set $sparkConf "spark.eventLog.enabled" "true" }}
+{{- $_ := set $sparkConf "spark.eventLog.dir" (required "spark.eventLog.dir is required when spark.eventLog.enabled=true" .Values.spark.eventLog.dir) }}
+{{- else }}
+{{- $_ := set $sparkConf "spark.eventLog.enabled" "false" }}
+{{- end }}
+{{- $pullSecrets := include "livy.imagePullSecretsCsv" . }}
+{{- if $pullSecrets }}
+{{- $_ := set $sparkConf "spark.kubernetes.container.image.pullSecrets" $pullSecrets }}
+{{- end }}
+{{- $sparkConf = mergeOverwrite $sparkConf .Values.spark.extraConf }}
+{{- range $key := keys $sparkConf | sortAlpha }}
+    {{ $key }} {{ index $sparkConf $key }}
+{{- end }}
