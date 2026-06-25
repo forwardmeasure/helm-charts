@@ -234,3 +234,8 @@ The import Job defaults to `restartPolicy: Never` and `backoffLimit: 0` so a
 failed import keeps one failed pod with useful logs. Avoid automatic retries for
 imports: a failed run may leave partial database objects behind and should be
 cleaned up before rerunning.
+
+The API Deployment waits for the import Job to finish before starting. The
+waiter checks `nominatim_properties.database_version`, which Nominatim writes at
+the end of import. Earlier tables such as `placex` appear before tokenizer setup
+has completed and are not a safe readiness marker.
