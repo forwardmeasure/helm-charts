@@ -184,8 +184,11 @@ export NOMINATIM_DATABASE_WEBUSER="${NOMINATIM_DATABASE_WEBUSER:-{{ .Values.nomi
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.pbfUrl -}}
 {{- fail "nominatim.import.pbfUrl is not supported; use nominatim.import.pbfUrls instead" -}}
 {{- end -}}
-{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not .Values.nominatim.import.pbfPath) (not .Values.nominatim.import.pbfUrls) (not .Values.nominatim.import.pbfPaths) -}}
-{{- fail "nominatim.import.pbfPath, nominatim.import.pbfUrls, or nominatim.import.pbfPaths must be set when nominatim.import.enabled=true" -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.pbfPath -}}
+{{- fail "nominatim.import.pbfPath is not supported; use nominatim.import.pbfPaths instead" -}}
+{{- end -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not .Values.nominatim.import.pbfUrls) (not .Values.nominatim.import.pbfPaths) -}}
+{{- fail "nominatim.import.pbfUrls or nominatim.import.pbfPaths must be set when nominatim.import.enabled=true" -}}
 {{- end -}}
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not (has .Values.nominatim.import.mode (list "create" "continue"))) -}}
 {{- fail "nominatim.import.mode must be one of: create, continue" -}}

@@ -223,10 +223,10 @@ nominatim:
 ## Nominatim Data
 
 Use `nominatim.import.pbfUrls` for one or more downloadable OpenStreetMap
-extracts, or `nominatim.import.pbfPath` for a mounted file. The singular
-`nominatim.import.pbfUrl` value is intentionally unsupported. If you use
-`pbfPath`, mount the data through `nominatim.import.extraVolumes` and
-`nominatim.import.extraVolumeMounts`.
+extracts, or `nominatim.import.pbfPaths` for one or more mounted files. The
+singular `nominatim.import.pbfUrl` and `nominatim.import.pbfPath` values are
+intentionally unsupported. If you use `pbfPaths`, mount the data through
+`nominatim.import.extraVolumes` and `nominatim.import.extraVolumeMounts`.
 
 For larger imports, increase Postgres storage/resources, Nominatim import resources, and consider enabling `nominatim.flatnode`.
 
