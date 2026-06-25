@@ -68,8 +68,6 @@ spec:
           env:
             - name: PROJECT_DIR
               value: {{ .Values.nominatim.projectDir | quote }}
-            - name: PBF_URL
-              value: {{ .Values.nominatim.import.pbfUrl | quote }}
             - name: PBF_URLS
               value: {{ join "," .Values.nominatim.import.pbfUrls | quote }}
             - name: PBF_PATH

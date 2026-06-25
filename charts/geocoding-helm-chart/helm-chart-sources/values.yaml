@@ -229,7 +229,6 @@ nominatim:
     enabled: true
     # Default import covers the United States, Canada, Mexico, Central America,
     # Caribbean, and South America.
-    pbfUrl: ""
     # Use pbfUrls for multi-region imports. When more than one PBF is supplied,
     # the import container downloads the extracts, merges them with osmium, and
     # imports the merged PBF into Nominatim.
