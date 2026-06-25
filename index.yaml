@@ -99,7 +99,7 @@ entries:
   geocoding:
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-06-25T07:32:21.353551559-04:00"
+    created: "2026-06-25T07:31:31.776481542-04:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: 46da4085ab7e9734d71443f29f40989095631e063460becd3db1bebee0a7a5c5
     keywords:
@@ -118,7 +118,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-06-25T07:32:21.353025359-04:00"
+    created: "2026-06-25T07:31:31.775619364-04:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: 198bd3a1a0d987543f156ed22b60a31fb36c949b05547eb6c7125a55e462a37d
     keywords:
@@ -1595,6 +1595,27 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/kserve-model-serving-helm-chart/kserve-model-serving-0.1.1.tgz
     version: 0.1.1
+  livy:
+  - apiVersion: v2
+    appVersion: 0.9.0-spark3.5.8
+    created: "2026-06-25T08:48:16.762092165-04:00"
+    description: Apache Livy server configured to submit Spark applications to Kubernetes
+    digest: e558fe090c8b263b317d1e13d9c21f0affeee4aef95d251c1a955f3c394b98d1
+    name: livy
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/livy-helm-chart/livy-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
+    appVersion: 0.9.0-spark3.5.8
+    created: "2026-06-25T08:48:16.761760557-04:00"
+    description: Apache Livy server configured to submit Spark applications to Kubernetes
+    digest: 0bfc0e2b20f45db2d924310663c607702aabcbf8e5a75dd87ae75d825660ab03
+    name: livy
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/livy-helm-chart/livy-0.1.0.tgz
+    version: 0.1.0
   model-cache:
   - apiVersion: v2
     appVersion: 1.0.0
@@ -2651,4 +2672,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-06-25T07:32:21.352373634-04:00"
+generated: "2026-06-25T08:48:16.761411382-04:00"
