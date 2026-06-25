@@ -181,8 +181,8 @@ export NOMINATIM_DATABASE_WEBUSER="${NOMINATIM_DATABASE_WEBUSER:-{{ .Values.nomi
 {{- if and .Values.cloudSqlProxy.enabled (not .Values.cloudSqlProxy.instanceConnectionName) (not .Values.cloudSqlProxy.instanceConnectionNameSecret.name) -}}
 {{- fail "cloudSqlProxy.instanceConnectionName or cloudSqlProxy.instanceConnectionNameSecret.name must be set when cloudSqlProxy.enabled=true" -}}
 {{- end -}}
-{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not .Values.nominatim.import.pbfUrl) (not .Values.nominatim.import.pbfPath) -}}
-{{- fail "nominatim.import.pbfUrl or nominatim.import.pbfPath must be set when nominatim.import.enabled=true" -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not .Values.nominatim.import.pbfUrl) (not .Values.nominatim.import.pbfPath) (not .Values.nominatim.import.pbfUrls) (not .Values.nominatim.import.pbfPaths) -}}
+{{- fail "nominatim.import.pbfUrl, nominatim.import.pbfPath, nominatim.import.pbfUrls, or nominatim.import.pbfPaths must be set when nominatim.import.enabled=true" -}}
 {{- end -}}
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not (has .Values.nominatim.import.mode (list "create" "continue"))) -}}
 {{- fail "nominatim.import.mode must be one of: create, continue" -}}
