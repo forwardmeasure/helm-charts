@@ -5,7 +5,6 @@ set -euo pipefail
 WAIT_DATABASE="${PGMAINTENANCEDATABASE:-postgres}" /usr/local/bin/forwardmeasure-wait-for-postgres
 
 PROJECT_DIR="${PROJECT_DIR:-/nominatim}"
-PBF_URL="${PBF_URL:-}"
 PBF_URLS="${PBF_URLS:-}"
 PBF_PATH="${PBF_PATH:-}"
 PBF_PATHS="${PBF_PATHS:-}"
@@ -66,15 +65,12 @@ pbf_paths=()
 append_csv "${PBF_URLS}" pbf_urls
 append_csv "${PBF_PATHS}" pbf_paths
 
-if [ "${#pbf_urls[@]}" -eq 0 ] && [ -n "${PBF_URL}" ]; then
-  pbf_urls+=("${PBF_URL}")
-fi
 if [ "${#pbf_paths[@]}" -eq 0 ] && [ -n "${PBF_PATH}" ]; then
   pbf_paths+=("${PBF_PATH}")
 fi
 
 if [ "${#pbf_urls[@]}" -eq 0 ] && [ "${#pbf_paths[@]}" -eq 0 ]; then
-  echo "PBF_URL, PBF_PATH, PBF_URLS, or PBF_PATHS must be set"
+  echo "PBF_PATH, PBF_URLS, or PBF_PATHS must be set"
   exit 1
 fi
 
