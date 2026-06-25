@@ -19,6 +19,7 @@ RUN apt-get update \
       gosu \
       libicu-dev \
       libpq-dev \
+      osmium-tool \
       osm2pgsql \
       postgresql-client \
       python3 \

@@ -127,7 +127,7 @@ postgres:
     existingClaim: ""
     accessModes:
       - ReadWriteOnce
-    size: 50Gi
+    size: 1Ti
     storageClass: ""
 
   podManagementPolicy: OrderedReady
@@ -143,11 +143,11 @@ postgres:
 
   resources:
     requests:
-      cpu: 500m
-      memory: 1Gi
-    limits:
       cpu: 2000m
-      memory: 4Gi
+      memory: 8Gi
+    limits:
+      cpu: 8000m
+      memory: 32Gi
 
   nodeSelector: {}
   tolerations: []
@@ -187,7 +187,7 @@ nominatim:
     gunicornWorkers: "2"
     refreshOnStartup: true
     waitForImport: true
-    waitTimeoutSeconds: 7200
+    waitTimeoutSeconds: 604800
     podAnnotations: {}
     resources:
       requests:
@@ -227,9 +227,24 @@ nominatim:
 
   import:
     enabled: true
-    # Monaco keeps the default install small enough to prove the wiring.
-    pbfUrl: https://download.geofabrik.de/europe/monaco-latest.osm.pbf
+    # Default import covers the United States, Canada, Mexico, Central America,
+    # Caribbean, and South America.
+    # Use pbfUrls for multi-region imports. When more than one PBF is supplied,
+    # the import container downloads the extracts, merges them with osmium, and
+    # imports the merged PBF into Nominatim.
+    # Example: United States, Canada, Mexico, Central America, Caribbean, and
+    # South America coverage, currently about 22.3GB compressed:
+    # pbfUrls:
+    #   - https://download.geofabrik.de/north-america-latest.osm.pbf
+    #   - https://download.geofabrik.de/central-america-latest.osm.pbf
+    #   - https://download.geofabrik.de/south-america-latest.osm.pbf
+    pbfUrls:
+      - https://download.geofabrik.de/north-america-latest.osm.pbf
+      - https://download.geofabrik.de/central-america-latest.osm.pbf
+      - https://download.geofabrik.de/south-america-latest.osm.pbf
     pbfPath: ""
+    # Local/mounted equivalents of pbfUrls. These are not deleted after import.
+    pbfPaths: []
     userAgent: "forwardmeasure-geocoding-helm-chart"
     threads: "4"
     importStyle: full
@@ -252,11 +267,11 @@ nominatim:
     podAnnotations: {}
     resources:
       requests:
-        cpu: 1000m
-        memory: 4Gi
-      limits:
         cpu: 4000m
-        memory: 12Gi
+        memory: 16Gi
+      limits:
+        cpu: 16000m
+        memory: 64Gi
 
     replicationUrl: ""
     replicationUpdateInterval: ""

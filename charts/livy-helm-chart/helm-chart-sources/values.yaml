@@ -1,0 +1,130 @@
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: docker.io/forwardmeasure/livy-spark
+  tag: 0.9.0-spark3.5.8
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: true
+
+rbac:
+  create: true
+  extraRules: []
+
+service:
+  type: ClusterIP
+  port: 8998
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+livy:
+  host: 0.0.0.0
+  port: 8998
+  uiEnabled: true
+  sessionTimeout: 1h
+  sessionStateRetain: 600s
+  requestHeaderSize: 131072
+  responseHeaderSize: 131072
+  accessControl:
+    enabled: false
+    allowedUsers: "*"
+  impersonation:
+    enabled: false
+  extraConf: {}
+
+spark:
+  master: "k8s://https://kubernetes.default.svc:443"
+  deployMode: cluster
+  namespace: ""
+  serviceAccountName: ""
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+  driver:
+    cores: 1
+    memory: 1g
+  executor:
+    instances: 2
+    cores: 1
+    memory: 2g
+  dynamicAllocation:
+    enabled: false
+    minExecutors: 1
+    maxExecutors: 4
+  eventLog:
+    enabled: false
+    dir: ""
+  kubernetes:
+    deleteOnTermination: true
+  extraConf: {}
+
+paths:
+  livyHome: /opt/livy
+  livyConfDir: /opt/livy/conf
+  sparkHome: /opt/spark
+  sparkConfDir: /opt/spark/conf
+
+command: []
+args: []
+
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podSecurityContext:
+  fsGroup: 0
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readiness:
+    enabled: true
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
