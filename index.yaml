@@ -99,9 +99,28 @@ entries:
   geocoding:
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-06-23T14:39:30.231510784-04:00"
+    created: "2026-06-25T07:23:39.036277169-04:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
-    digest: 1a05d259f42b39634fc1ece5011bd6504e264435b0fa9418d1db9f571cb143b0
+    digest: 96c232c22c2fa81d5dc7f7162cb917693df653a141e43e848a746cf2662580c3
+    keywords:
+    - geocoding
+    - nominatim
+    - libpostal
+    - postgis
+    - postgres
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: geocoding
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/geocoding-helm-chart/geocoding-0.0.3.tgz
+    version: 0.0.3
+  - apiVersion: v2
+    appVersion: 5.3.2
+    created: "2026-06-25T07:23:39.035362685-04:00"
+    description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
+    digest: 5bd1a8522c72044d916979d83daadf6a6a04404c6a00a4356715893106eb2f93
     keywords:
     - geocoding
     - nominatim
@@ -118,7 +137,7 @@ entries:
     version: 0.0.2
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-06-23T14:39:30.230871269-04:00"
+    created: "2026-06-25T07:23:39.033970001-04:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: 14bdaf1a24c942b8263a21e7c1806f6166b90030f3123873d11d4090c564dda3
     keywords:
@@ -2575,4 +2594,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-06-23T14:39:30.230073674-04:00"
+generated: "2026-06-25T07:23:39.033221319-04:00"
