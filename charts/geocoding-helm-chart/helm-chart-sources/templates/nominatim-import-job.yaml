@@ -70,8 +70,12 @@ spec:
               value: {{ .Values.nominatim.projectDir | quote }}
             - name: PBF_URL
               value: {{ .Values.nominatim.import.pbfUrl | quote }}
+            - name: PBF_URLS
+              value: {{ join "," .Values.nominatim.import.pbfUrls | quote }}
             - name: PBF_PATH
               value: {{ .Values.nominatim.import.pbfPath | quote }}
+            - name: PBF_PATHS
+              value: {{ join "," .Values.nominatim.import.pbfPaths | quote }}
             - name: USER_AGENT
               value: {{ .Values.nominatim.import.userAgent | quote }}
             - name: THREADS

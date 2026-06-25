@@ -1,0 +1,7 @@
+Livy has been rendered for namespace {{ .Release.Namespace }}.
+
+REST endpoint inside the cluster:
+  http://{{ include "livy.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+
+Spark master:
+  {{ .Values.spark.master }}
