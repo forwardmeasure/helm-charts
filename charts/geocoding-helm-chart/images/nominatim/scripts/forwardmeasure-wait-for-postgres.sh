@@ -19,15 +19,15 @@ done
 if [ "${WAIT_FOR_IMPORT}" = "true" ]; then
   started_at="$(date +%s)"
   while true; do
-    if psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -tAc "select to_regclass('public.placex')" | grep -q placex; then
-      echo "Nominatim import marker found"
+    if psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -tAc "select value from nominatim_properties where property = 'database_version'" 2>/dev/null | grep -q .; then
+      echo "Nominatim import completion marker found"
       break
     fi
 
     now="$(date +%s)"
     elapsed="$((now - started_at))"
     if [ "${elapsed}" -ge "${WAIT_FOR_IMPORT_TIMEOUT_SECONDS}" ]; then
-      echo "Timed out waiting for Nominatim import marker"
+      echo "Timed out waiting for Nominatim import completion marker"
       exit 1
     fi
     sleep 10
