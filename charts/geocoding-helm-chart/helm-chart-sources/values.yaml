@@ -242,7 +242,6 @@ nominatim:
       - https://download.geofabrik.de/north-america-latest.osm.pbf
       - https://download.geofabrik.de/central-america-latest.osm.pbf
       - https://download.geofabrik.de/south-america-latest.osm.pbf
-    pbfPath: ""
     # Local/mounted equivalents of pbfUrls. These are not deleted after import.
     pbfPaths: []
     userAgent: "forwardmeasure-geocoding-helm-chart"
