@@ -53,6 +53,14 @@ data:
 {{- else }}
 {{- $_ := set $sparkConf "spark.eventLog.enabled" "false" }}
 {{- end }}
+{{- $gcsEnabled := true }}
+{{- if and (hasKey .Values.spark "gcs") (hasKey .Values.spark.gcs "enabled") }}
+{{- $gcsEnabled = .Values.spark.gcs.enabled }}
+{{- end }}
+{{- if $gcsEnabled }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.gs.impl" "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem" }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.AbstractFileSystem.gs.impl" "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS" }}
+{{- end }}
 {{- $pullSecrets := include "livy.imagePullSecretsCsv" . }}
 {{- if $pullSecrets }}
 {{- $_ := set $sparkConf "spark.kubernetes.container.image.pullSecrets" $pullSecrets }}
