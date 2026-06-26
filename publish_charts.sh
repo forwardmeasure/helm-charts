@@ -10,10 +10,10 @@ DO_PUSH=true
 DO_BRANCH=true
 DRY_RUN=false
 BASE_BRANCH="develop"
+CHART_NAMES=()
 REPO_URL=""
 VERSION_OVERRIDE=""
 COMMIT_MSG=""
-CHART_NAMES=()
 
 # === PARSE ARGS ===
 while [[ "$#" -gt 0 ]]; do
@@ -88,9 +88,9 @@ if $DRY_RUN; then
   echo "🔬 DRY RUN — no files will be modified, no git operations will be performed"
 fi
 
-NEW_VERSIONS=()
-RELEASE_TAGS=()
 RELEASE_BRANCH=""
+RELEASE_TAGS=()
+STAGED_PATHS=()
 TMP_INDEX=""
 
 cleanup() {
@@ -98,20 +98,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-stage_chart_files() {
-  git reset >/dev/null
-  git add index.yaml
-
-  local chart chart_packages
-  for chart in "${CHART_NAMES[@]}"; do
-    git add "charts/${chart}/helm-chart-sources"
-    git add "charts/${chart}/images"
-
-    shopt -s nullglob
-    chart_packages=("charts/${chart}"/*.tgz)
-    shopt -u nullglob
-    [[ ${#chart_packages[@]} -gt 0 ]] && git add "${chart_packages[@]}"
+append_unique_staged_path() {
+  local path="$1"
+  local existing
+  for existing in "${STAGED_PATHS[@]:-}"; do
+    if [[ "$existing" == "$path" ]]; then
+      return 0
+    fi
   done
+  STAGED_PATHS+=("$path")
 }
 
 release_chart() {
@@ -184,6 +179,11 @@ release_chart() {
   if $DRY_RUN; then
     echo "🔬 [$CHART_NAME] Would bump Chart.yaml: version ${CURRENT_VERSION} → ${NEW_VERSION}, appVersion ${IMAGE_TAG}"
     echo "🔬 [$CHART_NAME] Would package chart to ${CHART_PACKAGE_DIR}"
+    echo "🔬 [$CHART_NAME] Would merge packaged chart into root index.yaml using ${CHART_REPO_URL}"
+    append_unique_staged_path "index.yaml"
+    append_unique_staged_path "charts/${CHART_NAME}/helm-chart-sources"
+    append_unique_staged_path "charts/${CHART_NAME}/*.tgz"
+    RELEASE_TAGS+=("${CHART_NAME}-v${NEW_VERSION}")
     return 0
   fi
 
@@ -202,8 +202,46 @@ release_chart() {
   echo "📦 [$CHART_NAME] Packaging Helm chart version ${NEW_VERSION}..."
   helm package "$CHART_SOURCE_DIR" --destination "$CHART_PACKAGE_DIR" >/dev/null
 
-  NEW_VERSIONS+=("${CHART_NAME}=${NEW_VERSION}")
+  echo "⬇️ [$CHART_NAME] Fetching latest index.yaml from ${BASE_BRANCH}..."
+  git fetch origin "$BASE_BRANCH" >/dev/null
+  TMP_INDEX=$(mktemp)
+  git show "origin/${BASE_BRANCH}:index.yaml" > "$TMP_INDEX" || touch "$TMP_INDEX"
+
+  echo "🧾 [$CHART_NAME] Merging chart into root-level index.yaml..."
+  helm repo index "$CHART_PACKAGE_DIR" \
+    --url "$CHART_REPO_URL" \
+    --merge "$TMP_INDEX" >/dev/null
+
+  mv "${CHART_PACKAGE_DIR}/index.yaml" "${SCRIPT_DIR}/index.yaml"
+  rm -f "$TMP_INDEX"
+  TMP_INDEX=""
+
+  append_unique_staged_path "index.yaml"
+  append_unique_staged_path "charts/${CHART_NAME}/helm-chart-sources"
+  append_unique_staged_path "charts/${CHART_NAME}/*.tgz"
   RELEASE_TAGS+=("${CHART_NAME}-v${NEW_VERSION}")
+}
+
+stage_release_files() {
+  git reset >/dev/null
+
+  local chart package_paths
+  for chart in "${CHART_NAMES[@]}"; do
+    if [[ -d "charts/${chart}/helm-chart-sources" ]]; then
+      git add "charts/${chart}/helm-chart-sources"
+    fi
+
+    shopt -s nullglob
+    package_paths=("charts/${chart}"/*.tgz)
+    shopt -u nullglob
+    if [[ ${#package_paths[@]} -gt 0 ]]; then
+      git add "${package_paths[@]}"
+    fi
+  done
+
+  if [[ -f "index.yaml" ]]; then
+    git add index.yaml
+  fi
 }
 
 # === Process charts ===
@@ -211,12 +249,14 @@ for chart in "${CHART_NAMES[@]}"; do
   release_chart "$chart"
 done
 
+# === Dry-run output ===
 if $DRY_RUN; then
   echo
   echo "🔬 Dry run complete. The following charts would have been processed:"
   printf '   - %s\n' "${CHART_NAMES[@]}"
-  echo "   - Only files pertaining to the named charts would be staged"
-  echo "   - Root index.yaml would be regenerated"
+  echo "   - Root index.yaml would be regenerated using each chart package directory"
+  echo "   - Only files pertaining to the named charts would be staged:"
+  printf '     - %s\n' "${STAGED_PATHS[@]}"
   echo "   - git commit: '${COMMIT_MSG:-Release charts: ${CHART_NAMES[*]}}'"
   if $DO_BRANCH; then echo "   - git checkout -b release/charts/$(date +%Y%m%d%H%M%S)"; fi
   if $DO_TAG; then
@@ -228,17 +268,6 @@ if $DRY_RUN; then
   exit 0
 fi
 
-# === Update root-level index.yaml ===
-echo "⬇️ Fetching latest index.yaml from ${BASE_BRANCH}..."
-git fetch origin "$BASE_BRANCH"
-TMP_INDEX=$(mktemp)
-git show "origin/${BASE_BRANCH}:index.yaml" > "$TMP_INDEX" || touch "$TMP_INDEX"
-
-echo "🧾 Merging packaged charts into root-level index.yaml..."
-helm repo index "$SCRIPT_DIR" \
-  --url "https://forwardmeasure.github.io/helm-charts" \
-  --merge "$TMP_INDEX" >/dev/null
-
 # === Set commit and release metadata ===
 COMMIT_MSG=${COMMIT_MSG:-"Release charts: ${CHART_NAMES[*]}"}
 RELEASE_BRANCH="release/charts/$(date +%Y%m%d%H%M%S)"
@@ -246,7 +275,7 @@ RELEASE_BRANCH="release/charts/$(date +%Y%m%d%H%M%S)"
 # === Git commit and push ===
 cd "$SCRIPT_DIR"
 echo "📂 Staging only files pertaining to the named charts..."
-stage_chart_files
+stage_release_files
 
 echo "📋 Files staged for commit:"
 git diff --cached --name-only
