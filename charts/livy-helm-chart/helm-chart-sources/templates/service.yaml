@@ -15,5 +15,11 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    {{- if .Values.livy.rsc.enabled }}
+    - port: {{ .Values.service.rscPort }}
+      targetPort: rsc
+      protocol: TCP
+      name: rsc
+    {{- end }}
   selector:
     {{- include "livy.selectorLabels" . | nindent 4 }}
