@@ -70,6 +70,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{- define "geocoding.nominatimPbfCacheClaimName" -}}
+{{- if .Values.nominatim.import.pbfCache.existingClaim -}}
+{{- .Values.nominatim.import.pbfCache.existingClaim -}}
+{{- else -}}
+{{- printf "%s-pbf-cache" (include "geocoding.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "geocoding.nominatimImportJobName" -}}
 {{- $base := include "geocoding.fullname" . | trunc 38 | trimSuffix "-" -}}
 {{- printf "%s-nominatim-import-%d" $base .Release.Revision | trunc 63 | trimSuffix "-" -}}
@@ -189,6 +197,9 @@ export NOMINATIM_DATABASE_WEBUSER="${NOMINATIM_DATABASE_WEBUSER:-{{ .Values.nomi
 {{- end -}}
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not .Values.nominatim.import.pbfUrls) (not .Values.nominatim.import.pbfPaths) -}}
 {{- fail "nominatim.import.pbfUrls or nominatim.import.pbfPaths must be set when nominatim.import.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.pbfCache.enabled (not .Values.nominatim.import.pbfCache.mountPath) -}}
+{{- fail "nominatim.import.pbfCache.mountPath must be set when nominatim.import.pbfCache.enabled=true" -}}
 {{- end -}}
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not (has .Values.nominatim.import.mode (list "create" "continue"))) -}}
 {{- fail "nominatim.import.mode must be one of: create, continue" -}}

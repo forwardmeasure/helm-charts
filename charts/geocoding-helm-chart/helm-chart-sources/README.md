@@ -228,7 +228,29 @@ singular `nominatim.import.pbfUrl` and `nominatim.import.pbfPath` values are
 intentionally unsupported. If you use `pbfPaths`, mount the data through
 `nominatim.import.extraVolumes` and `nominatim.import.extraVolumeMounts`.
 
-For larger imports, increase Postgres storage/resources, Nominatim import resources, and consider enabling `nominatim.flatnode`.
+For larger imports, enable a durable PBF cache before the first run. The import
+Job writes downloaded extracts to `<mountPath>/extracts` and writes merged output
+to `<mountPath>/merged.osm.pbf`. Completed files get `.complete` markers so a
+new Job can reuse them after a failed import:
+
+```yaml
+nominatim:
+  import:
+    pbfCache:
+      enabled: true
+      size: 100Gi
+      storageClass: premium-rwo
+      retain: true
+```
+
+When `pbfCache.enabled=true`, downloaded and merged PBF files are preserved even
+if `cleanupDownloadedPbf=true`. Set `pbfCache.existingClaim` to use a PVC that is
+managed outside this chart. For chart-created cache PVCs, `retain: true` adds
+`helm.sh/resource-policy: keep` so the cache can survive `helm uninstall`.
+
+For larger imports, increase Postgres storage/resources, lower import threads if
+the database is I/O bound, increase Nominatim import resources, and consider
+enabling `nominatim.flatnode`.
 
 The import Job defaults to `restartPolicy: Never` and `backoffLimit: 0` so a
 failed import keeps one failed pod with useful logs. Avoid automatic retries for
