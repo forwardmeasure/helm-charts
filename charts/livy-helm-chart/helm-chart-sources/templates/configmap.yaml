@@ -46,6 +46,10 @@ data:
   "spark.executor.instances" (toString .Values.spark.executor.instances)
   "spark.executor.cores" (toString .Values.spark.executor.cores)
   "spark.executor.memory" .Values.spark.executor.memory
+  "spark.pyspark.python" .Values.spark.python.executable
+  "spark.pyspark.driver.python" .Values.spark.python.driverExecutable
+  "spark.kubernetes.driverEnv.PYSPARK_PYTHON" .Values.spark.python.driverExecutable
+  "spark.executorEnv.PYSPARK_PYTHON" .Values.spark.python.executable
   "spark.dynamicAllocation.enabled" (toString .Values.spark.dynamicAllocation.enabled)
 }}
 {{- if .Values.spark.dynamicAllocation.enabled }}

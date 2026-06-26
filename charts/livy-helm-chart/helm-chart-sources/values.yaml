@@ -102,6 +102,9 @@ spark:
     instances: 2
     cores: 1
     memory: 2g
+  python:
+    executable: python3
+    driverExecutable: python3
   dynamicAllocation:
     enabled: false
     minExecutors: 1
