@@ -101,6 +101,42 @@ spark:
     deleteOnTermination: true
   gcs:
     enabled: true
+  s3:
+    enabled: true
+    # Leave empty for AWS S3. Set for S3-compatible stores, for example:
+    # https://s3.us-east-1.amazonaws.com, https://ceph-rgw.example.com, http://minio.minio.svc:9000
+    endpoint: ""
+    # Ceph RGW and MinIO usually require path-style access.
+    pathStyleAccess: false
+    sslEnabled: true
+    # Leave empty to use Hadoop's default AWS provider chain.
+    # Common examples:
+    # com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+    # com.amazonaws.auth.EnvironmentVariableCredentialsProvider
+    # org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+    credentialsProvider: ""
+    credentials:
+      # Set create=true to let this chart create the Secret. For GitOps, prefer
+      # existingSecret so secret values can be managed outside Helm release
+      # manifests.
+      create: false
+      name: ""
+      accessKeyId: ""
+      secretAccessKey: ""
+      # Existing Kubernetes Secret in the Livy/Spark namespace. When set, the
+      # chart injects these keys into the Livy server pod and into Spark driver
+      # and executor pods through Spark's Kubernetes secretKeyRef settings.
+      existingSecret: ""
+      accessKeyIdKey: AWS_ACCESS_KEY_ID
+      secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
+      sessionToken:
+        enabled: false
+        key: AWS_SESSION_TOKEN
+        value: ""
+      region:
+        enabled: false
+        key: AWS_REGION
+        value: ""
   extraConf: {}
 
 paths:
