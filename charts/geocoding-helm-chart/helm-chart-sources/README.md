@@ -252,6 +252,20 @@ For larger imports, increase Postgres storage/resources, lower import threads if
 the database is I/O bound, increase Nominatim import resources, and consider
 enabling `nominatim.flatnode`.
 
+To import US TIGER address data, mount the preprocessed tarball into the import
+container and set:
+
+```yaml
+nominatim:
+  import:
+    importTigerAddresses: "true"
+    tigerDataPath: /nominatim/tiger-nominatim-preprocessed.tar.gz
+```
+
+If `tigerDataPath` is empty, the import script looks in `nominatim.projectDir`
+for `tiger-nominatim-preprocessed.tar.gz` and
+`tiger-nominatim-preprocessed.csv.tar.gz`.
+
 The import Job defaults to `restartPolicy: Never` and `backoffLimit: 0` so a
 failed import keeps one failed pod with useful logs. Avoid automatic retries for
 imports: a failed run may leave partial database objects behind and should be

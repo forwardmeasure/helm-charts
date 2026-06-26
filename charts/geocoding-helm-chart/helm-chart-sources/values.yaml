@@ -308,6 +308,11 @@ nominatim:
     importUsPostcodes: "false"
     importGbPostcodes: "false"
     importTigerAddresses: "false"
+    # Optional path to a mounted/downloaded TIGER address tarball. If empty and
+    # importTigerAddresses=true, the import script looks in projectDir for
+    # tiger-nominatim-preprocessed.tar.gz and
+    # tiger-nominatim-preprocessed.csv.tar.gz.
+    tigerDataPath: ""
 
     extraEnv: []
     extraVolumes: []
