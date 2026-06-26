@@ -1598,6 +1598,26 @@ entries:
   livy:
   - apiVersion: v2
     appVersion: 0.9.0-spark3.5.8
+    created: "2026-06-25T21:56:31.34834687-04:00"
+    description: Apache Livy server configured to submit Spark applications to Kubernetes
+    digest: 1175aa0839d2f8ec97fa589ef7cf2053e3c8f8b81b62cf2e6f1313808c7208ec
+    name: livy
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/livy-helm-chart/livy-0.1.8.tgz
+    version: 0.1.8
+  - apiVersion: v2
+    appVersion: 0.9.0-spark3.5.8
+    created: "2026-06-25T21:56:31.347954018-04:00"
+    description: Apache Livy server configured to submit Spark applications to Kubernetes
+    digest: e2fb8c60db829141cc8103cf54f82a839f1978d7bd9f420a1dd49a015d823529
+    name: livy
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/livy-helm-chart/livy-0.1.7.tgz
+    version: 0.1.7
+  - apiVersion: v2
+    appVersion: 0.9.0-spark3.5.8
     created: "2026-06-25T21:18:36.527218229-04:00"
     description: Apache Livy server configured to submit Spark applications to Kubernetes
     digest: fe9e02e22851c1364683450f76161b0b100c5b53adcca49aae2b17c544ded7fa
@@ -2712,4 +2732,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-06-25T21:53:47.153850589-04:00"
+generated: "2026-06-25T21:56:31.347540555-04:00"
