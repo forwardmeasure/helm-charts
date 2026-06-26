@@ -105,6 +105,7 @@ stage_chart_files() {
   local chart chart_packages
   for chart in "${CHART_NAMES[@]}"; do
     git add "charts/${chart}/helm-chart-sources"
+    git add "charts/${chart}/images"
 
     shopt -s nullglob
     chart_packages=("charts/${chart}"/*.tgz)
