@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# === CONFIG ===
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# === DEFAULTS ===
 DO_TAG=true
 DO_PUSH=true
 DO_BRANCH=true
@@ -13,6 +15,7 @@ VERSION_OVERRIDE=""
 COMMIT_MSG=""
 CHART_NAMES=()
 
+# === PARSE ARGS ===
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --chart-name)
@@ -63,14 +66,52 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
+# === Validate chart names ===
 if [[ ${#CHART_NAMES[@]} -eq 0 ]]; then
   echo "❌ At least one --chart-name is required"
   exit 1
 fi
 
+# === Deduplicate chart names while preserving order ===
+UNIQUE_CHART_NAMES=()
+declare -A _seen_charts=()
+for chart in "${CHART_NAMES[@]}"; do
+  if [[ -z "${_seen_charts[$chart]+x}" ]]; then
+    UNIQUE_CHART_NAMES+=("$chart")
+    _seen_charts["$chart"]=1
+  fi
+done
+CHART_NAMES=("${UNIQUE_CHART_NAMES[@]}")
+unset UNIQUE_CHART_NAMES _seen_charts
+
 if $DRY_RUN; then
   echo "🔬 DRY RUN — no files will be modified, no git operations will be performed"
 fi
+
+NEW_VERSIONS=()
+RELEASE_TAGS=()
+RELEASE_BRANCH=""
+TMP_INDEX=""
+
+cleanup() {
+  [[ -n "$TMP_INDEX" && -f "$TMP_INDEX" ]] && rm -f "$TMP_INDEX"
+}
+trap cleanup EXIT
+
+stage_chart_files() {
+  git reset >/dev/null
+  git add index.yaml
+
+  local chart chart_packages
+  for chart in "${CHART_NAMES[@]}"; do
+    git add "charts/${chart}/helm-chart-sources"
+
+    shopt -s nullglob
+    chart_packages=("charts/${chart}"/*.tgz)
+    shopt -u nullglob
+    [[ ${#chart_packages[@]} -gt 0 ]] && git add "${chart_packages[@]}"
+  done
+}
 
 release_chart() {
   local CHART_NAME="$1"
@@ -82,14 +123,20 @@ release_chart() {
   local VALUES_FILE="${CHART_SOURCE_DIR}/values.yaml"
   local CHART_REPO_URL="${REPO_URL:-https://forwardmeasure.github.io/helm-charts/charts/${CHART_NAME}}"
 
-  [[ -f "$CHART_FILE" ]] || { echo "❌ Missing $CHART_FILE"; exit 1; }
-  [[ -f "$VALUES_FILE" ]] || echo "⚠️  Missing $VALUES_FILE, falling back to appVersion/version logic"
+  if [[ ! -d "$CHART_SOURCE_DIR" ]]; then
+    echo "❌ Chart source directory not found: $CHART_SOURCE_DIR"
+    exit 1
+  fi
+
+  if [[ ! -f "$CHART_FILE" ]]; then
+    echo "❌ Chart.yaml not found: $CHART_FILE"
+    exit 1
+  fi
 
   local CURRENT_VERSION
-  CURRENT_VERSION=$(grep "^version:" "$CHART_FILE" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs)
-
+  CURRENT_VERSION=$(grep '^version:' "$CHART_FILE" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs)
   if [[ -z "$CURRENT_VERSION" ]]; then
-    echo "❌ Could not extract version from $CHART_FILE"
+    echo "❌ Could not extract version from Chart.yaml for chart '$CHART_NAME'"
     exit 1
   fi
 
@@ -100,7 +147,7 @@ release_chart() {
     local MAJOR MINOR PATCH
     IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
     if [[ -z "${MAJOR:-}" || -z "${MINOR:-}" || -z "${PATCH:-}" ]]; then
-      echo "❌ Failed to parse semantic version from $CURRENT_VERSION"
+      echo "❌ Failed to parse semantic version from $CURRENT_VERSION for chart '$CHART_NAME'"
       exit 1
     fi
     PATCH=$((PATCH + 1))
@@ -109,11 +156,11 @@ release_chart() {
 
   local IMAGE_TAG=""
   if [[ -f "$VALUES_FILE" ]]; then
-    IMAGE_TAG=$(yq e '.image.tag' "${VALUES_FILE}" 2>/dev/null || true)
+    IMAGE_TAG=$(yq e '.image.tag' "$VALUES_FILE" 2>/dev/null || true)
   fi
 
   if [[ -z "$IMAGE_TAG" || "$IMAGE_TAG" == "null" ]]; then
-    IMAGE_TAG=$(grep "^appVersion:" "$CHART_FILE" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs || true)
+    IMAGE_TAG=$(grep '^appVersion:' "$CHART_FILE" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs || true)
     if [[ -z "$IMAGE_TAG" || "$IMAGE_TAG" == "null" ]]; then
       IMAGE_TAG="$NEW_VERSION"
       echo "ℹ️  [$CHART_NAME] No image.tag or appVersion found — using chart version as appVersion: ${IMAGE_TAG}"
@@ -127,82 +174,99 @@ release_chart() {
   echo "🧪 [$CHART_NAME] IMAGE_TAG=$IMAGE_TAG"
 
   echo "🔍 [$CHART_NAME] Linting Helm chart..."
-  helm lint --strict "${CHART_SOURCE_DIR}"
+  if ! helm lint --strict "$CHART_SOURCE_DIR"; then
+    echo "❌ [$CHART_NAME] Lint failed. Fix the errors above and retry."
+    exit 1
+  fi
   echo "✅ [$CHART_NAME] Lint passed."
 
   if $DRY_RUN; then
     echo "🔬 [$CHART_NAME] Would bump Chart.yaml: version ${CURRENT_VERSION} → ${NEW_VERSION}, appVersion ${IMAGE_TAG}"
     echo "🔬 [$CHART_NAME] Would package chart to ${CHART_PACKAGE_DIR}"
-    echo "🔬 [$CHART_NAME] Would merge into index.yaml"
     return 0
   fi
 
-  if [[ "$NEW_VERSION" != "$CURRENT_VERSION" ]]; then
+  if [[ "$NEW_VERSION" == "$CURRENT_VERSION" ]]; then
+    echo "⚠️  [$CHART_NAME] Version unchanged ($NEW_VERSION). Skipping version bump."
+  else
     echo "🔧 [$CHART_NAME] Updating Chart.yaml: version=${NEW_VERSION}, appVersion=${IMAGE_TAG}"
     sed -i'' -E "s/^version: .*/version: \"$NEW_VERSION\"/" "$CHART_FILE"
-    sed -i'' -E "s/^appVersion: .*/appVersion: \"$IMAGE_TAG\"/" "$CHART_FILE"
-  else
-    echo "⚠️  [$CHART_NAME] Version unchanged ($NEW_VERSION). Skipping version bump."
+    if grep -q '^appVersion:' "$CHART_FILE"; then
+      sed -i'' -E "s/^appVersion: .*/appVersion: \"$IMAGE_TAG\"/" "$CHART_FILE"
+    else
+      printf '\nappVersion: "%s"\n' "$IMAGE_TAG" >> "$CHART_FILE"
+    fi
   fi
 
   echo "📦 [$CHART_NAME] Packaging Helm chart version ${NEW_VERSION}..."
-  (
-    cd "$CHART_PARENT_DIR"
-    helm package "${CHART_SOURCE_DIR}" --destination "${CHART_PACKAGE_DIR}"
-  )
+  helm package "$CHART_SOURCE_DIR" --destination "$CHART_PACKAGE_DIR" >/dev/null
+
+  NEW_VERSIONS+=("${CHART_NAME}=${NEW_VERSION}")
+  RELEASE_TAGS+=("${CHART_NAME}-v${NEW_VERSION}")
 }
 
-git fetch origin "${BASE_BRANCH}"
-
-TMP_INDEX=$(mktemp)
-git show "origin/${BASE_BRANCH}:index.yaml" > "$TMP_INDEX" || touch "$TMP_INDEX"
-
+# === Process charts ===
 for chart in "${CHART_NAMES[@]}"; do
   release_chart "$chart"
 done
 
 if $DRY_RUN; then
-  echo ""
-  echo "🔬 Dry run complete. Charts:"
+  echo
+  echo "🔬 Dry run complete. The following charts would have been processed:"
   printf '   - %s\n' "${CHART_NAMES[@]}"
-  echo "   - Merge all packaged charts into index.yaml"
-  echo "   - git commit: '${COMMIT_MSG:-Release charts}'"
-  if $DO_BRANCH; then
-    echo "   - create release branch"
-  fi
+  echo "   - Only files pertaining to the named charts would be staged"
+  echo "   - Root index.yaml would be regenerated"
+  echo "   - git commit: '${COMMIT_MSG:-Release charts: ${CHART_NAMES[*]}}'"
+  if $DO_BRANCH; then echo "   - git checkout -b release/charts/$(date +%Y%m%d%H%M%S)"; fi
   if $DO_TAG; then
-    echo "   - create release tag(s)"
+    for tag in "${RELEASE_TAGS[@]}"; do
+      echo "   - git tag ${tag}"
+    done
   fi
-  if $DO_PUSH; then
-    echo "   - push branch and tag(s) to remote"
-  fi
-  rm -f "$TMP_INDEX"
+  if $DO_PUSH; then echo "   - git push branch and tag(s) to remote"; fi
   exit 0
 fi
 
-echo "🧾 Merging charts into root-level index.yaml..."
-helm repo index "${SCRIPT_DIR}" --url "https://forwardmeasure.github.io/helm-charts" --merge "$TMP_INDEX"
-rm -f "$TMP_INDEX"
+# === Update root-level index.yaml ===
+echo "⬇️ Fetching latest index.yaml from ${BASE_BRANCH}..."
+git fetch origin "$BASE_BRANCH"
+TMP_INDEX=$(mktemp)
+git show "origin/${BASE_BRANCH}:index.yaml" > "$TMP_INDEX" || touch "$TMP_INDEX"
 
+echo "🧾 Merging packaged charts into root-level index.yaml..."
+helm repo index "$SCRIPT_DIR" \
+  --url "https://forwardmeasure.github.io/helm-charts" \
+  --merge "$TMP_INDEX" >/dev/null
+
+# === Set commit and release metadata ===
 COMMIT_MSG=${COMMIT_MSG:-"Release charts: ${CHART_NAMES[*]}"}
 RELEASE_BRANCH="release/charts/$(date +%Y%m%d%H%M%S)"
 
+# === Git commit and push ===
 cd "$SCRIPT_DIR"
-git add .
-git commit -m "${COMMIT_MSG}"
+echo "📂 Staging only files pertaining to the named charts..."
+stage_chart_files
+
+echo "📋 Files staged for commit:"
+git diff --cached --name-only
+
+if git diff --cached --quiet; then
+  echo "❌ No files staged for commit. Aborting."
+  exit 1
+fi
+
+echo "📝 Creating commit..."
+git commit -m "$COMMIT_MSG"
 
 if $DO_BRANCH; then
   echo "🌿 Creating release branch: ${RELEASE_BRANCH}"
-  git checkout -b "${RELEASE_BRANCH}"
+  git checkout -b "$RELEASE_BRANCH"
 fi
 
 if $DO_TAG; then
-  for chart in "${CHART_NAMES[@]}"; do
-    chart_file="${SCRIPT_DIR}/charts/${chart}/helm-chart-sources/Chart.yaml"
-    chart_version=$(grep "^version:" "$chart_file" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs)
-    release_tag="${chart}-v${chart_version}"
-    echo "🏷️  Tagging release as: ${release_tag}"
-    git tag "${release_tag}"
+  for tag in "${RELEASE_TAGS[@]}"; do
+    echo "🏷️  Tagging release as: ${tag}"
+    git tag "$tag"
   done
 fi
 
@@ -210,22 +274,22 @@ if $DO_PUSH; then
   echo "🚀 Pushing branch and tag(s) to remote..."
   git config push.default current
   if $DO_BRANCH; then
-    git push -u origin "${RELEASE_BRANCH}"
+    git push -u origin "$RELEASE_BRANCH"
+  else
+    git push origin HEAD
   fi
   if $DO_TAG; then
-    for chart in "${CHART_NAMES[@]}"; do
-      chart_file="${SCRIPT_DIR}/charts/${chart}/helm-chart-sources/Chart.yaml"
-      chart_version=$(grep "^version:" "$chart_file" | awk '{print $2}' | tr -d '"' | tr -d '\r\n' | xargs)
-      git push origin "${chart}-v${chart_version}"
+    for tag in "${RELEASE_TAGS[@]}"; do
+      git push origin "$tag"
     done
   fi
   if $DO_BRANCH; then
     echo "🧹 Deleting local release branch: ${RELEASE_BRANCH}"
-    git checkout "${BASE_BRANCH}"
-    git branch -D "${RELEASE_BRANCH}"
+    git checkout "$BASE_BRANCH"
+    git branch -D "$RELEASE_BRANCH"
   fi
 else
   echo "⚠️  Push skipped (--no-push was set)"
 fi
 
-echo "✅ Charts released: ${CHART_NAMES[*]}"
+echo "✅ Helm chart(s) released: ${CHART_NAMES[*]}"
