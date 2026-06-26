@@ -110,6 +110,8 @@ spec:
               value: {{ .Values.nominatim.import.importGbPostcodes | quote }}
             - name: IMPORT_TIGER_ADDRESSES
               value: {{ .Values.nominatim.import.importTigerAddresses | quote }}
+            - name: TIGER_DATA_PATH
+              value: {{ .Values.nominatim.import.tigerDataPath | quote }}
             - name: NOMINATIM_DATABASE_WEBUSER
               value: {{ .Values.nominatim.database.webUser | quote }}
             - name: SKIP_IF_IMPORTED
