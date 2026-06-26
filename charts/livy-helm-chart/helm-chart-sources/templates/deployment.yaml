@@ -97,6 +97,11 @@ spec:
             - name: http
               containerPort: {{ .Values.livy.port }}
               protocol: TCP
+            {{- if .Values.livy.rsc.enabled }}
+            - name: rsc
+              containerPort: {{ .Values.livy.rsc.port }}
+              protocol: TCP
+            {{- end }}
           volumeMounts:
             - name: config
               mountPath: {{ printf "%s/livy.conf" .Values.paths.livyConfDir | quote }}

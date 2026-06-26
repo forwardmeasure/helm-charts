@@ -26,6 +26,7 @@ rbac:
 service:
   type: ClusterIP
   port: 8998
+  rscPort: 10000
   annotations: {}
 
 ingress:
@@ -62,6 +63,13 @@ virtualService:
 livy:
   host: 0.0.0.0
   port: 8998
+  rsc:
+    enabled: true
+    # Stable DNS name advertised to Spark driver pods for the reverse Livy RSC
+    # connection. Empty defaults to <release-service>.<namespace>.svc.cluster.local.
+    address: ""
+    port: 10000
+    portRange: 10000~10000
   uiEnabled: true
   sessionTimeout: 1h
   sessionStateRetain: 600s
