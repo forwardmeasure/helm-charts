@@ -58,6 +58,38 @@ spec:
               value: {{ .Values.paths.sparkConfDir | quote }}
             - name: PYSPARK_PYTHON
               value: python3
+            {{- $s3CredentialsSecretName := include "livy.s3CredentialsSecretName" . }}
+            {{- with $s3CredentialsSecretName }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: {{ $.Values.spark.s3.credentials.accessKeyIdKey | quote }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: {{ $.Values.spark.s3.credentials.secretAccessKeyKey | quote }}
+            {{- if $.Values.spark.s3.credentials.sessionToken.enabled }}
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: {{ $.Values.spark.s3.credentials.sessionToken.key | quote }}
+            {{- end }}
+            {{- if $.Values.spark.s3.credentials.region.enabled }}
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: {{ $.Values.spark.s3.credentials.region.key | quote }}
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . | quote }}
+                  key: {{ $.Values.spark.s3.credentials.region.key | quote }}
+            {{- end }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
