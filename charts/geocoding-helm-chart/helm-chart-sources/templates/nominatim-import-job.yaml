@@ -122,6 +122,12 @@ spec:
               value: {{ .Values.nominatim.import.warm | quote }}
             - name: CLEANUP_DOWNLOADED_PBF
               value: {{ .Values.nominatim.import.cleanupDownloadedPbf | quote }}
+            - name: PBF_CACHE_ENABLED
+              value: {{ .Values.nominatim.import.pbfCache.enabled | quote }}
+            {{- if .Values.nominatim.import.pbfCache.enabled }}
+            - name: PBF_WORK_DIR
+              value: {{ .Values.nominatim.import.pbfCache.mountPath | quote }}
+            {{- end }}
             {{- if .Values.nominatim.flatnode.enabled }}
             - name: NOMINATIM_FLATNODE_FILE
               value: {{ .Values.nominatim.flatnode.file | quote }}
@@ -131,11 +137,15 @@ spec:
             {{- end }}
           command:
             - /usr/local/bin/forwardmeasure-nominatim-import
-          {{- if or .Values.nominatim.flatnode.enabled .Values.nominatim.import.extraVolumeMounts }}
+          {{- if or .Values.nominatim.flatnode.enabled .Values.nominatim.import.pbfCache.enabled .Values.nominatim.import.extraVolumeMounts }}
           volumeMounts:
             {{- if .Values.nominatim.flatnode.enabled }}
             - name: flatnode
               mountPath: {{ .Values.nominatim.flatnode.mountPath }}
+            {{- end }}
+            {{- if .Values.nominatim.import.pbfCache.enabled }}
+            - name: pbf-cache
+              mountPath: {{ .Values.nominatim.import.pbfCache.mountPath }}
             {{- end }}
             {{- with .Values.nominatim.import.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -143,13 +153,20 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.nominatim.import.resources | nindent 12 }}
-      {{- if or (and .Values.cloudSqlProxy.enabled .Values.cloudSqlProxy.credentialsSecret) .Values.nominatim.flatnode.enabled .Values.nominatim.import.extraVolumes }}
+      {{- if or (and .Values.cloudSqlProxy.enabled .Values.cloudSqlProxy.credentialsSecret) .Values.nominatim.flatnode.enabled .Values.nominatim.import.pbfCache.enabled .Values.nominatim.import.extraVolumes }}
       volumes:
+        {{- if and .Values.cloudSqlProxy.enabled .Values.cloudSqlProxy.credentialsSecret }}
         {{- include "geocoding.cloudSqlProxyVolumes" . | nindent 8 }}
+        {{- end }}
         {{- if .Values.nominatim.flatnode.enabled }}
         - name: flatnode
           persistentVolumeClaim:
             claimName: {{ include "geocoding.nominatimFlatnodeClaimName" . }}
+        {{- end }}
+        {{- if .Values.nominatim.import.pbfCache.enabled }}
+        - name: pbf-cache
+          persistentVolumeClaim:
+            claimName: {{ include "geocoding.nominatimPbfCacheClaimName" . }}
         {{- end }}
         {{- with .Values.nominatim.import.extraVolumes }}
         {{- toYaml . | nindent 8 }}

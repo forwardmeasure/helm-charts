@@ -1,0 +1,24 @@
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.pbfCache.enabled (not .Values.nominatim.import.pbfCache.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "geocoding.nominatimPbfCacheClaimName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "geocoding.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nominatim
+    app.kubernetes.io/part-of: pbf-cache
+  {{- if .Values.nominatim.import.pbfCache.retain }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.nominatim.import.pbfCache.accessModes | nindent 4 }}
+  {{- if .Values.nominatim.import.pbfCache.storageClass }}
+  storageClassName: {{ .Values.nominatim.import.pbfCache.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.nominatim.import.pbfCache.size }}
+{{- end }}

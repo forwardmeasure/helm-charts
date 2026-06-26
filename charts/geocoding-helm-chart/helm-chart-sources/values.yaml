@@ -270,6 +270,20 @@ nominatim:
     analyze: true
     warm: false
     cleanupDownloadedPbf: true
+    # Optional durable workspace for downloaded and merged PBF files. This is
+    # strongly recommended for large imports because failed database imports can
+    # be retried without downloading and merging the extracts again.
+    pbfCache:
+      enabled: false
+      existingClaim: ""
+      mountPath: /nominatim-pbf-cache
+      accessModes:
+        - ReadWriteOnce
+      size: 100Gi
+      storageClass: ""
+      # Keep chart-created cache PVCs on helm uninstall. Set false only when
+      # you explicitly want Helm to delete the cached PBF data.
+      retain: true
     backoffLimit: 0
     restartPolicy: Never
     ttlSecondsAfterFinished: 86400
