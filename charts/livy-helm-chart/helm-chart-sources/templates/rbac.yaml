@@ -1,6 +1,6 @@
 {{- if .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: {{ ternary "ClusterRole" "Role" .Values.rbac.clusterWide }}
 metadata:
   name: {{ include "livy.fullname" . }}
   labels:
@@ -46,14 +46,14 @@ rules:
   {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: {{ ternary "ClusterRoleBinding" "RoleBinding" .Values.rbac.clusterWide }}
 metadata:
   name: {{ include "livy.fullname" . }}
   labels:
     {{- include "livy.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: {{ ternary "ClusterRole" "Role" .Values.rbac.clusterWide }}
   name: {{ include "livy.fullname" . }}
 subjects:
   - kind: ServiceAccount

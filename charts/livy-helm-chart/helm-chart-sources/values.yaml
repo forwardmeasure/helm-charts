@@ -21,6 +21,10 @@ serviceAccount:
 
 rbac:
   create: true
+  # Livy's Kubernetes app monitor lists driver pods with pods.inAnyNamespace.
+  # Keep this enabled unless you are running a patched Livy build that only
+  # watches spark.namespace.
+  clusterWide: true
   extraRules: []
 
 service:
