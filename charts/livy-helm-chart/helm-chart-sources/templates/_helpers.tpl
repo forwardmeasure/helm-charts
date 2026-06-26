@@ -68,3 +68,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- join "," $names -}}
 {{- end -}}
+
+{{- define "livy.s3CredentialsSecretName" -}}
+{{- if and .Values.spark.s3.credentials.create .Values.spark.s3.credentials.existingSecret -}}
+{{- fail "Only one of spark.s3.credentials.create or spark.s3.credentials.existingSecret can be set" -}}
+{{- end -}}
+{{- if .Values.spark.s3.credentials.existingSecret -}}
+{{- .Values.spark.s3.credentials.existingSecret -}}
+{{- else if .Values.spark.s3.credentials.create -}}
+{{- default (printf "%s-s3-credentials" (include "livy.fullname" .)) .Values.spark.s3.credentials.name -}}
+{{- end -}}
+{{- end -}}

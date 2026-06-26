@@ -61,6 +61,45 @@ data:
 {{- $_ := set $sparkConf "spark.hadoop.fs.gs.impl" "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem" }}
 {{- $_ := set $sparkConf "spark.hadoop.fs.AbstractFileSystem.gs.impl" "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS" }}
 {{- end }}
+{{- $s3Enabled := true }}
+{{- if and (hasKey .Values.spark "s3") (hasKey .Values.spark.s3 "enabled") }}
+{{- $s3Enabled = .Values.spark.s3.enabled }}
+{{- end }}
+{{- if $s3Enabled }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.s3a.impl" "org.apache.hadoop.fs.s3a.S3AFileSystem" }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.AbstractFileSystem.s3a.impl" "org.apache.hadoop.fs.s3a.S3A" }}
+{{- if .Values.spark.s3.endpoint }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.s3a.endpoint" .Values.spark.s3.endpoint }}
+{{- end }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.s3a.path.style.access" (toString .Values.spark.s3.pathStyleAccess) }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.s3a.connection.ssl.enabled" (toString .Values.spark.s3.sslEnabled) }}
+{{- $s3CredentialsSecretName := include "livy.s3CredentialsSecretName" . }}
+{{- if .Values.spark.s3.credentialsProvider }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.s3a.aws.credentials.provider" .Values.spark.s3.credentialsProvider }}
+{{- else if $s3CredentialsSecretName }}
+{{- $_ := set $sparkConf "spark.hadoop.fs.s3a.aws.credentials.provider" "com.amazonaws.auth.EnvironmentVariableCredentialsProvider" }}
+{{- end }}
+{{- with $s3CredentialsSecretName }}
+{{- $accessKeyIdRef := printf "%s:%s" . $.Values.spark.s3.credentials.accessKeyIdKey }}
+{{- $secretAccessKeyRef := printf "%s:%s" . $.Values.spark.s3.credentials.secretAccessKeyKey }}
+{{- $_ := set $sparkConf "spark.kubernetes.driver.secretKeyRef.AWS_ACCESS_KEY_ID" $accessKeyIdRef }}
+{{- $_ := set $sparkConf "spark.kubernetes.executor.secretKeyRef.AWS_ACCESS_KEY_ID" $accessKeyIdRef }}
+{{- $_ := set $sparkConf "spark.kubernetes.driver.secretKeyRef.AWS_SECRET_ACCESS_KEY" $secretAccessKeyRef }}
+{{- $_ := set $sparkConf "spark.kubernetes.executor.secretKeyRef.AWS_SECRET_ACCESS_KEY" $secretAccessKeyRef }}
+{{- if $.Values.spark.s3.credentials.sessionToken.enabled }}
+{{- $sessionTokenRef := printf "%s:%s" . $.Values.spark.s3.credentials.sessionToken.key }}
+{{- $_ := set $sparkConf "spark.kubernetes.driver.secretKeyRef.AWS_SESSION_TOKEN" $sessionTokenRef }}
+{{- $_ := set $sparkConf "spark.kubernetes.executor.secretKeyRef.AWS_SESSION_TOKEN" $sessionTokenRef }}
+{{- end }}
+{{- if $.Values.spark.s3.credentials.region.enabled }}
+{{- $regionRef := printf "%s:%s" . $.Values.spark.s3.credentials.region.key }}
+{{- $_ := set $sparkConf "spark.kubernetes.driver.secretKeyRef.AWS_REGION" $regionRef }}
+{{- $_ := set $sparkConf "spark.kubernetes.executor.secretKeyRef.AWS_REGION" $regionRef }}
+{{- $_ := set $sparkConf "spark.kubernetes.driver.secretKeyRef.AWS_DEFAULT_REGION" $regionRef }}
+{{- $_ := set $sparkConf "spark.kubernetes.executor.secretKeyRef.AWS_DEFAULT_REGION" $regionRef }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- $pullSecrets := include "livy.imagePullSecretsCsv" . }}
 {{- if $pullSecrets }}
 {{- $_ := set $sparkConf "spark.kubernetes.container.image.pullSecrets" $pullSecrets }}
