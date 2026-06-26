@@ -21,6 +21,11 @@ data:
   "livy.server.access-control.allowed-users" .Values.livy.accessControl.allowedUsers
   "livy.impersonation.enabled" (toString .Values.livy.impersonation.enabled)
 }}
+{{- if .Values.livy.rsc.enabled }}
+{{- $_ := set $livyConf "livy.rsc.rpc.server.address" (include "livy.rscAddress" .) }}
+{{- $_ := set $livyConf "livy.rsc.launcher.address" (include "livy.rscAddress" .) }}
+{{- $_ := set $livyConf "livy.rsc.launcher.port.range" .Values.livy.rsc.portRange }}
+{{- end }}
 {{- $livyConf = mergeOverwrite $livyConf .Values.livy.extraConf }}
 {{- range $key := keys $livyConf | sortAlpha }}
     {{ $key }} = {{ index $livyConf $key }}

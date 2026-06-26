@@ -61,6 +61,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default (include "livy.serviceAccountName" .) .Values.spark.serviceAccountName -}}
 {{- end -}}
 
+{{- define "livy.rscAddress" -}}
+{{- default (printf "%s.%s.svc.cluster.local" (include "livy.fullname" .) .Release.Namespace) .Values.livy.rsc.address -}}
+{{- end -}}
+
 {{- define "livy.imagePullSecretsCsv" -}}
 {{- $names := list -}}
 {{- range .Values.imagePullSecrets -}}
