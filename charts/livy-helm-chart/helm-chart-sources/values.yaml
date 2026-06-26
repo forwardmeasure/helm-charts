@@ -102,7 +102,7 @@ spark:
   gcs:
     enabled: true
   s3:
-    enabled: true
+    enabled: false
     # Leave empty for AWS S3. Set for S3-compatible stores, for example:
     # https://s3.us-east-1.amazonaws.com, https://ceph-rgw.example.com, http://minio.minio.svc:9000
     endpoint: ""
