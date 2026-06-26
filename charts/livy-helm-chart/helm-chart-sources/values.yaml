@@ -13,6 +13,9 @@ imagePullSecrets: []
 serviceAccount:
   create: true
   name: ""
+  # Optional GKE Workload Identity annotation value. When set, the chart adds:
+  # iam.gke.io/gcp-service-account: <gcpServiceAccountEmail>
+  gcpServiceAccountEmail: ""
   annotations: {}
   automountServiceAccountToken: true
 
@@ -38,13 +41,22 @@ ingress:
 
 virtualService:
   enabled: false
+  # Optional namespace for the VirtualService. When empty, Helm installs it in
+  # the release namespace.
+  namespace: ""
   annotations: {}
   # Istio hosts (DNS names or short names) this VirtualService applies to
   hosts: []
   # Gateways this VirtualService is bound to (e.g. istio-system/my-gateway)
   gateways: []
+  # Optional external path prefix. For example, "/livy" creates matches for
+  # exact "/livy" and prefix "/livy/".
+  pathPrefix: ""
+  # Optional URI rewrite for pathPrefix routes. Use "/" to expose Livy under
+  # "/livy" while sending requests to Livy as "/sessions", "/batches", etc.
+  rewriteUri: ""
   # Custom HTTP route rules. If omitted, a default catch-all route to the
-  # Livy service is generated.
+  # Livy service is generated. This overrides pathPrefix/rewriteUri.
   http: []
 
 livy:

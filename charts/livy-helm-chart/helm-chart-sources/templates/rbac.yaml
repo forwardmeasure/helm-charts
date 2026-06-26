@@ -59,4 +59,9 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "livy.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
+  {{- if ne (include "livy.sparkServiceAccountName" .) (include "livy.serviceAccountName" .) }}
+  - kind: ServiceAccount
+    name: {{ include "livy.sparkServiceAccountName" . }}
+    namespace: {{ include "livy.sparkNamespace" . }}
+  {{- end }}
 {{- end }}
