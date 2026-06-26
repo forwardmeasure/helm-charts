@@ -99,7 +99,26 @@ entries:
   geocoding:
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-06-26T11:00:03.286531318-04:00"
+    created: "2026-06-26T12:36:27.75567273-04:00"
+    description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
+    digest: cd9f60cf22c6a5984bcba1980686afb028a226a9c328552fa1cbbc7b51202ad2
+    keywords:
+    - geocoding
+    - nominatim
+    - libpostal
+    - postgis
+    - postgres
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: geocoding
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/geocoding-helm-chart/geocoding-0.0.10.tgz
+    version: 0.0.10
+  - apiVersion: v2
+    appVersion: 5.3.2
+    created: "2026-06-26T12:36:27.758946863-04:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: e54b253e56e691fb93d863905e4951a90269a4543ddeb97a318868870e8b2084
     keywords:
@@ -118,7 +137,7 @@ entries:
     version: 0.0.9
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-06-26T11:00:03.285510035-04:00"
+    created: "2026-06-26T12:36:27.758413418-04:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: ff2659340dfa7bd719084f34d2b0b223e66dbd76a9c5a7d146f860eb04df12e6
     keywords:
@@ -137,7 +156,7 @@ entries:
     version: 0.0.8
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-06-26T11:00:03.283619559-04:00"
+    created: "2026-06-26T12:36:27.757567581-04:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: 46da4085ab7e9734d71443f29f40989095631e063460becd3db1bebee0a7a5c5
     keywords:
@@ -156,7 +175,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-06-26T11:00:03.282701194-04:00"
+    created: "2026-06-26T12:36:27.756536575-04:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: 198bd3a1a0d987543f156ed22b60a31fb36c949b05547eb6c7125a55e462a37d
     keywords:
@@ -2810,4 +2829,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-06-26T11:00:03.281583056-04:00"
+generated: "2026-06-26T12:36:27.754964425-04:00"

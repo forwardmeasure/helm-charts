@@ -5,6 +5,8 @@ set -euo pipefail
 WAIT_DATABASE="${PGMAINTENANCEDATABASE:-postgres}" /usr/local/bin/forwardmeasure-wait-for-postgres
 
 PROJECT_DIR="${PROJECT_DIR:-/nominatim}"
+PBF_WORK_DIR="${PBF_WORK_DIR:-${PROJECT_DIR}}"
+PBF_CACHE_ENABLED="${PBF_CACHE_ENABLED:-false}"
 PBF_URLS="${PBF_URLS:-}"
 PBF_PATHS="${PBF_PATHS:-}"
 USER_AGENT="${USER_AGENT:-forwardmeasure-geocoding}"
@@ -20,6 +22,8 @@ WARM="${WARM:-false}"
 CLEANUP_DOWNLOADED_PBF="${CLEANUP_DOWNLOADED_PBF:-true}"
 REPLICATION_URL="${REPLICATION_URL:-${NOMINATIM_REPLICATION_URL:-}}"
 FREEZE="${FREEZE:-false}"
+IMPORT_TIGER_ADDRESSES="${IMPORT_TIGER_ADDRESSES:-false}"
+TIGER_DATA_PATH="${TIGER_DATA_PATH:-}"
 
 run_as_nominatim() {
   if [ "$(id -u)" = "0" ]; then
@@ -49,6 +53,45 @@ append_csv() {
   done
 }
 
+cache_marker_matches() {
+  local marker="$1"
+  local signature="$2"
+
+  [ -f "${marker}" ] && [ "$(cat "${marker}")" = "${signature}" ]
+}
+
+write_cache_marker() {
+  local marker="$1"
+  local signature="$2"
+
+  printf '%s' "${signature}" > "${marker}"
+  chmod 0644 "${marker}"
+}
+
+find_tiger_data_file() {
+  local candidate
+
+  if [ -n "${TIGER_DATA_PATH}" ]; then
+    if [ -f "${TIGER_DATA_PATH}" ]; then
+      printf '%s\n' "${TIGER_DATA_PATH}"
+      return 0
+    fi
+    return 1
+  fi
+
+  for candidate in \
+    tiger-nominatim-preprocessed.tar.gz \
+    tiger-nominatim-preprocessed.csv.tar.gz
+  do
+    if [ -f "${candidate}" ]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 if [ "${SKIP_IF_IMPORTED}" = "true" ]; then
   if psql -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -tAc "select to_regclass('public.placex')" | grep -q placex; then
     echo "Nominatim database already contains placex; skipping import"
@@ -58,6 +101,7 @@ fi
 
 source_files=()
 downloaded_files=()
+downloaded_markers=()
 pbf_urls=()
 pbf_paths=()
 
@@ -69,32 +113,81 @@ if [ "${#pbf_urls[@]}" -eq 0 ] && [ "${#pbf_paths[@]}" -eq 0 ]; then
   exit 1
 fi
 
-mkdir -p "${PROJECT_DIR}/extracts"
+mkdir -p "${PROJECT_DIR}" "${PBF_WORK_DIR}/extracts"
+chmod 0755 "${PROJECT_DIR}" "${PBF_WORK_DIR}" "${PBF_WORK_DIR}/extracts"
 
-for url in "${pbf_urls[@]}"; do
-  idx="${#downloaded_files[@]}"
-  file="${PROJECT_DIR}/extracts/extract-${idx}.osm.pbf"
-  echo "Downloading OSM extract from ${url}"
-  curl -L -A "${USER_AGENT}" --fail --retry 5 --retry-delay 15 --retry-connrefused \
-    --continue-at - --create-dirs -o "${file}" "${url}"
-  source_files+=("${file}")
-  downloaded_files+=("${file}")
-done
+input_signature="$(
+  for url in "${pbf_urls[@]}"; do
+    printf 'url:%s\n' "${url}"
+  done
+  for path in "${pbf_paths[@]}"; do
+    printf 'path:%s\n' "${path}"
+  done
+)"
 
-for path in "${pbf_paths[@]}"; do
-  if [ ! -f "${path}" ]; then
-    echo "PBF path does not exist: ${path}"
-    exit 1
+use_cached_merged=false
+cached_merged_file="${PBF_WORK_DIR}/merged.osm.pbf"
+cached_merged_marker="${cached_merged_file}.complete"
+
+if [ "${PBF_CACHE_ENABLED}" = "true" ] && [ "${#pbf_urls[@]}" -gt 1 ] && [ "${#pbf_paths[@]}" -eq 0 ]; then
+  if [ -s "${cached_merged_file}" ] && cache_marker_matches "${cached_merged_marker}" "${input_signature}"; then
+    echo "Using cached merged OSM extract at ${cached_merged_file}"
+    source_files+=("${cached_merged_file}")
+    use_cached_merged=true
   fi
-  source_files+=("${path}")
-done
+fi
+
+if [ "${use_cached_merged}" != "true" ]; then
+  for url in "${pbf_urls[@]}"; do
+    idx="${#downloaded_files[@]}"
+    file="${PBF_WORK_DIR}/extracts/extract-${idx}.osm.pbf"
+    marker="${file}.complete"
+    download_signature="url:${url}"
+
+    if [ -f "${marker}" ] && ! cache_marker_matches "${marker}" "${download_signature}"; then
+      echo "Cached OSM extract marker does not match ${url}; replacing ${file}"
+      rm -f "${file}" "${marker}"
+    fi
+
+    if [ "${PBF_CACHE_ENABLED}" = "true" ] && [ -s "${file}" ] && cache_marker_matches "${marker}" "${download_signature}"; then
+      echo "Using cached OSM extract at ${file}"
+    else
+      echo "Downloading OSM extract from ${url}"
+      rm -f "${marker}"
+      curl -L -A "${USER_AGENT}" --fail --retry 5 --retry-delay 15 --retry-connrefused \
+        --continue-at - --create-dirs -o "${file}" "${url}"
+      chmod 0644 "${file}"
+      write_cache_marker "${marker}" "${download_signature}"
+    fi
+
+    source_files+=("${file}")
+    downloaded_files+=("${file}")
+    downloaded_markers+=("${marker}")
+  done
+
+  for path in "${pbf_paths[@]}"; do
+    if [ ! -f "${path}" ]; then
+      echo "PBF path does not exist: ${path}"
+      exit 1
+    fi
+    source_files+=("${path}")
+  done
+fi
 
 if [ "${#source_files[@]}" -eq 1 ]; then
   OSMFILE="${source_files[0]}"
 else
-  OSMFILE="${PROJECT_DIR}/merged.osm.pbf"
-  echo "Merging ${#source_files[@]} OSM extracts into ${OSMFILE}"
-  osmium merge "${source_files[@]}" -o "${OSMFILE}" --overwrite
+  OSMFILE="${PBF_WORK_DIR}/merged.osm.pbf"
+  merge_marker="${OSMFILE}.complete"
+  if [ "${PBF_CACHE_ENABLED}" = "true" ] && [ -s "${OSMFILE}" ] && cache_marker_matches "${merge_marker}" "${input_signature}"; then
+    echo "Using cached merged OSM extract at ${OSMFILE}"
+  else
+    echo "Merging ${#source_files[@]} OSM extracts into ${OSMFILE}"
+    rm -f "${merge_marker}"
+    osmium merge "${source_files[@]}" -o "${OSMFILE}" --overwrite
+    chmod 0644 "${OSMFILE}"
+    write_cache_marker "${merge_marker}" "${input_signature}"
+  fi
 fi
 
 if [ "$(id -u)" = "0" ]; then
@@ -127,8 +220,16 @@ fi
 echo "Running Nominatim import"
 run_as_nominatim nominatim "${import_args[@]}"
 
-if [ -f tiger-nominatim-preprocessed.csv.tar.gz ]; then
-  run_as_nominatim nominatim add-data --tiger-data tiger-nominatim-preprocessed.csv.tar.gz
+if tiger_data_file="$(find_tiger_data_file)"; then
+  echo "Importing TIGER address data from ${tiger_data_file}"
+  run_as_nominatim nominatim add-data --tiger-data "${tiger_data_file}"
+elif [ "${IMPORT_TIGER_ADDRESSES}" = "true" ]; then
+  if [ -n "${TIGER_DATA_PATH}" ]; then
+    echo "IMPORT_TIGER_ADDRESSES=true but TIGER_DATA_PATH does not exist: ${TIGER_DATA_PATH}"
+  else
+    echo "IMPORT_TIGER_ADDRESSES=true but no TIGER tarball was found in ${PROJECT_DIR}"
+  fi
+  exit 1
 fi
 
 run_as_nominatim nominatim index --threads "${THREADS}"
@@ -153,10 +254,14 @@ if [ "${ANALYZE}" = "true" ]; then
 fi
 
 if [ "${CLEANUP_DOWNLOADED_PBF}" = "true" ]; then
-  if [ "${#downloaded_files[@]}" -gt 0 ]; then
-    rm -f "${downloaded_files[@]}"
-  fi
-  if [ "${#source_files[@]}" -gt 1 ]; then
-    rm -f "${OSMFILE}"
+  if [ "${PBF_CACHE_ENABLED}" = "true" ]; then
+    echo "PBF cache is enabled; preserving downloaded and merged PBF files"
+  else
+    if [ "${#downloaded_files[@]}" -gt 0 ]; then
+      rm -f "${downloaded_files[@]}" "${downloaded_markers[@]}"
+    fi
+    if [ "${#source_files[@]}" -gt 1 ]; then
+      rm -f "${OSMFILE}" "${OSMFILE}.complete"
+    fi
   fi
 fi

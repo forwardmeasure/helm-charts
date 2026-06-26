@@ -102,4 +102,9 @@ helm upgrade --install geocoding ./charts/geocoding-helm-chart/helm-chart-source
 
 The Nominatim image installs `nominatim-db` and `nominatim-api` from Python packages, plus OS-level runtime dependencies such as `osm2pgsql` and `postgresql-client`.
 
+The Nominatim import entrypoint understands the chart's optional PBF cache. When
+`PBF_CACHE_ENABLED=true`, it downloads extracts under `PBF_WORK_DIR`, writes the
+merged file as `merged.osm.pbf`, and preserves those files for retry Jobs. Rebuild
+and push the Nominatim image whenever the import scripts change.
+
 The Libpostal build is intentionally heavy because it compiles `openvenues/libpostal`, downloads/installs Libpostal model data into the image, then builds `go-whosonfirst-libpostal`. For reproducible production builds, pin `LIBPOSTAL_REF`, `WOF_LIBPOSTAL_REF`, and the Ubuntu base image to tags or digests.
