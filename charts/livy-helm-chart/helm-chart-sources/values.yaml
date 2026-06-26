@@ -99,6 +99,8 @@ spark:
     dir: ""
   kubernetes:
     deleteOnTermination: true
+  gcs:
+    enabled: true
   extraConf: {}
 
 paths:
