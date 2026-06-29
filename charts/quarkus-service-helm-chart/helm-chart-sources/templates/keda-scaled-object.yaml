@@ -1,6 +1,13 @@
 {{- range .Values.services }}
 {{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
 {{- if .keda }}
+{{- $minReplicaCount := 1 }}
+{{- if and .scaling (hasKey .scaling "minReplicas") }}
+{{- $minReplicaCount = .scaling.minReplicas }}
+{{- end }}
+{{- if hasKey .keda "minReplicaCount" }}
+{{- $minReplicaCount = .keda.minReplicaCount }}
+{{- end }}
 ---
 # ---------------------------------------------------------------------------
 # ScaledObject: {{ .name }}
@@ -11,8 +18,8 @@
 # pollingInterval:  How often KEDA checks the scaler metrics (seconds).
 # cooldownPeriod:   How long to wait after last trigger before scaling to
 #                   minReplicaCount (seconds).
-# minReplicaCount:  Minimum replicas. Must be >= 1 for Kafka consumers to
-#                   avoid losing partition assignments.
+# minReplicaCount:  Minimum replicas. Set to 0 to allow scale-to-zero when
+#                   the configured scaler supports activation from zero.
 # maxReplicaCount:  Maximum replicas KEDA will scale to.
 # ---------------------------------------------------------------------------
 apiVersion: keda.sh/v1alpha1
@@ -29,7 +36,7 @@ spec:
     name: {{ .name }}
   pollingInterval: {{ .keda.pollingInterval | default 15 }}
   cooldownPeriod: {{ .keda.cooldownPeriod | default 300 }}
-  minReplicaCount: {{ .keda.minReplicaCount | default (.scaling.minReplicas | default 1) }}
+  minReplicaCount: {{ $minReplicaCount }}
   maxReplicaCount: {{ .keda.maxReplicaCount | default (.scaling.maxReplicas | default 4) }}
   triggers:
     {{- range .keda.triggers }}

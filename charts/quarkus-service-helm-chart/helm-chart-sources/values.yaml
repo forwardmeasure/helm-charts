@@ -225,8 +225,8 @@ kafka:
 #   cooldownPeriod:    Seconds to wait after last active trigger before
 #                      scaling down to minReplicaCount. Default: 300.
 #   minReplicaCount:   Minimum replicas. Falls back to scaling.minReplicas.
-#                      Must be >= 1 for Kafka consumers to avoid losing
-#                      partition assignments on scale-to-zero.
+#                      Set to 0 to allow scale-to-zero when the configured
+#                      scaler supports activation from zero.
 #   maxReplicaCount:   Maximum replicas. Falls back to scaling.maxReplicas.
 #   triggers:          List of KEDA trigger definitions. Each entry maps
 #                      directly to a ScaledObject trigger block.
@@ -238,7 +238,7 @@ kafka:
 #     keda:
 #       pollingInterval: 15
 #       cooldownPeriod: 300
-#       minReplicaCount: 1
+#       minReplicaCount: 0
 #       maxReplicaCount: 8
 #       triggers:
 #         - type: kafka
