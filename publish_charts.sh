@@ -229,6 +229,9 @@ stage_release_files() {
   for chart in "${CHART_NAMES[@]}"; do
     if [[ -d "charts/${chart}/helm-chart-sources" ]]; then
       git add "charts/${chart}/helm-chart-sources"
+    fi
+
+    if [[ -d "charts/${chart}/images" ]]; then
       git add "charts/${chart}/images"
     fi
 
