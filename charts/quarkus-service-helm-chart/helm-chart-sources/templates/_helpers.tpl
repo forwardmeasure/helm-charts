@@ -22,6 +22,47 @@ Create a default fully qualified app name.
 {{- end }}
 
 {{/*
+Cloud SQL Auth Proxy native sidecar for Kubernetes Jobs.
+
+Regular sidecar containers keep a Job running after the main container exits.
+For ScaledJob workloads, render the proxy as a native sidecar initContainer
+with restartPolicy: Always. Kubernetes terminates native sidecars when the
+regular containers complete, allowing the Job to finish.
+*/}}
+{{- define "quarkus-service.cloudSqlProxyNativeSidecar" -}}
+{{- $svc := .service -}}
+{{- $root := .root -}}
+{{- $proxy := $root.Values.cloudSqlProxy }}
+- name: cloud-sql-proxy
+  image: {{ include "quarkus-service.cloudSqlProxyImageRef" $proxy }}
+  imagePullPolicy: {{ $proxy.image.pullPolicy | default "IfNotPresent" }}
+  restartPolicy: Always
+  args:
+    - "--structured-logs"
+    - "--port={{ $proxy.port | default 5432 }}"
+    {{- if $proxy.privateIp }}
+    - "--private-ip"
+    {{- end }}
+    - "$(DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE)"
+  env:
+    - name: DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "quarkus-service.cloudSqlProxySecretName" (dict "service" $svc "root" $root) }}
+          key: db-cloud-sql-instance
+  resources:
+    requests:
+      cpu: {{ $proxy.resources.requests.cpu | default "100m" | quote }}
+      memory: {{ $proxy.resources.requests.memory | default "128Mi" }}
+    limits:
+      cpu: {{ $proxy.resources.limits.cpu | default "500m" | quote }}
+      memory: {{ $proxy.resources.limits.memory | default "256Mi" }}
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+{{- end }}
+
+{{/*
 Common labels
 */}}
 {{- define "quarkus-service.labels" -}}
@@ -39,6 +80,21 @@ Service-level labels — includes service name for per-pod identification.
 app.kubernetes.io/component: {{ .service.name }}
 quarkus-service/family: {{ .root.Release.Name }}
 quarkus-service/runtime: {{ .service.runtime | default "jvm" }}
+{{- end }}
+
+{{/*
+Merged pod annotations.
+Service-level podAnnotations override chart-level podAnnotations for matching
+keys. This avoids rendering duplicate YAML keys when a service needs to refine
+global pod annotations.
+*/}}
+{{- define "quarkus-service.podAnnotations" -}}
+{{- $rootAnnotations := .root.Values.podAnnotations | default (dict) -}}
+{{- $serviceAnnotations := .service.podAnnotations | default (dict) -}}
+{{- $annotations := mergeOverwrite (deepCopy $rootAnnotations) $serviceAnnotations -}}
+{{- if $annotations -}}
+{{- toYaml $annotations -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -220,6 +276,9 @@ Validate a service entry has all required fields.
 {{- end }}
 {{- $deploymentMode := .service.deploymentMode | default "knative" }}
 {{- $scaling := .service.scaling | default (dict) }}
+{{- if not (or (eq $deploymentMode "knative") (eq $deploymentMode "deployment") (eq $deploymentMode "scaledJob")) }}
+{{- fail (printf "service '%s' has invalid deploymentMode '%s'; expected one of: knative, deployment, scaledJob" .service.name $deploymentMode) }}
+{{- end }}
 {{- if eq $deploymentMode "deployment" }}
 {{- $autoscaler := $scaling.autoscaler | default "none" }}
 {{- if not (or (eq $autoscaler "none") (eq $autoscaler "hpa") (eq $autoscaler "keda")) }}
@@ -230,6 +289,14 @@ Validate a service entry has all required fields.
 {{- end }}
 {{- if and (eq $autoscaler "hpa") (not (hasKey $scaling "maxReplicas")) }}
 {{- fail (printf "service '%s' has scaling.autoscaler=hpa but scaling.maxReplicas is not set" .service.name) }}
+{{- end }}
+{{- end }}
+{{- if eq $deploymentMode "scaledJob" }}
+{{- if not $scaling.triggers }}
+{{- fail (printf "service '%s' has deploymentMode=scaledJob but scaling.triggers is empty" .service.name) }}
+{{- end }}
+{{- if and (hasKey $scaling "autoscaler") (ne ($scaling.autoscaler | default "") "") (ne ($scaling.autoscaler | default "") "none") }}
+{{- fail (printf "service '%s' has deploymentMode=scaledJob and must not set scaling.autoscaler" .service.name) }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -275,8 +342,12 @@ Usage: include "quarkus-service.initContainers" (dict "service" . "root" $)
 {{- $root := .root -}}
 {{- $liquibaseEnabled := include "quarkus-service.liquibaseWaitEnabled" (dict "service" $svc "root" $root) -}}
 {{- $hasCustomInit := and $svc.initContainers (gt (len $svc.initContainers) 0) -}}
-{{- if or (eq $liquibaseEnabled "true") $hasCustomInit }}
+{{- $cloudSqlProxyAsNativeSidecar := and (eq ($svc.deploymentMode | default "knative") "scaledJob") $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled -}}
+{{- if or (eq $liquibaseEnabled "true") $hasCustomInit $cloudSqlProxyAsNativeSidecar }}
 initContainers:
+  {{- if $cloudSqlProxyAsNativeSidecar }}
+  {{- include "quarkus-service.cloudSqlProxyNativeSidecar" (dict "service" $svc "root" $root) | nindent 2 }}
+  {{- end }}
   {{- if eq $liquibaseEnabled "true" }}
   {{- $lw := $root.Values.liquibaseWait }}
   - name: wait-for-liquibase
@@ -355,6 +426,7 @@ Usage: include "quarkus-service.mainContainer" (dict "service" . "root" $)
 {{- define "quarkus-service.mainContainer" -}}
 {{- $svc := .service -}}
 {{- $root := .root -}}
+{{- $probes := $svc.probes | default (dict) -}}
 - name: {{ $svc.name }}
   image: {{ include "quarkus-service.imageRef" (dict "image" $svc.image) }}
   imagePullPolicy: {{ $svc.image.pullPolicy | default "IfNotPresent" }}
@@ -365,11 +437,11 @@ Usage: include "quarkus-service.mainContainer" (dict "service" . "root" $)
   env:
     - name: QUARKUS_RUNTIME_MODE
       value: {{ $svc.runtime | default "jvm" | quote }}
-    {{- if eq ($svc.deploymentMode | default $root.Values.deploymentMode | default "knative") "deployment" }}
+    {{- if ne ($svc.deploymentMode | default $root.Values.deploymentMode | default "knative") "knative" }}
     # Pod IP injected via downward API — used by Spark driver so executor
     # pods can connect back via a routable IP address. The pod name (HOSTNAME)
     # is not DNS-resolvable from other pods without a headless Service.
-    # Only rendered in deployment mode — Knative admission webhook rejects fieldRef.
+    # Not rendered in Knative mode — Knative admission webhook rejects fieldRef.
     - name: POD_IP
       valueFrom:
         fieldRef:
@@ -401,27 +473,27 @@ Usage: include "quarkus-service.mainContainer" (dict "service" . "root" $)
       memory: {{ $svc.resources.limits.memory | default "1Gi" }}
   livenessProbe:
     httpGet:
-      path: {{ $svc.probes.liveness | default "/q/health/live" }}
+      path: {{ $probes.liveness | default "/q/health/live" }}
       port: {{ $svc.port | default 8080 }}
-    initialDelaySeconds: {{ $svc.probes.initialDelaySeconds | default 30 }}
-    periodSeconds: {{ $svc.probes.periodSeconds | default 10 }}
-    timeoutSeconds: {{ $svc.probes.timeoutSeconds | default 5 }}
-    failureThreshold: {{ $svc.probes.failureThreshold | default 3 }}
+    initialDelaySeconds: {{ $probes.initialDelaySeconds | default 30 }}
+    periodSeconds: {{ $probes.periodSeconds | default 10 }}
+    timeoutSeconds: {{ $probes.timeoutSeconds | default 5 }}
+    failureThreshold: {{ $probes.failureThreshold | default 3 }}
   readinessProbe:
     httpGet:
-      path: {{ $svc.probes.readiness | default "/q/health/ready" }}
+      path: {{ $probes.readiness | default "/q/health/ready" }}
       port: {{ $svc.port | default 8080 }}
-    initialDelaySeconds: {{ $svc.probes.initialDelaySeconds | default 10 }}
-    periodSeconds: {{ $svc.probes.periodSeconds | default 5 }}
-    timeoutSeconds: {{ $svc.probes.timeoutSeconds | default 3 }}
-    failureThreshold: {{ $svc.probes.failureThreshold | default 3 }}
+    initialDelaySeconds: {{ $probes.initialDelaySeconds | default 10 }}
+    periodSeconds: {{ $probes.periodSeconds | default 5 }}
+    timeoutSeconds: {{ $probes.timeoutSeconds | default 3 }}
+    failureThreshold: {{ $probes.failureThreshold | default 3 }}
   startupProbe:
     httpGet:
-      path: {{ $svc.probes.startup | default "/q/health/started" }}
+      path: {{ $probes.startup | default "/q/health/started" }}
       port: {{ $svc.port | default 8080 }}
-    initialDelaySeconds: {{ $svc.probes.initialDelaySeconds | default 10 }}
-    periodSeconds: {{ $svc.probes.periodSeconds | default 5 }}
-    failureThreshold: {{ $svc.probes.startupFailureThreshold | default 30 }}
+    initialDelaySeconds: {{ $probes.initialDelaySeconds | default 10 }}
+    periodSeconds: {{ $probes.periodSeconds | default 5 }}
+    failureThreshold: {{ $probes.startupFailureThreshold | default 30 }}
 {{- end }}
 
 {{/*
@@ -432,7 +504,7 @@ Usage: include "quarkus-service.cloudSqlProxySidecar" (dict "service" . "root" $
 {{- define "quarkus-service.cloudSqlProxySidecar" -}}
 {{- $svc := .service -}}
 {{- $root := .root -}}
-{{- if and $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
+{{- if and (ne ($svc.deploymentMode | default "knative") "scaledJob") $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
 {{- $proxy := $root.Values.cloudSqlProxy }}
 - name: cloud-sql-proxy
   image: {{ include "quarkus-service.cloudSqlProxyImageRef" $proxy }}
