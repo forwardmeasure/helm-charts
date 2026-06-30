@@ -1,12 +1,19 @@
 {{- range .Values.services }}
 {{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
 {{- include "quarkus-service.validateService" (dict "service" . "root" $) }}
+{{- $scaling := .scaling | default (dict) }}
+{{- $minReplicas := 1 }}
+{{- if hasKey $scaling "initialReplicas" }}
+{{- $minReplicas = $scaling.initialReplicas }}
+{{- else if hasKey $scaling "minReplicas" }}
+{{- $minReplicas = $scaling.minReplicas }}
+{{- end }}
 ---
 # ---------------------------------------------------------------------------
 # Deployment: {{ .name }}
-# Standard Kubernetes Deployment — no Knative, no scale-to-zero.
-# Use for services that require stable long-lived connections (Spark driver,
-# Kafka consumers with large state, etc.).
+# Standard Kubernetes Deployment.
+# Autoscaling is selected explicitly with scaling.autoscaler:
+# none | hpa | keda.
 # ---------------------------------------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
@@ -16,7 +23,7 @@ metadata:
   labels:
     {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
 spec:
-  replicas: {{ .scaling.minReplicas | default 1 }}
+  replicas: {{ $minReplicas }}
   selector:
     matchLabels:
       app.kubernetes.io/component: {{ .name }}

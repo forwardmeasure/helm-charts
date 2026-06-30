@@ -1,12 +1,17 @@
 {{- range .Values.services }}
 {{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
-{{- if .keda }}
-{{- $minReplicaCount := 1 }}
-{{- if and .scaling (hasKey .scaling "minReplicas") }}
-{{- $minReplicaCount = .scaling.minReplicas }}
+{{- $scaling := .scaling | default (dict) }}
+{{- if eq ($scaling.autoscaler | default "none") "keda" }}
+{{- if not $scaling.triggers }}
+{{- fail (printf "service '%s' has scaling.autoscaler=keda but scaling.triggers is empty" .name) }}
 {{- end }}
-{{- if hasKey .keda "minReplicaCount" }}
-{{- $minReplicaCount = .keda.minReplicaCount }}
+{{- $minReplicaCount := 1 }}
+{{- if hasKey $scaling "minReplicas" }}
+{{- $minReplicaCount = $scaling.minReplicas }}
+{{- end }}
+{{- $maxReplicaCount := 4 }}
+{{- if hasKey $scaling "maxReplicas" }}
+{{- $maxReplicaCount = $scaling.maxReplicas }}
 {{- end }}
 ---
 # ---------------------------------------------------------------------------
@@ -34,12 +39,12 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ .name }}
-  pollingInterval: {{ .keda.pollingInterval | default 15 }}
-  cooldownPeriod: {{ .keda.cooldownPeriod | default 300 }}
+  pollingInterval: {{ $scaling.pollingInterval | default 15 }}
+  cooldownPeriod: {{ $scaling.cooldownPeriod | default 300 }}
   minReplicaCount: {{ $minReplicaCount }}
-  maxReplicaCount: {{ .keda.maxReplicaCount | default (.scaling.maxReplicas | default 4) }}
+  maxReplicaCount: {{ $maxReplicaCount }}
   triggers:
-    {{- range .keda.triggers }}
+    {{- range $scaling.triggers }}
     - type: {{ .type }}
       metadata:
         {{- range $k, $v := .metadata }}

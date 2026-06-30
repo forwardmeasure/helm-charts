@@ -1,14 +1,22 @@
 {{- range .Values.services }}
 {{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
-{{- if not .keda }}
-{{- if and .scaling .scaling.maxReplicas (gt (.scaling.maxReplicas | int) (.scaling.minReplicas | default 1 | int)) }}
+{{- $scaling := .scaling | default (dict) }}
+{{- if eq ($scaling.autoscaler | default "none") "hpa" }}
+{{- $minReplicas := 1 }}
+{{- if hasKey $scaling "minReplicas" }}
+{{- $minReplicas = $scaling.minReplicas }}
+{{- end }}
+{{- if not (hasKey $scaling "maxReplicas") }}
+{{- fail (printf "service '%s' has scaling.autoscaler=hpa but scaling.maxReplicas is not set" .name) }}
+{{- end }}
+{{- $maxReplicas := $scaling.maxReplicas }}
+{{- if not (gt ($maxReplicas | int) ($minReplicas | int)) }}
+{{- fail (printf "service '%s' has scaling.autoscaler=hpa but scaling.maxReplicas must be greater than scaling.minReplicas" .name) }}
+{{- end }}
 ---
 # ---------------------------------------------------------------------------
 # HorizontalPodAutoscaler: {{ .name }}
-# Only rendered for deploymentMode: deployment services where
-# maxReplicas > minReplicas and KEDA is not configured.
-# When keda is set on a service, KEDA manages its own internal HPA and
-# this resource must not be rendered to avoid conflicts.
+# Rendered only when scaling.autoscaler: hpa.
 # ---------------------------------------------------------------------------
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -22,26 +30,26 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ .name }}
-  minReplicas: {{ .scaling.minReplicas | default 1 }}
-  maxReplicas: {{ .scaling.maxReplicas }}
+  minReplicas: {{ $minReplicas }}
+  maxReplicas: {{ $maxReplicas }}
   metrics:
-    {{- if .scaling.cpuTarget }}
+    {{- if $scaling.cpuTarget }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .scaling.cpuTarget }}
+          averageUtilization: {{ $scaling.cpuTarget }}
     {{- end }}
-    {{- if .scaling.memoryTarget }}
+    {{- if $scaling.memoryTarget }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .scaling.memoryTarget }}
+          averageUtilization: {{ $scaling.memoryTarget }}
     {{- end }}
-    {{- if not (or .scaling.cpuTarget .scaling.memoryTarget) }}
+    {{- if not (or $scaling.cpuTarget $scaling.memoryTarget) }}
     # Default: scale on CPU utilization at 70%
     - type: Resource
       resource:
@@ -52,18 +60,17 @@ spec:
     {{- end }}
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: {{ .scaling.scaleDownStabilizationSeconds | default 300 }}
+      stabilizationWindowSeconds: {{ $scaling.scaleDownStabilizationSeconds | default 300 }}
       policies:
         - type: Pods
           value: 1
           periodSeconds: 60
     scaleUp:
-      stabilizationWindowSeconds: {{ .scaling.scaleUpStabilizationSeconds | default 30 }}
+      stabilizationWindowSeconds: {{ $scaling.scaleUpStabilizationSeconds | default 30 }}
       policies:
         - type: Pods
           value: 2
           periodSeconds: 60
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
