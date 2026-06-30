@@ -34,12 +34,7 @@ spec:
         autoscaling.knative.dev/target: {{ $scaling.target | default "10" | quote }}
         autoscaling.knative.dev/minScale: {{ $minScale | toString | quote }}
         autoscaling.knative.dev/maxScale: {{ $maxScale | toString | quote }}
-        {{- with $.Values.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- with .podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- include "quarkus-service.podAnnotations" (dict "service" . "root" $) | nindent 8 }}
       labels:
         {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 8 }}
     spec:
