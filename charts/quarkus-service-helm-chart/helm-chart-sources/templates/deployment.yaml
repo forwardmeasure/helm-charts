@@ -32,13 +32,11 @@ spec:
     metadata:
       labels:
         {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 8 }}
+      {{- $podAnnotations := include "quarkus-service.podAnnotations" (dict "service" . "root" $) }}
+      {{- if $podAnnotations }}
       annotations:
-        {{- with $.Values.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- with .podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- $podAnnotations | nindent 8 }}
+      {{- end }}
     spec:
       serviceAccountName: {{ $.Values.serviceAccount.name }}
       {{- with $.Values.imagePullSecrets }}
