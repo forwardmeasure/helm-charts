@@ -188,15 +188,15 @@ kafka:
 # deploymentMode: knative (default) | deployment
 #   knative    — Knative Service with scale-to-zero and Knative traffic
 #                management. Use for pure HTTP request/response workloads.
-#   deployment — Standard Kubernetes Deployment + ClusterIP Service + HPA.
+#   deployment — Standard Kubernetes Deployment + ClusterIP Service.
 #                Use for services requiring stable long-lived connections
 #                (Spark driver, persistent Kafka consumers, etc.).
 #
 # scaling fields:
 #
 #   Both modes:
-#     minReplicas:   Minimum replicas.
-#     maxReplicas:   Maximum replicas.
+#     minReplicas:   Minimum replicas for the selected autoscaler.
+#     maxReplicas:   Maximum replicas for the selected autoscaler.
 #
 #   knative only:
 #     target:               Concurrency target per pod.
@@ -205,8 +205,15 @@ kafka:
 #     class:                Autoscaler class (default: kpa.autoscaling.knative.dev).
 #     metric:               Autoscaler metric (default: concurrency).
 #
-#   deployment only (HPA — only rendered when maxReplicas > minReplicas AND
-#                    keda is not set):
+#   deployment only:
+#     autoscaler:     none | hpa | keda. Default: none.
+#                     none — Deployment only.
+#                     hpa  — Deployment + Kubernetes HorizontalPodAutoscaler.
+#                     keda — Deployment + KEDA ScaledObject.
+#     initialReplicas: Initial Deployment.spec.replicas value. Defaults to
+#                      minReplicas, then 1. Set to 0 with KEDA scale-to-zero.
+#
+#   deployment + autoscaler: hpa:
 #     cpuTarget:                      CPU utilisation % to trigger scale-up.
 #                                     Default: 70. Omit to disable CPU scaling.
 #     memoryTarget:                   Memory utilisation % to trigger scale-up.
@@ -216,30 +223,25 @@ kafka:
 #     scaleUpStabilizationSeconds:    HPA scale-up stabilisation window.
 #                                     Default: 30.
 #
-# keda fields (deployment only):
-#   When keda is set, a KEDA ScaledObject is rendered instead of an HPA.
-#   KEDA manages its own internal HPA — the chart HPA is suppressed.
-#
-#   pollingInterval:   How often KEDA polls scalers for metrics (seconds).
+#   deployment + autoscaler: keda:
+#     pollingInterval: How often KEDA polls scalers for metrics (seconds).
 #                      Default: 15.
-#   cooldownPeriod:    Seconds to wait after last active trigger before
-#                      scaling down to minReplicaCount. Default: 300.
-#   minReplicaCount:   Minimum replicas. Falls back to scaling.minReplicas.
-#                      Set to 0 to allow scale-to-zero when the configured
-#                      scaler supports activation from zero.
-#   maxReplicaCount:   Maximum replicas. Falls back to scaling.maxReplicas.
-#   triggers:          List of KEDA trigger definitions. Each entry maps
+#     cooldownPeriod:  Seconds to wait after last active trigger before
+#                      scaling down to minReplicas. Default: 300.
+#     triggers:        List of KEDA trigger definitions. Each entry maps
 #                      directly to a ScaledObject trigger block.
 #     type:            Scaler type (e.g. kafka, prometheus, cpu).
 #     metadata:        Key-value map passed verbatim to the scaler.
 #                      All values are quoted strings.
 #
 #   Kafka trigger example:
-#     keda:
+#     scaling:
+#       autoscaler: keda
+#       initialReplicas: 0
+#       minReplicas: 0
+#       maxReplicas: 8
 #       pollingInterval: 15
 #       cooldownPeriod: 300
-#       minReplicaCount: 0
-#       maxReplicaCount: 8
 #       triggers:
 #         - type: kafka
 #           metadata:

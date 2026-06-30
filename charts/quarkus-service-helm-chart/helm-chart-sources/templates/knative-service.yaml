@@ -1,6 +1,15 @@
 {{- range .Values.services }}
 {{- if and .enabled (eq (.deploymentMode | default "knative") "knative") }}
 {{- include "quarkus-service.validateService" (dict "service" . "root" $) }}
+{{- $scaling := .scaling | default (dict) }}
+{{- $minScale := 1 }}
+{{- if hasKey $scaling "minReplicas" }}
+{{- $minScale = $scaling.minReplicas }}
+{{- end }}
+{{- $maxScale := 5 }}
+{{- if hasKey $scaling "maxReplicas" }}
+{{- $maxScale = $scaling.maxReplicas }}
+{{- end }}
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -20,11 +29,11 @@ spec:
   template:
     metadata:
       annotations:
-        autoscaling.knative.dev/class: {{ .scaling.class | default "kpa.autoscaling.knative.dev" | quote }}
-        autoscaling.knative.dev/metric: {{ .scaling.metric | default "concurrency" | quote }}
-        autoscaling.knative.dev/target: {{ .scaling.target | default "10" | quote }}
-        autoscaling.knative.dev/minScale: {{ .scaling.minReplicas | toString | default "1" | quote }}
-        autoscaling.knative.dev/maxScale: {{ .scaling.maxReplicas | toString | default "5" | quote }}
+        autoscaling.knative.dev/class: {{ $scaling.class | default "kpa.autoscaling.knative.dev" | quote }}
+        autoscaling.knative.dev/metric: {{ $scaling.metric | default "concurrency" | quote }}
+        autoscaling.knative.dev/target: {{ $scaling.target | default "10" | quote }}
+        autoscaling.knative.dev/minScale: {{ $minScale | toString | quote }}
+        autoscaling.knative.dev/maxScale: {{ $maxScale | toString | quote }}
         {{- with $.Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -43,8 +52,8 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      timeoutSeconds: {{ .scaling.timeoutSeconds | default 300 }}
-      containerConcurrency: {{ .scaling.containerConcurrency | default 0 }}
+      timeoutSeconds: {{ $scaling.timeoutSeconds | default 300 }}
+      containerConcurrency: {{ $scaling.containerConcurrency | default 0 }}
       {{- include "quarkus-service.initContainers" (dict "service" . "root" $) | nindent 6 }}
       containers:
         {{- include "quarkus-service.mainContainer" (dict "service" . "root" $) | nindent 8 }}
