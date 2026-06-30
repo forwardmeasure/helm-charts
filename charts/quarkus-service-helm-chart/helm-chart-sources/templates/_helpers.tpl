@@ -215,6 +215,23 @@ Validate a service entry has all required fields.
 {{- if not .root.Values.liquibaseWait }}
 {{- fail "chart-level liquibaseWait is not configured" }}
 {{- end }}
+{{- if hasKey .service "keda" }}
+{{- fail (printf "service '%s' uses deprecated top-level keda; use scaling.autoscaler: keda with scaling.triggers instead" .service.name) }}
+{{- end }}
+{{- $deploymentMode := .service.deploymentMode | default "knative" }}
+{{- $scaling := .service.scaling | default (dict) }}
+{{- if eq $deploymentMode "deployment" }}
+{{- $autoscaler := $scaling.autoscaler | default "none" }}
+{{- if not (or (eq $autoscaler "none") (eq $autoscaler "hpa") (eq $autoscaler "keda")) }}
+{{- fail (printf "service '%s' has invalid scaling.autoscaler '%s'; expected one of: none, hpa, keda" .service.name $autoscaler) }}
+{{- end }}
+{{- if and (eq $autoscaler "keda") (not $scaling.triggers) }}
+{{- fail (printf "service '%s' has scaling.autoscaler=keda but scaling.triggers is empty" .service.name) }}
+{{- end }}
+{{- if and (eq $autoscaler "hpa") (not (hasKey $scaling "maxReplicas")) }}
+{{- fail (printf "service '%s' has scaling.autoscaler=hpa but scaling.maxReplicas is not set" .service.name) }}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{/*
