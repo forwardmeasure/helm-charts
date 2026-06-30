@@ -1,0 +1,91 @@
+{{- range .Values.services }}
+{{- if and .enabled (eq (.deploymentMode | default "knative") "scaledJob") }}
+{{- include "quarkus-service.validateService" (dict "service" . "root" $) }}
+{{- $scaling := .scaling | default (dict) }}
+{{- if not $scaling.triggers }}
+{{- fail (printf "service '%s' has deploymentMode=scaledJob but scaling.triggers is empty" .name) }}
+{{- end }}
+{{- $minReplicaCount := 0 }}
+{{- if hasKey $scaling "minReplicas" }}
+{{- $minReplicaCount = $scaling.minReplicas }}
+{{- end }}
+{{- $maxReplicaCount := 4 }}
+{{- if hasKey $scaling "maxReplicas" }}
+{{- $maxReplicaCount = $scaling.maxReplicas }}
+{{- end }}
+{{- $job := $scaling.job | default (dict) }}
+---
+# ---------------------------------------------------------------------------
+# ScaledJob: {{ .name }}
+# KEDA-managed one-shot worker for {{ .name }}.
+# Each Job pod consumes at most one Kafka task, executes it, commits only after
+# a durable task outcome, and exits.
+# ---------------------------------------------------------------------------
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+spec:
+  pollingInterval: {{ $scaling.pollingInterval | default 15 }}
+  minReplicaCount: {{ $minReplicaCount }}
+  maxReplicaCount: {{ $maxReplicaCount }}
+  successfulJobsHistoryLimit: {{ $scaling.successfulJobsHistoryLimit | default 3 }}
+  failedJobsHistoryLimit: {{ $scaling.failedJobsHistoryLimit | default 3 }}
+  {{- with $scaling.rollout }}
+  rollout:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $scaling.scalingStrategy }}
+  scalingStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  jobTargetRef:
+    parallelism: {{ $job.parallelism | default 1 }}
+    completions: {{ $job.completions | default 1 }}
+    backoffLimit: {{ $job.backoffLimit | default 0 }}
+    {{- if hasKey $job "activeDeadlineSeconds" }}
+    activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
+    {{- end }}
+    {{- if hasKey $job "ttlSecondsAfterFinished" }}
+    ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
+    {{- end }}
+    template:
+      metadata:
+        labels:
+          {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 10 }}
+        {{- $podAnnotations := include "quarkus-service.podAnnotations" (dict "service" . "root" $) }}
+        {{- if $podAnnotations }}
+        annotations:
+          {{- $podAnnotations | nindent 10 }}
+        {{- end }}
+      spec:
+        restartPolicy: Never
+        serviceAccountName: {{ $.Values.serviceAccount.name }}
+        {{- with $.Values.imagePullSecrets }}
+        imagePullSecrets:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .nodeSelector }}
+        nodeSelector:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .tolerations }}
+        tolerations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- include "quarkus-service.initContainers" (dict "service" . "root" $) | nindent 8 }}
+        containers:
+          {{- include "quarkus-service.mainContainer" (dict "service" . "root" $) | nindent 10 }}
+  triggers:
+    {{- range $scaling.triggers }}
+    - type: {{ .type }}
+      metadata:
+        {{- range $k, $v := .metadata }}
+        {{ $k }}: {{ $v | quote }}
+        {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

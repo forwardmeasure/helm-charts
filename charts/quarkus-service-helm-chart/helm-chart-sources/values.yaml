@@ -185,12 +185,14 @@ kafka:
 # Per-service secrets (unique to that service) are declared under secrets[].
 # Shared secrets across services are declared at the top-level secrets[] above.
 #
-# deploymentMode: knative (default) | deployment
+# deploymentMode: knative (default) | deployment | scaledJob
 #   knative    — Knative Service with scale-to-zero and Knative traffic
 #                management. Use for pure HTTP request/response workloads.
 #   deployment — Standard Kubernetes Deployment + ClusterIP Service.
 #                Use for services requiring stable long-lived connections
 #                (Spark driver, persistent Kafka consumers, etc.).
+#   scaledJob  — KEDA ScaledJob for queue-triggered finite workers that
+#                process one unit of work and exit.
 #
 # scaling fields:
 #
@@ -213,6 +215,19 @@ kafka:
 #     initialReplicas: Initial Deployment.spec.replicas value. Defaults to
 #                      minReplicas, then 1. Set to 0 with KEDA scale-to-zero.
 #
+#   scaledJob only:
+#     minReplicas:                 Minimum running jobs. Usually 0.
+#     maxReplicas:                 Maximum concurrent jobs.
+#     successfulJobsHistoryLimit:  Completed Job history to retain.
+#     failedJobsHistoryLimit:      Failed Job history to retain.
+#     job.parallelism:             Kubernetes Job parallelism. Default: 1.
+#     job.completions:             Kubernetes Job completions. Default: 1.
+#     job.backoffLimit:            Kubernetes Job retry count. Default: 0,
+#                                  because durable task retry is owned by
+#                                  the application task state machine.
+#     job.activeDeadlineSeconds:   Optional wall-clock limit for one Job.
+#     job.ttlSecondsAfterFinished: Optional cleanup TTL for finished Jobs.
+#
 #   deployment + autoscaler: hpa:
 #     cpuTarget:                      CPU utilisation % to trigger scale-up.
 #                                     Default: 70. Omit to disable CPU scaling.
@@ -223,7 +238,7 @@ kafka:
 #     scaleUpStabilizationSeconds:    HPA scale-up stabilisation window.
 #                                     Default: 30.
 #
-#   deployment + autoscaler: keda:
+#   deployment + autoscaler: keda, and scaledJob:
 #     pollingInterval: How often KEDA polls scalers for metrics (seconds).
 #                      Default: 15.
 #     cooldownPeriod:  Seconds to wait after last active trigger before
