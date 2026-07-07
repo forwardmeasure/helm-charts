@@ -1,4 +1,8 @@
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled }}
+{{- $importPbfPaths := .Values.nominatim.import.pbfPaths -}}
+{{- if .Values.nominatim.import.cloudStorage.enabled -}}
+{{- $importPbfPaths = append $importPbfPaths (include "geocoding.nominatimCloudStorageLocalPath" .) -}}
+{{- end -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -50,9 +54,71 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.cloudSqlProxy.enabled }}
+      {{- if or .Values.cloudSqlProxy.enabled .Values.nominatim.import.cloudStorage.enabled }}
       initContainers:
         {{- include "geocoding.cloudSqlProxyContainer" . | nindent 8 }}
+        {{- if .Values.nominatim.import.cloudStorage.enabled }}
+        - name: fetch-pbf-from-cloud-storage
+          image: "{{ include "geocoding.nominatimCloudStorageImage" . }}"
+          imagePullPolicy: {{ .Values.nominatim.import.cloudStorage.image.pullPolicy }}
+          {{- if .Values.nominatim.import.cloudStorage.credentialsSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.nominatim.import.cloudStorage.credentialsSecret }}
+          {{- end }}
+          {{- with .Values.nominatim.import.cloudStorage.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              uri={{ .Values.nominatim.import.cloudStorage.uri | quote }}
+              dest={{ include "geocoding.nominatimCloudStorageLocalPath" . | quote }}
+              provider={{ .Values.nominatim.import.cloudStorage.provider | quote }}
+              skip_if_exists={{ .Values.nominatim.import.cloudStorage.skipIfExists | quote }}
+              marker="${dest}.complete"
+              signature="cloud:${provider}:${uri}"
+
+              mkdir -p "$(dirname "${dest}")"
+              if [ "${skip_if_exists}" = "true" ] && [ -s "${dest}" ] && [ -f "${marker}" ] && [ "$(cat "${marker}")" = "${signature}" ]; then
+                echo "Using cached cloud PBF at ${dest}"
+                exit 0
+              fi
+
+              tmp="${dest}.tmp"
+              rm -f "${tmp}" "${marker}"
+              echo "Copying ${uri} to ${dest}"
+              case "${provider}" in
+                gcs)
+                  gcloud storage cp "${uri}" "${tmp}"
+                  ;;
+                s3|aws)
+                  aws s3 cp "${uri}" "${tmp}"
+                  ;;
+                azure)
+                  azcopy copy "${uri}" "${tmp}" --overwrite=true
+                  ;;
+                *)
+                  echo "Unsupported cloud storage provider: ${provider}" >&2
+                  exit 1
+                  ;;
+              esac
+
+              mv "${tmp}" "${dest}"
+              chmod 0644 "${dest}"
+              printf '%s' "${signature}" > "${marker}"
+              chmod 0644 "${marker}"
+          volumeMounts:
+            - name: pbf-cache
+              mountPath: {{ .Values.nominatim.import.pbfCache.mountPath }}
+            {{- with .Values.nominatim.import.cloudStorage.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.nominatim.import.cloudStorage.resources | nindent 12 }}
+        {{- end }}
       {{- end }}
       containers:
         - name: import
@@ -69,9 +135,13 @@ spec:
             - name: PROJECT_DIR
               value: {{ .Values.nominatim.projectDir | quote }}
             - name: PBF_URLS
+              {{- if .Values.nominatim.import.cloudStorage.enabled }}
+              value: ""
+              {{- else }}
               value: {{ join "," .Values.nominatim.import.pbfUrls | quote }}
+              {{- end }}
             - name: PBF_PATHS
-              value: {{ join "," .Values.nominatim.import.pbfPaths | quote }}
+              value: {{ join "," $importPbfPaths | quote }}
             - name: USER_AGENT
               value: {{ .Values.nominatim.import.userAgent | quote }}
             - name: THREADS
