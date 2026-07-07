@@ -284,6 +284,43 @@ nominatim:
       # Keep chart-created cache PVCs on helm uninstall. Set false only when
       # you explicitly want Helm to delete the cached PBF data.
       retain: true
+    # Optional cloud object storage source. The chart renders an init container
+    # that copies the object into the PBF cache PVC and then imports from that
+    # local path. This avoids repeated internet/cloud downloads after failed
+    # database imports.
+    cloudStorage:
+      enabled: false
+      # Supported values: gcs, s3, aws, azure.
+      provider: gcs
+      # Examples:
+      #   gcs:   gs://my-bucket/nominatim/planet-latest.osm.pbf
+      #   s3:    s3://my-bucket/nominatim/planet-latest.osm.pbf
+      #   azure: https://account.blob.core.windows.net/container/planet-latest.osm.pbf?<sas>
+      uri: ""
+      # Defaults to <pbfCache.mountPath>/cloud-storage.osm.pbf when empty.
+      localPath: ""
+      # Optional Secret whose keys are exposed as environment variables to the
+      # downloader init container. Prefer cloud-native workload identity when
+      # available: GKE Workload Identity, AWS IRSA, Azure Workload Identity.
+      credentialsSecret: ""
+      skipIfExists: true
+      image:
+        # If repository/tag are empty, provider-specific defaults are used:
+        # gcs   -> gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+        # s3    -> amazon/aws-cli:2.15.57
+        # azure -> mcr.microsoft.com/azure-storage/azcopy:v10
+        repository: ""
+        tag: ""
+        pullPolicy: IfNotPresent
+      extraEnv: []
+      extraVolumeMounts: []
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: 2000m
+          memory: 2Gi
     backoffLimit: 0
     restartPolicy: Never
     ttlSecondsAfterFinished: 86400

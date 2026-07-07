@@ -248,6 +248,66 @@ if `cleanupDownloadedPbf=true`. Set `pbfCache.existingClaim` to use a PVC that i
 managed outside this chart. For chart-created cache PVCs, `retain: true` adds
 `helm.sh/resource-policy: keep` so the cache can survive `helm uninstall`.
 
+You can also import a PBF from cloud object storage. The chart creates a
+downloader init container, copies the object into the PBF cache PVC, and then
+sets `PBF_PATHS` to the local cached file. When cloud storage is enabled,
+`pbfUrls` are ignored to avoid accidentally combining the cloud object with the
+chart defaults.
+
+GCS example:
+
+```yaml
+nominatim:
+  import:
+    enabled: true
+    cloudStorage:
+      enabled: true
+      provider: gcs
+      uri: gs://datafabric-druid-data-fabric-397316/nominatim/pbf/planet-latest.osm.pbf
+    pbfCache:
+      enabled: true
+      size: 900Gi
+      storageClass: premium-rwo
+      retain: true
+```
+
+S3 example:
+
+```yaml
+nominatim:
+  import:
+    cloudStorage:
+      enabled: true
+      provider: s3
+      uri: s3://my-bucket/nominatim/pbf/planet-latest.osm.pbf
+    pbfCache:
+      enabled: true
+      size: 900Gi
+```
+
+Azure Blob Storage example using an HTTPS/SAS URL:
+
+```yaml
+nominatim:
+  import:
+    cloudStorage:
+      enabled: true
+      provider: azure
+      uri: "https://account.blob.core.windows.net/container/planet-latest.osm.pbf?<sas-token>"
+    pbfCache:
+      enabled: true
+      size: 900Gi
+```
+
+For private objects, prefer cloud-native workload identity where available:
+GKE Workload Identity for GCS, AWS IRSA for S3, or Azure Workload Identity/SAS
+for Azure. If you must inject static credentials, put them in a Kubernetes
+Secret and set `nominatim.import.cloudStorage.credentialsSecret`; the Secret is
+exposed as environment variables only to the downloader init container. For
+GCS service-account JSON, mount the Secret through `extraVolumes` and
+`cloudStorage.extraVolumeMounts`, then set `GOOGLE_APPLICATION_CREDENTIALS` in
+`cloudStorage.extraEnv`.
+
 For larger imports, increase Postgres storage/resources, lower import threads if
 the database is I/O bound, increase Nominatim import resources, and consider
 enabling `nominatim.flatnode`.
