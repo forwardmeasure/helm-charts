@@ -83,6 +83,35 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s-nominatim-import-%d" $base .Release.Revision | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "geocoding.nominatimCloudStorageLocalPath" -}}
+{{- if .Values.nominatim.import.cloudStorage.localPath -}}
+{{- .Values.nominatim.import.cloudStorage.localPath -}}
+{{- else -}}
+{{- printf "%s/cloud-storage.osm.pbf" .Values.nominatim.import.pbfCache.mountPath -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "geocoding.nominatimCloudStorageImage" -}}
+{{- $provider := .Values.nominatim.import.cloudStorage.provider -}}
+{{- $repository := .Values.nominatim.import.cloudStorage.image.repository -}}
+{{- $tag := .Values.nominatim.import.cloudStorage.image.tag -}}
+{{- if not $repository -}}
+{{- if eq $provider "gcs" -}}
+{{- $repository = "gcr.io/google.com/cloudsdktool/google-cloud-cli" -}}
+{{- $tag = default "slim" $tag -}}
+{{- else if or (eq $provider "s3") (eq $provider "aws") -}}
+{{- $repository = "amazon/aws-cli" -}}
+{{- $tag = default "2.15.57" $tag -}}
+{{- else if eq $provider "azure" -}}
+{{- $repository = "mcr.microsoft.com/azure-storage/azcopy" -}}
+{{- $tag = default "v10" $tag -}}
+{{- end -}}
+{{- else if not $tag -}}
+{{- $tag = "latest" -}}
+{{- end -}}
+{{- printf "%s:%s" $repository $tag -}}
+{{- end -}}
+
 {{- define "geocoding.databaseHost" -}}
 {{- if .Values.database.host -}}
 {{- .Values.database.host -}}
@@ -195,11 +224,20 @@ export NOMINATIM_DATABASE_WEBUSER="${NOMINATIM_DATABASE_WEBUSER:-{{ .Values.nomi
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.pbfPath -}}
 {{- fail "nominatim.import.pbfPath is not supported; use nominatim.import.pbfPaths instead" -}}
 {{- end -}}
-{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not .Values.nominatim.import.pbfUrls) (not .Values.nominatim.import.pbfPaths) -}}
-{{- fail "nominatim.import.pbfUrls or nominatim.import.pbfPaths must be set when nominatim.import.enabled=true" -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not .Values.nominatim.import.pbfUrls) (not .Values.nominatim.import.pbfPaths) (not .Values.nominatim.import.cloudStorage.enabled) -}}
+{{- fail "nominatim.import.pbfUrls, nominatim.import.pbfPaths, or nominatim.import.cloudStorage.enabled must be set when nominatim.import.enabled=true" -}}
 {{- end -}}
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.pbfCache.enabled (not .Values.nominatim.import.pbfCache.mountPath) -}}
 {{- fail "nominatim.import.pbfCache.mountPath must be set when nominatim.import.pbfCache.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.cloudStorage.enabled (not .Values.nominatim.import.cloudStorage.uri) -}}
+{{- fail "nominatim.import.cloudStorage.uri must be set when nominatim.import.cloudStorage.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.cloudStorage.enabled (not .Values.nominatim.import.pbfCache.enabled) -}}
+{{- fail "nominatim.import.pbfCache.enabled must be true when nominatim.import.cloudStorage.enabled=true" -}}
+{{- end -}}
+{{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled .Values.nominatim.import.cloudStorage.enabled (not (has .Values.nominatim.import.cloudStorage.provider (list "gcs" "s3" "aws" "azure"))) -}}
+{{- fail "nominatim.import.cloudStorage.provider must be one of: gcs, s3, aws, azure" -}}
 {{- end -}}
 {{- if and .Values.nominatim.enabled .Values.nominatim.import.enabled (not (has .Values.nominatim.import.mode (list "create" "continue"))) -}}
 {{- fail "nominatim.import.mode must be one of: create, continue" -}}
