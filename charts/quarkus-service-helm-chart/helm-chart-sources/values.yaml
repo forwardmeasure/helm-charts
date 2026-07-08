@@ -228,6 +228,22 @@ kafka:
 #     job.activeDeadlineSeconds:   Optional wall-clock limit for one Job.
 #     job.ttlSecondsAfterFinished: Optional cleanup TTL for finished Jobs.
 #
+# Spark executor pod template:
+#     spark.executorPodTemplate.enabled: true renders a ConfigMap containing a
+#     Spark Kubernetes executor pod template and mounts it into the service pod.
+#     Use this for Spark client-mode drivers whose executor pods need the same
+#     sidecars or pod-level wiring as the driver, for example a Cloud SQL proxy.
+#
+#     spark:
+#       executorPodTemplate:
+#         enabled: true
+#         mountPath: /deployments/spark
+#         fileName: executor-pod-template-cloudsql.yaml
+#         executorContainerName: spark-kubernetes-executor
+#         executorImage: docker.io/forwardmeasure/entity-intelligence-spark-common:latest
+#         cloudSqlProxy:
+#           enabled: true
+#
 #   deployment + autoscaler: hpa:
 #     cpuTarget:                      CPU utilisation % to trigger scale-up.
 #                                     Default: 70. Omit to disable CPU scaling.
