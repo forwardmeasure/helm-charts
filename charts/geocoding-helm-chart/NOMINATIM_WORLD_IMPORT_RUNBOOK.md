@@ -55,7 +55,11 @@ export NOMINATIM_DB="nominatim"
 export NOMINATIM_USER="nominatim"
 export NOMINATIM_PASSWORD="replace-nominatim-password"
 
-export BUILD_ROOT="/mnt/nominatim"
+# Use the attached data disk mount if you created one:
+# export BUILD_ROOT="/mnt/nominatim"
+#
+# Or use your home directory if it has enough free space:
+export BUILD_ROOT="/home/pnandavanam/nominatim"
 export PBF_PATH="${BUILD_ROOT}/pbf/planet-latest.osm.pbf"
 export PROJECT_DIR="${BUILD_ROOT}/project"
 export FLATNODE_DIR="${BUILD_ROOT}/flatnode"
@@ -100,7 +104,9 @@ sudo usermod -aG docker "$USER"
 
 Log out and back in so the Docker group takes effect.
 
-Format and mount the data disk if it is new:
+Format and mount the data disk if it is new. Skip this step if you are using a
+normal directory such as `/home/pnandavanam/nominatim` instead of an attached
+data disk.
 
 ```sh
 sudo mkfs.ext4 -F /dev/disk/by-id/google-nominatim-data
@@ -116,7 +122,7 @@ mkdir -p \
   "${BUILD_ROOT}/pbf" \
   "${PROJECT_DIR}" \
   "${FLATNODE_DIR}" \
-  "${BUILD_ROOT}/pgdata" \
+  "${BUILD_ROOT}/postgresql" \
   "${BUILD_ROOT}/dump"
 ```
 
@@ -174,9 +180,12 @@ docker run -d \
   --network nominatim-build \
   -e POSTGRES_USER="${PG_ADMIN_USER}" \
   -e POSTGRES_PASSWORD="${PG_ADMIN_PASSWORD}" \
-  -v "${BUILD_ROOT}/pgdata:/var/lib/postgresql/data" \
+  -v "${BUILD_ROOT}/postgresql:/var/lib/postgresql" \
   "${POSTGRES_IMAGE}"
 ```
+
+Postgres 18+ Docker images expect the mount at `/var/lib/postgresql`, not
+`/var/lib/postgresql/data`.
 
 Wait for Postgres:
 
