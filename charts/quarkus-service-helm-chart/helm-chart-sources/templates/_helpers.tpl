@@ -251,6 +251,50 @@ Cloud SQL Auth Proxy image reference resolver.
 {{- end }}
 
 {{/*
+Spark executor pod template support.
+
+Spark in Kubernetes client mode lets the driver provide a pod template file for
+executor pods. Services opt in with:
+
+spark:
+  executorPodTemplate:
+    enabled: true
+
+The chart renders the template as a ConfigMap and mounts it into the driver pod.
+*/}}
+{{- define "quarkus-service.sparkExecutorPodTemplateEnabled" -}}
+{{- $spark := .service.spark | default (dict) -}}
+{{- $template := $spark.executorPodTemplate | default (dict) -}}
+{{- if and (hasKey $template "enabled") $template.enabled -}}true{{- else -}}false{{- end -}}
+{{- end }}
+
+{{- define "quarkus-service.sparkExecutorPodTemplateConfigMapName" -}}
+{{- printf "%s-spark-executor-pod-template" .service.name | trunc 253 | trimSuffix "-" -}}
+{{- end }}
+
+{{- define "quarkus-service.sparkExecutorPodTemplateVolumeName" -}}
+spark-executor-pod-template
+{{- end }}
+
+{{- define "quarkus-service.sparkExecutorPodTemplateMountPath" -}}
+{{- $spark := .service.spark | default (dict) -}}
+{{- $template := $spark.executorPodTemplate | default (dict) -}}
+{{- $template.mountPath | default "/deployments/spark" -}}
+{{- end }}
+
+{{- define "quarkus-service.sparkExecutorPodTemplateFileName" -}}
+{{- $spark := .service.spark | default (dict) -}}
+{{- $template := $spark.executorPodTemplate | default (dict) -}}
+{{- $template.fileName | default "executor-pod-template.yaml" -}}
+{{- end }}
+
+{{- define "quarkus-service.sparkExecutorPodTemplateContainerName" -}}
+{{- $spark := .service.spark | default (dict) -}}
+{{- $template := $spark.executorPodTemplate | default (dict) -}}
+{{- $template.executorContainerName | default "spark-kubernetes-executor" -}}
+{{- end }}
+
+{{/*
 Validate a service entry has all required fields.
 */}}
 {{- define "quarkus-service.validateService" -}}
@@ -420,6 +464,19 @@ initContainers:
 {{- end }}
 
 {{/*
+Pod volumes shared across workload types.
+Usage: include "quarkus-service.podVolumes" (dict "service" . "root" $)
+*/}}
+{{- define "quarkus-service.podVolumes" -}}
+{{- if eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true" }}
+volumes:
+  - name: {{ include "quarkus-service.sparkExecutorPodTemplateVolumeName" . }}
+    configMap:
+      name: {{ include "quarkus-service.sparkExecutorPodTemplateConfigMapName" (dict "service" .service "root" .root) }}
+{{- end }}
+{{- end }}
+
+{{/*
 Main application container.
 Usage: include "quarkus-service.mainContainer" (dict "service" . "root" $)
 */}}
@@ -471,6 +528,12 @@ Usage: include "quarkus-service.mainContainer" (dict "service" . "root" $)
     limits:
       cpu: {{ $svc.resources.limits.cpu | default "2000m" | quote }}
       memory: {{ $svc.resources.limits.memory | default "1Gi" }}
+  {{- if eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true" }}
+  volumeMounts:
+    - name: {{ include "quarkus-service.sparkExecutorPodTemplateVolumeName" . }}
+      mountPath: {{ include "quarkus-service.sparkExecutorPodTemplateMountPath" (dict "service" $svc "root" $root) | quote }}
+      readOnly: true
+  {{- end }}
   livenessProbe:
     httpGet:
       path: {{ $probes.liveness | default "/q/health/live" }}
