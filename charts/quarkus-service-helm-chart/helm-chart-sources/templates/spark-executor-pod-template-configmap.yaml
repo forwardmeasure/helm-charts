@@ -1,0 +1,62 @@
+{{- range .Values.services }}
+{{- if and .enabled (eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" . "root" $)) "true") }}
+{{- include "quarkus-service.validateService" (dict "service" . "root" $) }}
+{{- $svc := . }}
+{{- $spark := $svc.spark | default (dict) }}
+{{- $template := $spark.executorPodTemplate | default (dict) }}
+{{- $proxy := $.Values.cloudSqlProxy }}
+{{- $executorCloudSqlProxy := $template.cloudSqlProxy | default (dict) }}
+{{- $executorCloudSqlEnabled := false }}
+{{- if hasKey $executorCloudSqlProxy "enabled" }}
+{{- $executorCloudSqlEnabled = $executorCloudSqlProxy.enabled }}
+{{- else if and $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
+{{- $executorCloudSqlEnabled = true }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "quarkus-service.sparkExecutorPodTemplateConfigMapName" (dict "service" $svc "root" $) }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "quarkus-service.serviceLabels" (dict "service" $svc "root" $) | nindent 4 }}
+data:
+  {{ include "quarkus-service.sparkExecutorPodTemplateFileName" (dict "service" $svc "root" $) }}: |
+    apiVersion: v1
+    kind: Pod
+    spec:
+      {{- if $executorCloudSqlEnabled }}
+      initContainers:
+        - name: cloud-sql-proxy
+          image: {{ include "quarkus-service.cloudSqlProxyImageRef" $proxy }}
+          imagePullPolicy: {{ $proxy.image.pullPolicy | default "IfNotPresent" }}
+          restartPolicy: Always
+          args:
+            - "--structured-logs"
+            - "--port={{ $proxy.port | default 5432 }}"
+            {{- if $proxy.privateIp }}
+            - "--private-ip"
+            {{- end }}
+            - "$(DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE)"
+          env:
+            - name: DATA_FABRIC_SVC_DB_CLOUD_SQL_INSTANCE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "quarkus-service.cloudSqlProxySecretName" (dict "service" $svc "root" $) }}
+                  key: db-cloud-sql-instance
+          resources:
+            requests:
+              cpu: {{ $proxy.resources.requests.cpu | default "100m" | quote }}
+              memory: {{ $proxy.resources.requests.memory | default "128Mi" }}
+            limits:
+              cpu: {{ $proxy.resources.limits.cpu | default "500m" | quote }}
+              memory: {{ $proxy.resources.limits.memory | default "256Mi" }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+      {{- end }}
+      containers:
+        - name: {{ include "quarkus-service.sparkExecutorPodTemplateContainerName" (dict "service" $svc "root" $) }}
+          image: {{ $template.executorImage | default "busybox:1.36" | quote }}
+{{- end }}
+{{- end }}
