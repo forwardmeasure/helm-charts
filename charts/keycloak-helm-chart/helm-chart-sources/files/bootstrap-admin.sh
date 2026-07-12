@@ -863,8 +863,8 @@ configure_public_client_redirects() {
       --arg origin1 "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1}" \
       --arg origin2 "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2}" \
       --arg logout "${DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS}" \
-      '.redirectUris = [$redirect1, $redirect2] | map(select(length > 0))
-       | .webOrigins = [$origin1, $origin2] | map(select(length > 0))
+      '.redirectUris = ([$redirect1, $redirect2] | map(select(length > 0)))
+       | .webOrigins = ([$origin1, $origin2] | map(select(length > 0)))
        | .attributes["post.logout.redirect.uris"] = $logout'
   )"
 
