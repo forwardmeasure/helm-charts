@@ -844,6 +844,35 @@ configure_client_scopes() {
 }
 
 # ---------------------------------------------------------------------------
+# Reconcile the public browser client's deployment-specific redirect settings.
+# Realm import in bootstrap mode creates these values only on first install;
+# this reconciliation keeps an existing client current on Helm upgrades.
+# ---------------------------------------------------------------------------
+
+configure_public_client_redirects() {
+  log_section "Public client redirect configuration"
+
+  client_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}")"
+  [ -n "$client_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}'"
+
+  client_json="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}")"
+  updated_json="$(
+    printf '%s' "$client_json" | jq \
+      --arg redirect1 "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1}" \
+      --arg redirect2 "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2}" \
+      --arg origin1 "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1}" \
+      --arg origin2 "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2}" \
+      --arg logout "${DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS}" \
+      '.redirectUris = [$redirect1, $redirect2] | map(select(length > 0))
+       | .webOrigins = [$origin1, $origin2] | map(select(length > 0))
+       | .attributes["post.logout.redirect.uris"] = $logout'
+  )"
+
+  kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}" "$updated_json"
+  log "Redirect URIs and web origins reconciled for client: ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
+}
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 
@@ -934,6 +963,11 @@ main() {
   require_env KEYCLOAK_REALM_MGMT_ROLES
   require_env DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID
   require_env DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID
+  require_env DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1
+  require_env DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2
+  require_env DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1
+  require_env DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2
+  require_env DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS
 
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
   : "${KEYCLOAK_READY_MAX_ATTEMPTS:=60}"
@@ -947,6 +981,7 @@ main() {
   configure_bootstrap_user
   configure_admin_confidential_service_account
   configure_client_scopes
+  configure_public_client_redirects
 
   log_section "Bootstrap provisioning complete"
 }
