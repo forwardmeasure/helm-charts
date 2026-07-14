@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # values.yaml — knative-crd chart defaults
 # ---------------------------------------------------------------------------
-knativeVersion: "1.21.0"
+knativeVersion: "1.22.1"
 
 serving:
   namespace: knative-serving
