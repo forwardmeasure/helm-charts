@@ -1,0 +1,24 @@
+serviceAccount:
+  create: false
+  name: test-service-account
+
+liquibaseWait:
+  enabled: false
+
+services:
+  evidence-api:
+    enabled: true
+    deploymentMode: deployment
+    image:
+      repository: example/evidence-api
+      tag: test
+    env:
+      BASE_SETTING: retained
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+

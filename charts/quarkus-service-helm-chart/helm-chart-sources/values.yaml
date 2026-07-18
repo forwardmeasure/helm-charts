@@ -181,7 +181,21 @@ kafka:
 
 # ------------------------------------------------------------------------------
 # Services
-# Each entry produces a Kubernetes workload for one service in this release.
+# Each map entry produces a Kubernetes workload for one service in this release.
+# The key is the authoritative service name. A map is used deliberately so
+# later environment values files can deep-merge one service without replacing
+# the other services in the release.
+#
+# services:
+#   example-api:
+#     enabled: true
+#     deploymentMode: deployment
+#     image:
+#       repository: example/example-api
+#       tag: latest
+#     env:
+#       EXAMPLE_SETTING: value
+#
 # Per-service secrets (unique to that service) are declared under secrets[].
 # Shared secrets across services are declared at the top-level secrets[] above.
 #
@@ -282,4 +296,4 @@ kafka:
 #             lagThreshold: "100"
 #             offsetResetPolicy: "latest"
 # ------------------------------------------------------------------------------
-services: []
+services: {}
