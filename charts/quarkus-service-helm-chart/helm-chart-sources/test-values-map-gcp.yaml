@@ -1,0 +1,5 @@
+services:
+  evidence-api:
+    env:
+      GCP_PROJECT_ID: test-project
+

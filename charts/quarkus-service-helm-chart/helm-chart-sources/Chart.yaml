@@ -11,13 +11,13 @@ description: |
   variable override conventions (QUARKUS_ prefix).
 
   Designed to be deployed once per service family (e.g. entity-resolution-serving)
-  with service-specific resource and scaling configuration per entry in
-  the services list.
+  with service-specific resource and scaling configuration keyed by stable
+  service name in the services map.
 
   Integrates with Istio for mTLS and traffic management, and with
   Knative for serverless scaling including scale-to-zero.
 type: application
-version: "0.1.21"
+version: "0.2.1"
 appVersion: "1.0.0"
 keywords:
   - quarkus
