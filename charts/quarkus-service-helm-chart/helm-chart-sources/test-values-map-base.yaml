@@ -12,6 +12,9 @@ services:
     image:
       repository: example/evidence-api
       tag: test
+    database:
+      enabled: true
+      secretName: db
     env:
       BASE_SETTING: retained
     resources:
@@ -21,4 +24,3 @@ services:
       limits:
         cpu: 500m
         memory: 512Mi
-

@@ -49,7 +49,7 @@ regular containers complete, allowing the Job to finish.
       valueFrom:
         secretKeyRef:
           name: {{ include "quarkus-service.cloudSqlProxySecretName" (dict "service" $svc "root" $root) }}
-          key: db-cloud-sql-instance
+          key: {{ $svc.cloudSqlProxy.instanceKey | default "db-cloud-sql-instance" }}
   resources:
     requests:
       cpu: {{ $proxy.resources.requests.cpu | default "100m" | quote }}
@@ -198,10 +198,25 @@ Usage: include "quarkus-service.cloudSqlProxySecretName" (dict "service" . "root
 {{- $secretName := "" -}}
 {{- if and (hasKey .service "cloudSqlProxy") (hasKey .service.cloudSqlProxy "secretName") (.service.cloudSqlProxy.secretName) -}}
 {{- $secretName = .service.cloudSqlProxy.secretName -}}
+{{- else if and (hasKey .service "database") (hasKey .service.database "secretName") (.service.database.secretName) -}}
+{{- $secretName = .service.database.secretName -}}
 {{- else -}}
 {{- $secretName = .service.name -}}
 {{- end -}}
 {{- include "quarkus-service.k8sSecretName" (dict "root" .root "secretName" $secretName) -}}
+{{- end }}
+
+{{/*
+Resolve the Kubernetes secret containing provider-neutral database credentials.
+An existingSecretName is used verbatim; otherwise secretName is release-scoped.
+*/}}
+{{- define "quarkus-service.databaseSecretName" -}}
+{{- $database := .service.database | default (dict) -}}
+{{- if $database.existingSecretName -}}
+{{- $database.existingSecretName -}}
+{{- else -}}
+{{- include "quarkus-service.k8sSecretName" (dict "root" .root "secretName" ($database.secretName | default "db")) -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -310,6 +325,11 @@ Validate a service entry has all required fields.
 {{- if and (hasKey .service "cloudSqlProxy") (.service.cloudSqlProxy.enabled) }}
 {{- if not .root.Values.cloudSqlProxy }}
 {{- fail (printf "service '%s' has cloudSqlProxy.enabled but chart-level cloudSqlProxy is not configured" .service.name) }}
+{{- end }}
+{{- end }}
+{{- if and (hasKey .service "database") (.service.database.enabled) }}
+{{- if and (hasKey .service.database "secretName") (hasKey .service.database "existingSecretName") .service.database.secretName .service.database.existingSecretName }}
+{{- fail (printf "service '%s' database must set only one of secretName or existingSecretName" .service.name) }}
 {{- end }}
 {{- end }}
 {{- if not .root.Values.liquibaseWait }}
@@ -513,9 +533,33 @@ Usage: include "quarkus-service.mainContainer" (dict "service" . "root" $)
           key: {{ .secretKey }}
     {{- end }}
     {{- end }}
+    {{- $database := $svc.database | default (dict) }}
+    {{- if $database.enabled }}
+    - name: QUARKUS_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "quarkus-service.databaseSecretName" (dict "service" $svc "root" $root) }}
+          key: {{ $database.usernameKey | default "db-username" }}
+    - name: QUARKUS_DATASOURCE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "quarkus-service.databaseSecretName" (dict "service" $svc "root" $root) }}
+          key: {{ $database.passwordKey | default "db-password" }}
     {{- if and $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
+    - name: DATA_FABRIC_SVC_DB_NAME
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "quarkus-service.databaseSecretName" (dict "service" $svc "root" $root) }}
+          key: {{ $database.databaseNameKey | default "db-name" }}
     - name: QUARKUS_DATASOURCE_JDBC_URL
-      value: "jdbc:postgresql://localhost:5432/$(DATA_FABRIC_SVC_DB_NAME)"
+      value: "jdbc:postgresql://localhost:{{ $root.Values.cloudSqlProxy.port | default 5432 }}/$(DATA_FABRIC_SVC_DB_NAME)"
+    {{- else }}
+    - name: QUARKUS_DATASOURCE_JDBC_URL
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "quarkus-service.databaseSecretName" (dict "service" $svc "root" $root) }}
+          key: {{ $database.jdbcUrlKey | default "db-jdbc-url" }}
+    {{- end }}
     {{- end }}
     {{- range $key, $val := $svc.env }}
     - name: {{ $key }}
@@ -584,7 +628,7 @@ Usage: include "quarkus-service.cloudSqlProxySidecar" (dict "service" . "root" $
       valueFrom:
         secretKeyRef:
           name: {{ include "quarkus-service.cloudSqlProxySecretName" (dict "service" $svc "root" $root) }}
-          key: db-cloud-sql-instance
+          key: {{ $svc.cloudSqlProxy.instanceKey | default "db-cloud-sql-instance" }}
   resources:
     requests:
       cpu: {{ $proxy.resources.requests.cpu | default "100m" | quote }}
