@@ -1,4 +1,4 @@
-{{- range .Values.services }}
+{{- range (include "quarkus-service.normalizedServices" . | fromYamlArray) }}
 {{- if and .enabled (eq (.deploymentMode | default "knative") "scaledJob") }}
 {{- include "quarkus-service.validateService" (dict "service" . "root" $) }}
 {{- $scaling := .scaling | default (dict) }}

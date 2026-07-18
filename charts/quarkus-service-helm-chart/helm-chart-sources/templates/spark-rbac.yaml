@@ -20,7 +20,7 @@
   ============================================================================
 */}}
 {{- $needsSparkRbac := false -}}
-{{- range .Values.services -}}
+{{- range (include "quarkus-service.normalizedServices" . | fromYamlArray) -}}
   {{- if and .enabled .env -}}
     {{- if or (hasKey .env "ENTITY_INTELLIGENCE_INGESTION_SPARK_EXECUTOR_IMAGE") (hasKey .env "DATA_FABRIC_SPARK_EXECUTOR_IMAGE") -}}
       {{- $needsSparkRbac = true -}}

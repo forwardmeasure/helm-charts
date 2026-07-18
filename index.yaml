@@ -2331,7 +2331,36 @@ entries:
   quarkus-service:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-12T12:19:40.309828944-04:00"
+    created: "2026-07-18T07:17:00.638693796-04:00"
+    description: 'Generic Knative Service chart for Quarkus microservice deployments.
+      Deploys one or more Quarkus services per release, each independently configurable
+      with its own image, resources, secrets, and scaling policy.  Supports both JVM
+      and GraalVM native runtime modes — controlled per service via the image digest/tag.
+      Secrets are injected via External Secrets Operator. Config properties follow
+      standard Quarkus environment variable override conventions (QUARKUS_ prefix).  Designed
+      to be deployed once per service family (e.g. entity-resolution-serving) with
+      service-specific resource and scaling configuration keyed by stable service
+      name in the services map.  Integrates with Istio for mTLS and traffic management,
+      and with Knative for serverless scaling including scale-to-zero. '
+    digest: 6740730d5db4ee3bdfce80d54c048e8b08f226780a7b100f43d5e15d90f90a05
+    keywords:
+    - quarkus
+    - knative
+    - serverless
+    - microservices
+    - entity-resolution
+    - camel
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: quarkus-service
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/quarkus-service-helm-chart/quarkus-service-0.2.1.tgz
+    version: 0.2.1
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-07-18T07:17:00.637837301-04:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -2360,7 +2389,7 @@ entries:
     version: 0.1.21
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-12T12:19:40.309403986-04:00"
+    created: "2026-07-18T07:17:00.636757436-04:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -3063,4 +3092,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-07-14T14:42:34.517912376-04:00"
+generated: "2026-07-18T07:17:00.635517088-04:00"
