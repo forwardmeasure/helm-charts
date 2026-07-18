@@ -597,3 +597,26 @@ Usage: include "quarkus-service.cloudSqlProxySidecar" (dict "service" . "root" $
     allowPrivilegeEscalation: false
 {{- end }}
 {{- end }}
+
+{{/*
+Normalize the public name-keyed services map into the internal service list
+used by the rendering templates. The map key is the authoritative service
+name and is injected into each service configuration as `.name`.
+
+List input remains accepted during the 0.2.x migration window so consumers can
+upgrade the chart before converting their values. New configurations should
+always use a map because maps support stable environment-specific overlays.
+*/}}
+{{- define "quarkus-service.normalizedServices" -}}
+{{- if kindIs "map" .Values.services -}}
+  {{- $services := list -}}
+  {{- range $name, $configuration := .Values.services -}}
+    {{- $service := deepCopy $configuration -}}
+    {{- $_ := set $service "name" $name -}}
+    {{- $services = append $services $service -}}
+  {{- end -}}
+  {{- $services | toYaml -}}
+{{- else -}}
+  {{- .Values.services | default (list) | toYaml -}}
+{{- end -}}
+{{- end }}
