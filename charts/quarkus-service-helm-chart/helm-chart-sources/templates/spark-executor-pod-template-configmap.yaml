@@ -43,7 +43,7 @@ data:
               valueFrom:
                 secretKeyRef:
                   name: {{ include "quarkus-service.cloudSqlProxySecretName" (dict "service" $svc "root" $) }}
-                  key: db-cloud-sql-instance
+                  key: {{ $svc.cloudSqlProxy.instanceKey | default "db-cloud-sql-instance" }}
           resources:
             requests:
               cpu: {{ $proxy.resources.requests.cpu | default "100m" | quote }}
