@@ -1,5 +1,22 @@
+cloudSqlProxy:
+  image:
+    registry: gcr.io
+    repository: cloud-sql-connectors/cloud-sql-proxy
+    tag: test
+  port: 5432
+  privateIp: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
 services:
   evidence-api:
+    cloudSqlProxy:
+      enabled: true
+      secretName: db
     env:
       GCP_PROJECT_ID: test-project
-

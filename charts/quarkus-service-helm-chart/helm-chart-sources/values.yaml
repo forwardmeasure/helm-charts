@@ -295,5 +295,20 @@ kafka:
 #             topic: "com.forwardmeasure.entity-intelligence.monitored-population.single-entity-screening.request"
 #             lagThreshold: "100"
 #             offsetResetPolicy: "latest"
+#
+#   Provider-neutral database contract:
+#     database.enabled: true injects Quarkus datasource credentials without
+#     coupling the service values to a database provider. Without a Cloud SQL
+#     proxy, the secret supplies db-username, db-password, and db-jdbc-url.
+#     When cloudSqlProxy.enabled is true, the secret instead supplies db-name
+#     and the chart builds the localhost JDBC URL. Key names are configurable.
+#
+#     database:
+#       enabled: true
+#       secretName: db
+#       usernameKey: db-username
+#       passwordKey: db-password
+#       jdbcUrlKey: db-jdbc-url
+#       databaseNameKey: db-name
 # ------------------------------------------------------------------------------
 services: {}
