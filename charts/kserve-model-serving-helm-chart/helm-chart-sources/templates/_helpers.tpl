@@ -6,6 +6,34 @@ Expand the name of the chart.
 {{- end }}
 
 {{/*
+vLLM runtime image reference resolver.
+digest takes precedence over tag.
+*/}}
+{{- define "kserve-model-serving.vllmImageRef" -}}
+{{- $repository := .Values.vllmRuntime.image.repository -}}
+{{- $digest := .Values.vllmRuntime.image.digest | default "" -}}
+{{- if $digest -}}
+{{- printf "%s@%s" $repository $digest -}}
+{{- else -}}
+{{- printf "%s:%s" $repository (.Values.vllmRuntime.image.tag | default "latest") -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Stable cache subdirectory for a model revision.
+Revision-specific paths prevent an update from mutating weights used by an
+older serving revision.
+*/}}
+{{- define "kserve-model-serving.modelSubdir" -}}
+{{- $repo := .huggingFaceRepo | replace "/" "--" -}}
+{{- if .huggingFaceRevision -}}
+{{- printf "%s--%s" $repo .huggingFaceRevision -}}
+{{- else -}}
+{{- $repo -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Create a default fully qualified app name.
 */}}
 {{- define "kserve-model-serving.fullname" -}}
@@ -151,6 +179,18 @@ Validate a model entry has required fields.
 {{- else }}
   {{- if not .model.huggingFaceRepo }}
   {{- fail (printf "model '%s' missing required field: huggingFaceRepo" .model.name) }}
+  {{- end }}
+{{- end }}
+
+{{- if or (ne .model.runtime "kserve-custom") .Values.externalModelCache }}
+  {{- if not .model.huggingFaceRepo }}
+  {{- fail (printf "model '%s' missing required field: huggingFaceRepo" .model.name) }}
+  {{- end }}
+  {{- if not .model.huggingFaceRevision }}
+  {{- fail (printf "model '%s' missing required field: huggingFaceRevision" .model.name) }}
+  {{- end }}
+  {{- if not (regexMatch "^[0-9a-f]{40}$" (.model.huggingFaceRevision | toString)) }}
+  {{- fail (printf "model '%s' huggingFaceRevision must be a full 40-character lowercase commit SHA" .model.name) }}
   {{- end }}
 {{- end }}
 {{- end }}

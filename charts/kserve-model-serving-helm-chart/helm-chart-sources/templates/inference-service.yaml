@@ -72,6 +72,7 @@ spec:
           - {{ $.Values.modelCache.mountPath | quote }}
           - {{ printf "%s-%s" $.Release.Name .name | quote }}
           - {{ include "kserve-model-serving.skipVerification" (dict "model" . "Values" $.Values) | quote }}
+          - {{ .huggingFaceRevision | default "" | quote }}
         volumeMounts:
           - name: model-cache
             mountPath: {{ $.Values.modelCache.mountPath }}
@@ -95,7 +96,7 @@ spec:
           - name: MODEL_BASE_PATH
             value: {{ $.Values.modelCache.mountPath | quote }}
           - name: MODEL_SUBDIR
-            value: {{ .huggingFaceRepo | replace "/" "--" | quote }}
+            value: {{ include "kserve-model-serving.modelSubdir" . | quote }}
           {{- if $.Values.huggingFace.token.secretName }}
           - name: HUGGING_FACE_HUB_TOKEN
             valueFrom:
@@ -133,7 +134,7 @@ spec:
       runtime: {{ if eq .runtime "vllm" }}kserve-vllmserver{{ else if eq .runtime "huggingface" }}kserve-huggingfaceserver{{ else if eq .runtime "triton" }}kserve-tritonserver{{ else }}{{ .runtime }}{{ end }}
       {{- if $.Values.externalModelCache }}
       {{- else }}
-      storageUri: "hf://{{ .huggingFaceRepo }}"
+      storageUri: "hf://{{ .huggingFaceRepo }}:{{ .huggingFaceRevision }}"
       {{- end }}
       resources:
         requests:
@@ -150,7 +151,7 @@ spec:
           {{- end }}
       args:
         {{- if $.Values.externalModelCache }}
-        - --model_id={{ $.Values.modelCache.mountPath }}/{{ .huggingFaceRepo | replace "/" "--" }}
+        - --model_id={{ $.Values.modelCache.mountPath }}/{{ include "kserve-model-serving.modelSubdir" . }}
         {{- end }}
         {{- with .args }}
         {{- toYaml . | nindent 8 }}

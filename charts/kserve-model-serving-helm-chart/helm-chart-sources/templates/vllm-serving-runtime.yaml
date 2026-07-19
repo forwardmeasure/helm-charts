@@ -23,7 +23,7 @@ spec:
     - grpc-v2
   containers:
     - name: kserve-container
-      image: {{ .Values.vllmRuntime.image.repository }}:{{ .Values.vllmRuntime.image.tag }}
+      image: {{ include "kserve-model-serving.vllmImageRef" . }}
       imagePullPolicy: {{ .Values.vllmRuntime.image.pullPolicy }}
       command:
         - python3

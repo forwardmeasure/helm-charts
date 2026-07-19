@@ -101,7 +101,8 @@ vllmRuntime:
   enabled: true
   image:
     repository: vllm/vllm-openai
-    tag: latest
+    tag: "v0.11.2"
+    digest: "sha256:2c908d5a84ed251b6a17d179f42d06df1aff353007779ac5eecd8a0ea3fe9331"
     pullPolicy: IfNotPresent
 
 # ------------------------------------------------------------------------------
@@ -115,6 +116,10 @@ vllmRuntime:
 #   huggingFaceRepo  — HuggingFace model repo (org/model). Required for
 #                      managed runtimes. For kserve-custom with
 #                      externalModelCache: true, used by init container.
+#   huggingFaceRevision — Immutable HuggingFace commit SHA. Required for
+#                      enabled managed-runtime models and any model using the
+#                      external cache. Passed to both KServe's hf:// storage
+#                      initializer and the external-cache downloader.
 #   env              — environment variables injected into the container (map)
 #   gpu              — number of GPUs (0 for CPU-only)
 #   resources        — requests/limits for CPU and memory
