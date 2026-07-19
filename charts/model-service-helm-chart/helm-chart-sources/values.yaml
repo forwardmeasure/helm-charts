@@ -1,0 +1,115 @@
+nameOverride: ""
+fullnameOverride: ""
+replicaCount: 1
+
+image:
+  # Override for every deployment. This placeholder keeps the chart's default
+  # values lintable without coupling the chart to a specific model runtime.
+  repository: docker.io/example/model-service
+  tag: "1.0.0"
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  labels: {}
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+
+command: []
+args: []
+env: {}
+envFrom: []
+
+# Enabled ports become container ports. Ports with service.enabled are also
+# exposed by the Kubernetes Service. HTTP and gRPC are first-class peers.
+ports:
+  - name: http
+    enabled: true
+    containerPort: 8080
+    protocol: TCP
+    service:
+      enabled: true
+      port: 80
+      appProtocol: http
+  - name: grpc
+    enabled: false
+    containerPort: 9090
+    protocol: TCP
+    service:
+      enabled: false
+      port: 9090
+      appProtocol: grpc
+
+service:
+  type: ClusterIP
+  annotations: {}
+  labels: {}
+  clusterIP: ""
+
+# Probe specs are passed through as native Kubernetes Probe objects. A spec
+# may use httpGet, grpc, tcpSocket, or exec.
+probes:
+  startup:
+    enabled: false
+    type: httpGet
+    spec:
+      httpGet: {path: /q/health/started, port: http}
+      periodSeconds: 10
+      failureThreshold: 90
+  readiness:
+    enabled: true
+    type: httpGet
+    spec:
+      httpGet: {path: /q/health/ready, port: http}
+      periodSeconds: 10
+      timeoutSeconds: 1
+      failureThreshold: 3
+  liveness:
+    enabled: true
+    type: httpGet
+    spec:
+      httpGet: {path: /q/health/live, port: http}
+      periodSeconds: 20
+      timeoutSeconds: 1
+      failureThreshold: 3
+
+resources:
+  requests: {cpu: 500m, memory: 512Mi}
+  limits: {cpu: "2", memory: 2Gi}
+
+volumeMounts: []
+volumes: []
+initContainers: []
+sidecars: []
+strategy: {type: RollingUpdate}
+terminationGracePeriodSeconds: 30
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+priorityClassName: ""
+runtimeClassName: ""
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: null
+  behavior: {}
