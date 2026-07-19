@@ -557,7 +557,7 @@ entries:
   kafka:
   - apiVersion: v2
     appVersion: 4.0.0
-    created: "2026-05-09T16:59:26.538864607-04:00"
+    created: "2026-07-19T14:49:26.788999596-04:00"
     description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
       mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
       resources. Requires the Strimzi operator to be installed and watching the target
@@ -570,7 +570,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: 4.0.0
-    created: "2026-05-09T16:59:26.53852493-04:00"
+    created: "2026-07-19T14:49:26.788846779-04:00"
     description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
       mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
       resources. Requires the Strimzi operator to be installed and watching the target
@@ -3160,4 +3160,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-07-19T14:48:59.109670093-04:00"
+generated: "2026-07-19T14:49:26.788371178-04:00"
