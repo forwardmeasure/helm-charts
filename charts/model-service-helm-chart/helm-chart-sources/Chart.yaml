@@ -1,0 +1,10 @@
+apiVersion: v2
+name: model-service
+description: Runtime-neutral chart for HTTP, gRPC, and TCP model services.
+type: application
+version: "0.1.0"
+appVersion: "1.0.0"
+keywords: [model-serving, machine-learning, http, grpc, deployment]
+maintainers:
+  - name: Prashanth Nandavanam
+    email: pn@forwardmeasure.com

@@ -2091,6 +2091,26 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/model-cache-helm-chart/model-cache-0.1.1.tgz
     version: 0.1.1
+  model-service:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-07-19T14:18:30.755409238-04:00"
+    description: Runtime-neutral chart for HTTP, gRPC, and TCP model services.
+    digest: 824bd216cf7f7fabb847eb0549f3edd6bf4ed764d84f78464e6ab83dd5d8540f
+    keywords:
+    - model-serving
+    - machine-learning
+    - http
+    - grpc
+    - deployment
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: model-service
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/model-service-helm-chart/model-service-0.1.0.tgz
+    version: 0.1.0
   opensearch-cluster:
   - apiVersion: v2
     appVersion: 3.5.0
@@ -3121,4 +3141,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-07-18T07:54:28.834547081-04:00"
+generated: "2026-07-19T14:18:30.75482957-04:00"
