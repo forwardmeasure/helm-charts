@@ -1,0 +1,42 @@
+image:
+  repository: docker.io/example/model-server
+  digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+serviceAccount:
+  create: false
+  name: model-cache-sa
+ports:
+  - name: http
+    enabled: true
+    containerPort: 8080
+    protocol: TCP
+    service: {enabled: true, port: 80, appProtocol: http}
+  - name: grpc
+    enabled: true
+    containerPort: 9090
+    protocol: TCP
+    service: {enabled: true, port: 9090, appProtocol: grpc}
+probes:
+  startup:
+    enabled: true
+    type: grpc
+    spec:
+      grpc: {port: 9090, service: startup}
+      periodSeconds: 5
+      failureThreshold: 60
+  readiness:
+    enabled: true
+    type: grpc
+    spec:
+      grpc: {port: 9090, service: readiness}
+      periodSeconds: 5
+  liveness:
+    enabled: true
+    type: grpc
+    spec:
+      grpc: {port: 9090, service: liveness}
+      periodSeconds: 10
+volumeMounts:
+  - {name: model-cache, mountPath: /models, readOnly: true}
+volumes:
+  - name: model-cache
+    persistentVolumeClaim: {claimName: model-cache-pvc}

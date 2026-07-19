@@ -1,0 +1,33 @@
+{{- $ports := list -}}
+{{- range .Values.ports -}}
+{{- if and .enabled .service .service.enabled -}}{{- $ports = append $ports . -}}{{- end -}}
+{{- end -}}
+{{- if gt (len $ports) 0 }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "model-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "model-service.labels" . | nindent 4 }}
+    {{- with .Values.service.labels }}{{ toYaml . | nindent 4 }}{{- end }}
+  {{- with .Values.service.annotations }}
+  annotations: {{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- with .Values.service.clusterIP }}
+  clusterIP: {{ . | quote }}
+  {{- end }}
+  ports:
+    {{- range $ports }}
+    - name: {{ .name }}
+      port: {{ .service.port }}
+      targetPort: {{ .name }}
+      protocol: {{ .protocol | default "TCP" }}
+      {{- with .service.appProtocol }}
+      appProtocol: {{ . | quote }}
+      {{- end }}
+    {{- end }}
+  selector: {{ include "model-service.selectorLabels" . | nindent 4 }}
+{{- end }}
