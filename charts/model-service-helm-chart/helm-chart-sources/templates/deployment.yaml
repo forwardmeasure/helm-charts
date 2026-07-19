@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "model-service.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "model-service.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy: {{ toYaml .Values.strategy | nindent 4 }}
+  selector:
+    matchLabels: {{ include "model-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations: {{ toYaml .Values.podAnnotations | nindent 8 }}
+      labels:
+        {{- include "model-service.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}{{ toYaml . | nindent 8 }}{{- end }}
+    spec:
+      serviceAccountName: {{ include "model-service.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext: {{ toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.runtimeClassName }}
+      runtimeClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "model-service.name" . }}
+          image: {{ include "model-service.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{ toYaml .Values.securityContext | nindent 12 }}
+          {{- with .Values.command }}
+          command: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.env }}
+          env:
+            {{- range $name, $value := . }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            {{- range .Values.ports }}
+            {{- if .enabled }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ .protocol | default "TCP" }}
+            {{- end }}
+            {{- end }}
+          {{- range $name, $probe := .Values.probes }}
+          {{- if $probe.enabled }}
+          {{ $name }}Probe:
+            {{- $handler := required (printf "probes.%s.type is required" $name) $probe.type }}
+            {{- $handlerSpec := get $probe.spec $handler }}
+            {{- if not $handlerSpec }}{{ fail (printf "probes.%s.spec.%s is required" $name $handler) }}{{ end }}
+            {{- toYaml (omit $probe.spec "httpGet" "grpc" "tcpSocket" "exec") | nindent 12 }}
+            {{ $handler }}: {{ toYaml $handlerSpec | nindent 14 }}
+          {{- end }}
+          {{- end }}
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts: {{ toYaml . | nindent 12 }}
+          {{- end }}
+        {{- with .Values.sidecars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.volumes }}
+      volumes: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{ toYaml . | nindent 8 }}
+      {{- end }}
