@@ -1,0 +1,16 @@
+image:
+  reference: quay.io/apicurio/apicurio-registry-3-operator@sha256:f4b92387e626f6615c1f4134461ad9b66cddea432bf069dda391dbd08c026d7a
+  pullPolicy: IfNotPresent
+
+registryImages:
+  app: quay.io/apicurio/apicurio-registry@sha256:30c34a50669a31d717ad0402c2a3b97041f44cdbf13604d6950a65d0370a82f9
+  ui: quay.io/apicurio/apicurio-registry-ui@sha256:6843db27c51cbc67ecdc6af6c88fb5ea6e5405a962046cc57e4193a22bfd1ad5
+  gitOpsSync: quay.io/apicurio/apicurio-registry-gitops-sync@sha256:6b4a60b16e7053b7744f23b10cfbb19703f9e98d6b4b5bfcfa5244306aeabc81
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 100Mi
+  limits:
+    cpu: 200m
+    memory: 500Mi
