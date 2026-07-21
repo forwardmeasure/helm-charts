@@ -1,5 +1,17 @@
 apiVersion: v1
 entries:
+  apicurio-registry-operator:
+  - apiVersion: v2
+    appVersion: 3.3.0
+    created: "2026-07-21T03:38:29.32538357-04:00"
+    description: Namespace-scoped installation of the upstream Apicurio Registry 3
+      operator
+    digest: abcc56af28770981b89377d2cdc7706bc17dbab0147020781423543196952366
+    name: apicurio-registry-operator
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/apicurio-registry-operator-helm-chart/apicurio-registry-operator-0.1.1.tgz
+    version: 0.1.1
   docling-serve:
   - apiVersion: v2
     appVersion: latest
@@ -3214,4 +3226,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-07-19T16:32:14.956528233-04:00"
+generated: "2026-07-21T03:38:29.324723799-04:00"
