@@ -1,0 +1,6 @@
+apiVersion: v2
+name: apicurio-registry-deployment
+description: ApicurioRegistry3 instance managed by the Apicurio Registry operator
+type: application
+version: "0.1.2"
+appVersion: "3.3.0"
