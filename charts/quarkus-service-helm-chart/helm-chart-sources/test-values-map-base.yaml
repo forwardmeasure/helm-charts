@@ -24,3 +24,36 @@ services:
       limits:
         cpu: 500m
         memory: 512Mi
+
+  # Test-only fixture for generic custom init-container rendering.
+  init-container-fixture:
+    enabled: true
+    deploymentMode: deployment
+    image:
+      repository: example/init-container-fixture
+      tag: test
+    initContainers:
+      - enabled: true
+        name: publish-contracts
+        image: example/contract-publisher:test
+        env:
+          REGISTRY_URL: http://registry.example/apis/registry/v3
+        secrets:
+          - envVar: REGISTRY_CLIENT_SECRET
+            existingSecretName: registry-publisher
+            secretKey: client-secret
+        script: exec /deployments/publish-contracts
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

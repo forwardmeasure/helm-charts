@@ -195,6 +195,24 @@ kafka:
 #       tag: latest
 #     env:
 #       EXAMPLE_SETTING: value
+#     initContainers:
+#       - enabled: true
+#         name: prepare-service
+#         image: example/preparer:latest
+#         env:
+#           PREPARE_MODE: strict
+#         secrets:
+#           - envVar: PREPARE_TOKEN
+#             existingSecretName: example-preparer
+#             secretKey: token
+#         script: exec /deployments/prepare
+#         resources:
+#           requests:
+#             cpu: 50m
+#             memory: 64Mi
+#           limits:
+#             cpu: 250m
+#             memory: 256Mi
 #
 # Per-service secrets (unique to that service) are declared under secrets[].
 # Shared secrets across services are declared at the top-level secrets[] above.
