@@ -458,11 +458,18 @@ initContainers:
   - name: {{ .name }}
     image: {{ .image | default "curlimages/curl:latest" }}
     imagePullPolicy: {{ .imagePullPolicy | default "IfNotPresent" }}
-    {{- with .env }}
+    {{- if or .env .secrets }}
     env:
-      {{- range $key, $val := . }}
+      {{- range $key, $val := .env }}
       - name: {{ $key }}
         value: {{ $val | quote }}
+      {{- end }}
+      {{- range .secrets }}
+      - name: {{ .envVar }}
+        valueFrom:
+          secretKeyRef:
+            name: {{ include "quarkus-service.resolveSecretName" (dict "root" $root "service" $svc "secretEntry" .) }}
+            key: {{ .secretKey }}
       {{- end }}
     {{- end }}
     command:
