@@ -33,6 +33,11 @@ grep -q 'name: QUARKUS_DATASOURCE_USERNAME' "${neutral_render}"
 grep -q 'name: QUARKUS_DATASOURCE_PASSWORD' "${neutral_render}"
 grep -q 'name: QUARKUS_DATASOURCE_JDBC_URL' "${neutral_render}"
 grep -q 'key: db-jdbc-url' "${neutral_render}"
+grep -q 'name: init-container-fixture' "${neutral_render}"
+grep -q 'name: publish-contracts' "${neutral_render}"
+grep -q 'name: REGISTRY_CLIENT_SECRET' "${neutral_render}"
+grep -q 'name: registry-publisher' "${neutral_render}"
+grep -q 'key: client-secret' "${neutral_render}"
 if grep -q 'name: cloud-sql-proxy' "${neutral_render}"; then
   echo "neutral database rendering unexpectedly contains Cloud SQL" >&2
   exit 1
