@@ -1,0 +1,44 @@
+registry:
+  name: data-fabric-registry
+  replicas: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+kafka:
+  bootstrapServers: kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092
+  topics:
+    journal: apicurio-kafkasql-journal
+    snapshots: apicurio-kafkasql-snapshots
+    events: apicurio-registry-events
+
+access:
+  applicationNamespace: data-fabric
+  gatewayNamespace: istio-system
+
+auth:
+  enabled: false
+  clientId: ""
+  serverUrl: ""
+  redirectUrl: ""
+  logoutUrl: ""
+
+cors:
+  allowedOrigins: []
+
+ui:
+  enabled: true
+  replicas: 2
+  contextPath: /registry/
+  apiUrl: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

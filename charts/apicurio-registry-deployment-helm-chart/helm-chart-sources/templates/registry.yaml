@@ -1,0 +1,116 @@
+apiVersion: registry.apicur.io/v1
+kind: ApicurioRegistry3
+metadata:
+  name: {{ .Values.registry.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: apicurio-registry
+    app.kubernetes.io/instance: {{ .Values.registry.name }}
+    app.kubernetes.io/part-of: apicurio-registry
+spec:
+  app:
+    replicas: {{ .Values.registry.replicas }}
+    storage:
+      type: kafkasql
+      kafkasql:
+        bootstrapServers: {{ .Values.kafka.bootstrapServers | quote }}
+    env:
+      - name: APICURIO_KAFKASQL_TOPIC
+        value: {{ .Values.kafka.topics.journal | quote }}
+      - name: APICURIO_KAFKASQL_SNAPSHOTS_TOPIC
+        value: {{ .Values.kafka.topics.snapshots | quote }}
+      - name: APICURIO_EVENTS_KAFKA_TOPIC
+        value: {{ .Values.kafka.topics.events | quote }}
+      - name: APICURIO_KAFKASQL_TOPIC_AUTO_CREATE
+        value: "false"
+      {{- if .Values.cors.allowedOrigins }}
+      - name: QUARKUS_HTTP_CORS_ORIGINS
+        value: {{ join "," .Values.cors.allowedOrigins | quote }}
+      {{- end }}
+    {{- if .Values.auth.enabled }}
+    auth:
+      enabled: true
+      appClientId: {{ required "auth.clientId is required when auth.enabled=true" .Values.auth.clientId | quote }}
+      uiClientId: {{ .Values.auth.clientId | quote }}
+      authServerUrl: {{ required "auth.serverUrl is required when auth.enabled=true" .Values.auth.serverUrl | quote }}
+      redirectUri: {{ required "auth.redirectUrl is required when auth.enabled=true" .Values.auth.redirectUrl | quote }}
+      logoutUrl: {{ required "auth.logoutUrl is required when auth.enabled=true" .Values.auth.logoutUrl | quote }}
+      anonymousReadsEnabled: false
+      # Required explicitly due to an operator 3.3.0 null dereference when the
+      # auth TLS object is omitted. Public Keycloak certificates are verified.
+      tls:
+        tlsVerificationType: required
+    {{- end }}
+    ingress:
+      enabled: false
+    networkPolicy:
+      enabled: false
+    podDisruptionBudget:
+      enabled: true
+    podTemplateSpec:
+      spec:
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: apicurio-registry
+                app.kubernetes.io/instance: {{ .Values.registry.name }}
+                app.kubernetes.io/component: app
+        containers:
+          - name: apicurio-registry-app
+            resources:
+              {{- toYaml .Values.registry.resources | nindent 14 }}
+            startupProbe:
+              httpGet:
+                path: /health/started
+                port: management
+              periodSeconds: 10
+              timeoutSeconds: 3
+              failureThreshold: 30
+  ui:
+    # Keep the UI resource active even when scaled to zero. Apicurio operator
+    # 3.3.0 otherwise includes a disabled UI in its readiness calculation.
+    enabled: true
+    replicas: {{ ternary .Values.ui.replicas 0 .Values.ui.enabled }}
+    env:
+      - name: REGISTRY_CONTEXT_PATH
+        value: {{ .Values.ui.contextPath | quote }}
+      - name: REGISTRY_API_URL
+        value: {{ default (printf "http://%s-app-service.%s.svc.cluster.local:8080/apis/registry/v3" .Values.registry.name .Release.Namespace) .Values.ui.apiUrl | quote }}
+      {{- if .Values.auth.enabled }}
+      - name: REGISTRY_AUTH_TYPE
+        value: oidc
+      - name: REGISTRY_AUTH_URL
+        value: {{ .Values.auth.serverUrl | quote }}
+      - name: REGISTRY_AUTH_CLIENT_ID
+        value: {{ .Values.auth.clientId | quote }}
+      - name: REGISTRY_AUTH_CLIENT_SCOPES
+        value: "openid profile email"
+      - name: REGISTRY_AUTH_REDIRECT_URL
+        value: {{ .Values.auth.redirectUrl | quote }}
+      - name: REGISTRY_AUTH_LOGOUT_URL
+        value: {{ .Values.auth.logoutUrl | quote }}
+      {{- end }}
+    ingress:
+      enabled: false
+    networkPolicy:
+      enabled: false
+    podDisruptionBudget:
+      enabled: {{ .Values.ui.enabled }}
+    podTemplateSpec:
+      spec:
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: apicurio-registry
+                app.kubernetes.io/instance: {{ .Values.registry.name }}
+                app.kubernetes.io/component: ui
+        containers:
+          - name: apicurio-registry-ui
+            resources:
+              {{- toYaml .Values.ui.resources | nindent 14 }}

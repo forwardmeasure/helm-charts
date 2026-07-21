@@ -1,5 +1,16 @@
 apiVersion: v1
 entries:
+  apicurio-registry-deployment:
+  - apiVersion: v2
+    appVersion: 3.3.0
+    created: "2026-07-21T03:39:45.738632004-04:00"
+    description: ApicurioRegistry3 instance managed by the Apicurio Registry operator
+    digest: d48db0fc8e6c1e8343090dae24fe96d5ef067dabae1ab0f4ef2e135502b4606c
+    name: apicurio-registry-deployment
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/apicurio-registry-deployment-helm-chart/apicurio-registry-deployment-0.1.2.tgz
+    version: 0.1.2
   apicurio-registry-operator:
   - apiVersion: v2
     appVersion: 3.3.0
@@ -3226,4 +3237,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-07-21T03:38:29.324723799-04:00"
+generated: "2026-07-21T03:39:45.738392605-04:00"
