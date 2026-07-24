@@ -1,0 +1,11 @@
+realm:
+  adminPublicClient:
+    redirectUri1: https://dashboard.datafabric.example.com/*
+    redirectUri2: https://workbench.datafabric.example.com/*
+    additionalRedirectUris:
+      - https://agents.datafabric.example.com/*
+    webOrigin1: https://dashboard.datafabric.example.com
+    webOrigin2: https://workbench.datafabric.example.com
+    additionalWebOrigins:
+      - https://agents.datafabric.example.com
+    postLogoutRedirectUris: https://dashboard.datafabric.example.com/*##https://workbench.datafabric.example.com/*##https://agents.datafabric.example.com/*

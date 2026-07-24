@@ -107,8 +107,12 @@ realm:
     name: "DataFabric Admin Public Client"
     redirectUri1: "https://datafabric.asvinau.com/*"
     redirectUri2: "http://localhost:3000/*"
+    # Additional deployment-specific browser redirects are reconciled by the
+    # post-install/post-upgrade hook without changing the bootstrap slots above.
+    additionalRedirectUris: []
     webOrigin1: "https://datafabric.asvinau.com"
     webOrigin2: "http://localhost:3000"
+    additionalWebOrigins: []
     postLogoutRedirectUris: "https://datafabric.asvinau.com/*##http://localhost:3000/*"
 
   adminConfidentialClient:

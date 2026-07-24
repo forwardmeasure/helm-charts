@@ -107,6 +107,8 @@ print_config_banner() {
   log "DATAFABRIC_ROLE_PLATFORM_ADMIN          = ${DATAFABRIC_ROLE_PLATFORM_ADMIN}"
   log "DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID = ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
   log "DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID       = ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
+  log "DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON = ${DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON}"
+  log "DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON   = ${DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON}"
   log "KEYCLOAK_REALM_MGMT_ROLES               = ${KEYCLOAK_REALM_MGMT_ROLES}"
   log "DATAFABRIC_TENANT_GROUP_ROLES           = ${DATAFABRIC_TENANT_GROUP_ROLES:-<empty>}"
   log "KEYCLOAK_READY_SLEEP_SECONDS            = ${KEYCLOAK_READY_SLEEP_SECONDS}"
@@ -860,11 +862,13 @@ configure_public_client_redirects() {
     printf '%s' "$client_json" | jq \
       --arg redirect1 "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1}" \
       --arg redirect2 "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2}" \
+      --argjson additionalRedirects "${DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON}" \
       --arg origin1 "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1}" \
       --arg origin2 "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2}" \
+      --argjson additionalOrigins "${DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON}" \
       --arg logout "${DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS}" \
-      '.redirectUris = ([$redirect1, $redirect2] | map(select(length > 0)))
-       | .webOrigins = ([$origin1, $origin2] | map(select(length > 0)))
+      '.redirectUris = ([$redirect1, $redirect2] + $additionalRedirects | map(select(type == "string" and length > 0)) | unique)
+       | .webOrigins = ([$origin1, $origin2] + $additionalOrigins | map(select(type == "string" and length > 0)) | unique)
        | .attributes["post.logout.redirect.uris"] = $logout'
   )"
 
@@ -965,8 +969,10 @@ main() {
   require_env DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID
   require_env DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1
   require_env DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2
+  require_env DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON
   require_env DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1
   require_env DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2
+  require_env DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON
   require_env DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS
 
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
