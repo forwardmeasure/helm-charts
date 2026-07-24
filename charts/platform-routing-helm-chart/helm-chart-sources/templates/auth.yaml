@@ -42,6 +42,14 @@ spec:
     - from:
         - source:
             requestPrincipals: ["*"]
+{{- with .auth.publicPaths }}
+    - to:
+        - operation:
+            paths:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+{{- end }}
     - to:
         - operation:
             ports:
@@ -92,6 +100,14 @@ spec:
     - from:
         - source:
             requestPrincipals: ["*"]
+{{- with .publicPaths }}
+    - to:
+        - operation:
+            paths:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+{{- end }}
     - to:
         - operation:
             ports:
