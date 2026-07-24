@@ -33,7 +33,7 @@ spec:
   issuerRef:
     name: {{ $.Values.clusterIssuer.name }}
     kind: ClusterIssuer
-  commonName: {{ first .hostnames }}
+  commonName: {{ first .hostnames | quote }}
   dnsNames:
     {{- range .hostnames }}
     - {{ . | quote }}
