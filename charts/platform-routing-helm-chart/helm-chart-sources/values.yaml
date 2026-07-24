@@ -17,7 +17,8 @@ gateway:
   # Root hostname
   rootHostname: ""
   # Additional listeners beyond http, root-https.
-  # Each entry maps to one HTTPS listener in the Gateway.
+  # Each entry maps to one HTTPS listener and, when httpRedirect.enabled,
+  # a matching HTTP listener and redirect route in the Gateway.
   # listeners[].name        — listener name (used as sectionName in parentRef)
   # listeners[].hostname    — fully qualified hostname
   # listeners[].tlsSecret   — name of TLS secret in gateway namespace
@@ -86,6 +87,7 @@ clusterIssuer:
 #     selector        — matchLabels for the policy selector
 #     issuerUrl       — Keycloak realm issuer URL
 #     jwksUri         — Keycloak JWKS URI
+#     publicPaths     — optional request paths allowed without a JWT
 #     internalPorts   — ports exempt from JWT auth (default: ["8012"] for
 #                       Knative queue-proxy). Override per route if needed.
 #   destinationRule

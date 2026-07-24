@@ -13,15 +13,29 @@ spec:
   listeners:
     # HTTP listener — used only for redirect to HTTPS
     - name: http
-      hostname: {{ .Values.gateway.rootHostname }}
+      hostname: {{ .Values.gateway.rootHostname | quote }}
       port: 80
       protocol: HTTP
       allowedRoutes:
         namespaces:
           from: All
+    {{- if .Values.httpRedirect.enabled }}
+    {{- range .Values.gateway.listeners }}
+    {{- if gt (len .name) 49 }}
+    {{- fail (printf "gateway.listeners[].name %q must be at most 49 characters when HTTP redirects are enabled" .name) }}
+    {{- end }}
+    - name: {{ .name }}-http
+      hostname: {{ .hostname | quote }}
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    {{- end }}
+    {{- end }}
     # Root HTTPS listener
     - name: root-https
-      hostname: {{ .Values.gateway.rootHostname }}
+      hostname: {{ .Values.gateway.rootHostname | quote }}
       port: 443
       protocol: HTTPS
       tls:
@@ -34,7 +48,7 @@ spec:
           from: All
     {{- range .Values.gateway.listeners }}
     - name: {{ .name }}
-      hostname: {{ .hostname }}
+      hostname: {{ .hostname | quote }}
       port: 443
       protocol: HTTPS
       tls:
@@ -66,14 +80,33 @@ spec:
     - name: {{ .Values.gateway.name }}
       sectionName: http
   hostnames:
-    - "*.{{ .Values.gateway.rootHostname }}"
-    - {{ .Values.gateway.rootHostname }}
+    - {{ .Values.gateway.rootHostname | quote }}
   rules:
     - filters:
         - type: RequestRedirect
           requestRedirect:
             scheme: https
             port: 443
+{{- range .Values.gateway.listeners }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-redirect-{{ .name }}
+  namespace: {{ $.Values.gateway.namespace }}
+spec:
+  parentRefs:
+    - name: {{ $.Values.gateway.name }}
+      sectionName: {{ .name }}-http
+  hostnames:
+    - {{ .hostname | quote }}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            port: 443
+{{- end }}
 {{- end }}
 
 {{- if .Values.telemetry.enabled }}
