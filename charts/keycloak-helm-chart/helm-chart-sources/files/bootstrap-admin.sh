@@ -975,6 +975,10 @@ main() {
   require_env DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON
   require_env DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS
 
+  # All request paths below begin with "/". Normalise a configured root
+  # context so URL joining never produces a Keycloak-rejected "//" path.
+  KEYCLOAK_URL="${KEYCLOAK_URL%/}"
+
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
   : "${KEYCLOAK_READY_MAX_ATTEMPTS:=60}"
 

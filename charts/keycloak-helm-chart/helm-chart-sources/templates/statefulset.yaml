@@ -294,7 +294,7 @@ spec:
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
-              path: {{ .Values.livenessProbe.path }}
+              path: {{ .Values.livenessProbe.path | default (printf "%s/health/live" (.Values.keycloak.httpRelativePath | trimSuffix "/")) | quote }}
               port: {{ .Values.livenessProbe.port | default .Values.keycloak.managementPort }}
               scheme: {{ .Values.livenessProbe.scheme | default "HTTP" }}
               {{- with .Values.livenessProbe.httpHeaders }}
@@ -310,7 +310,7 @@ spec:
           {{- if .Values.readinessProbe.enabled }}
           readinessProbe:
             httpGet:
-              path: {{ .Values.readinessProbe.path }}
+              path: {{ .Values.readinessProbe.path | default (printf "%s/health/ready" (.Values.keycloak.httpRelativePath | trimSuffix "/")) | quote }}
               port: {{ .Values.readinessProbe.port | default .Values.keycloak.managementPort }}
               scheme: {{ .Values.readinessProbe.scheme | default "HTTP" }}
               {{- with .Values.readinessProbe.httpHeaders }}
@@ -326,7 +326,7 @@ spec:
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
             httpGet:
-              path: {{ .Values.startupProbe.path }}
+              path: {{ .Values.startupProbe.path | default (printf "%s/health/ready" (.Values.keycloak.httpRelativePath | trimSuffix "/")) | quote }}
               port: {{ .Values.startupProbe.port | default .Values.keycloak.managementPort }}
               scheme: {{ .Values.startupProbe.scheme | default (.Values.readinessProbe.scheme | default "HTTP") }}
               {{- with .Values.startupProbe.httpHeaders }}
