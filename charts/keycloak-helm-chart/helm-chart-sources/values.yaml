@@ -243,7 +243,8 @@ resources:
 # ---------------------------------------------------------------------------
 readinessProbe:
   enabled: true
-  path: /auth/health/ready
+  # Empty derives the path from keycloak.httpRelativePath.
+  path: ""
   port: 9000
   scheme: HTTP
   initialDelaySeconds: 120
@@ -254,7 +255,8 @@ readinessProbe:
 
 livenessProbe:
   enabled: true
-  path: /auth/health/live
+  # Empty derives the path from keycloak.httpRelativePath.
+  path: ""
   port: 9000
   scheme: HTTP
   initialDelaySeconds: 300
@@ -265,7 +267,8 @@ livenessProbe:
 
 startupProbe:
   enabled: true
-  path: /auth/health/ready
+  # Empty derives the path from keycloak.httpRelativePath.
+  path: ""
   port: 9000
   scheme: HTTP
   periodSeconds: 5
