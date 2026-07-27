@@ -9,6 +9,8 @@ services:
   evidence-api:
     enabled: true
     deploymentMode: deployment
+    strategy:
+      type: Recreate
     image:
       repository: example/evidence-api
       tag: test
