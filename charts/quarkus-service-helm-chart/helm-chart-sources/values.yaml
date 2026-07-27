@@ -217,6 +217,20 @@ kafka:
 # Per-service secrets (unique to that service) are declared under secrets[].
 # Shared secrets across services are declared at the top-level secrets[] above.
 #
+# Read-only Secret volumes are generic and opt-in:
+#   secretVolumeMounts:
+#     - name: service-credentials
+#       secretName: existing-kubernetes-secret
+#       mountPath: /var/run/secrets/my-service
+#       readOnly: true
+#       optional: false
+#       defaultMode: 0400
+#       items:
+#         - key: client-id
+#           path: client-id
+#         - key: client-secret
+#           path: client-secret
+#
 # deploymentMode: knative (default) | deployment | scaledJob
 #   knative    — Knative Service with scale-to-zero and Knative traffic
 #                management. Use for pure HTTP request/response workloads.

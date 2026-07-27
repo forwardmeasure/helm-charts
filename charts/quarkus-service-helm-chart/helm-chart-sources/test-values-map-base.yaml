@@ -32,6 +32,16 @@ services:
     image:
       repository: example/init-container-fixture
       tag: test
+    secretVolumeMounts:
+      - name: runtime-credential
+        secretName: tenant-runtime-credential
+        mountPath: /var/run/secrets/runtime
+        defaultMode: 0400
+        items:
+          - key: client-id
+            path: client-id
+          - key: client-secret
+            path: client-secret
     initContainers:
       - enabled: true
         name: publish-contracts

@@ -38,6 +38,10 @@ grep -q 'name: publish-contracts' "${neutral_render}"
 grep -q 'name: REGISTRY_CLIENT_SECRET' "${neutral_render}"
 grep -q 'name: registry-publisher' "${neutral_render}"
 grep -q 'key: client-secret' "${neutral_render}"
+grep -q 'name: runtime-credential' "${neutral_render}"
+grep -q 'secretName: tenant-runtime-credential' "${neutral_render}"
+grep -q 'mountPath: "/var/run/secrets/runtime"' "${neutral_render}"
+grep -q 'defaultMode: 256' "${neutral_render}"
 if grep -q 'name: cloud-sql-proxy' "${neutral_render}"; then
   echo "neutral database rendering unexpectedly contains Cloud SQL" >&2
   exit 1
