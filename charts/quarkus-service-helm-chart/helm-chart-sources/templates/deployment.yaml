@@ -24,6 +24,10 @@ metadata:
     {{- include "quarkus-service.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
 spec:
   replicas: {{ $minReplicas }}
+  {{- with .strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/component: {{ .name }}
