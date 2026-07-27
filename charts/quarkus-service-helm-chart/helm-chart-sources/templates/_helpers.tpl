@@ -495,11 +495,33 @@ Pod volumes shared across workload types.
 Usage: include "quarkus-service.podVolumes" (dict "service" . "root" $)
 */}}
 {{- define "quarkus-service.podVolumes" -}}
-{{- if eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true" }}
+{{- $secretMounts := .service.secretVolumeMounts | default (list) -}}
+{{- if or (eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true") (gt (len $secretMounts) 0) }}
 volumes:
+  {{- if eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true" }}
   - name: {{ include "quarkus-service.sparkExecutorPodTemplateVolumeName" . }}
     configMap:
       name: {{ include "quarkus-service.sparkExecutorPodTemplateConfigMapName" (dict "service" .service "root" .root) }}
+  {{- end }}
+  {{- range $secretMounts }}
+  - name: {{ required "secretVolumeMounts[].name is required" .name }}
+    secret:
+      secretName: {{ required "secretVolumeMounts[].secretName is required" .secretName }}
+      optional: {{ .optional | default false }}
+      {{- with .defaultMode }}
+      defaultMode: {{ . }}
+      {{- end }}
+      {{- with .items }}
+      items:
+        {{- range . }}
+        - key: {{ required "secretVolumeMounts[].items[].key is required" .key }}
+          path: {{ required "secretVolumeMounts[].items[].path is required" .path }}
+          {{- with .mode }}
+          mode: {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+  {{- end }}
 {{- end }}
 {{- end }}
 
@@ -579,11 +601,19 @@ Usage: include "quarkus-service.mainContainer" (dict "service" . "root" $)
     limits:
       cpu: {{ $svc.resources.limits.cpu | default "2000m" | quote }}
       memory: {{ $svc.resources.limits.memory | default "1Gi" }}
-  {{- if eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true" }}
+  {{- $secretMounts := $svc.secretVolumeMounts | default (list) }}
+  {{- if or (eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true") (gt (len $secretMounts) 0) }}
   volumeMounts:
+    {{- if eq (include "quarkus-service.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true" }}
     - name: {{ include "quarkus-service.sparkExecutorPodTemplateVolumeName" . }}
       mountPath: {{ include "quarkus-service.sparkExecutorPodTemplateMountPath" (dict "service" $svc "root" $root) | quote }}
       readOnly: true
+    {{- end }}
+    {{- range $secretMounts }}
+    - name: {{ required "secretVolumeMounts[].name is required" .name }}
+      mountPath: {{ required "secretVolumeMounts[].mountPath is required" .mountPath | quote }}
+      readOnly: {{ .readOnly | default true }}
+    {{- end }}
   {{- end }}
   livenessProbe:
     httpGet:
