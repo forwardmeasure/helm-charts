@@ -20,6 +20,8 @@ helm template neutral-test "${chart_dir}" \
 
 grep -q 'name: evidence-api' "${map_render}"
 grep -q 'image: docker.io/example/evidence-api:test' "${map_render}"
+grep -A2 -q '^  strategy:$' "${map_render}"
+grep -q 'type: Recreate' "${map_render}"
 grep -q 'name: BASE_SETTING' "${map_render}"
 grep -q 'value: "retained"' "${map_render}"
 grep -q 'name: GCP_PROJECT_ID' "${map_render}"

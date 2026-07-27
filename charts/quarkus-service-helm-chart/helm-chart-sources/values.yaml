@@ -237,6 +237,10 @@ kafka:
 #   deployment — Standard Kubernetes Deployment + ClusterIP Service.
 #                Use for services requiring stable long-lived connections
 #                (Spark driver, persistent Kafka consumers, etc.).
+#                Optional strategy maps directly to Deployment.spec.strategy.
+#                Kafka Streams applications whose topology may change should
+#                use strategy.type: Recreate so incompatible topology
+#                generations never share one application.id.
 #   scaledJob  — KEDA ScaledJob for queue-triggered finite workers that
 #                process one unit of work and exit.
 #
@@ -254,6 +258,8 @@ kafka:
 #     metric:               Autoscaler metric (default: concurrency).
 #
 #   deployment only:
+#     strategy:
+#       type: Recreate  # or RollingUpdate with rollingUpdate settings
 #     autoscaler:     none | hpa | keda. Default: none.
 #                     none — Deployment only.
 #                     hpa  — Deployment + Kubernetes HorizontalPodAutoscaler.
