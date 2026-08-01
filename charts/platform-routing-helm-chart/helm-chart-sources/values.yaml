@@ -11,6 +11,8 @@ gateway:
   name: data-fabric-gateway
   namespace: istio-system
   gatewayClassName: istio
+  # Replica count for the Istio Deployment generated from this Gateway.
+  replicaCount: 1
   loadBalancerIp: ""
   # Root domain TLS secret (shared by all routes on the root domain)
   rootTlsSecret: data-fabric-tls-secret
