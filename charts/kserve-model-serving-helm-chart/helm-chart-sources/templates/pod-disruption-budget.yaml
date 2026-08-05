@@ -1,0 +1,22 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- range .Values.models }}
+{{- if .enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "kserve-model-serving.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: model-serving
+    kserve-model-serving/runtime: {{ .runtime }}
+    kserve-model-serving/family: {{ $.Release.Name }}
+spec:
+  minAvailable: {{ $.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: {{ .name }}
+{{- end }}
+{{- end }}
+{{- end }}
