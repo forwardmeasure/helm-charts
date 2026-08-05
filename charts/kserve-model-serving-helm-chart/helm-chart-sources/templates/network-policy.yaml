@@ -1,0 +1,25 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- range .Values.models }}
+{{- if .enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "kserve-model-serving.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: model-serving
+    kserve-model-serving/runtime: {{ .runtime }}
+    kserve-model-serving/family: {{ $.Release.Name }}
+spec:
+  podSelector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: {{ .name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    {{- toYaml $.Values.networkPolicy.ingress | nindent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}
