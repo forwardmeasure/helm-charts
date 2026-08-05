@@ -43,11 +43,18 @@ spec:
     tolerations:
       {{- toYaml . | nindent 6 }}
     {{- end }}
-    {{- if $.Values.externalModelCache }}
+    {{- if or $.Values.externalModelCache .additionalVolumes }}
     volumes:
+      {{- if $.Values.externalModelCache }}
       - name: model-cache
         persistentVolumeClaim:
           claimName: {{ include "kserve-model-serving.pvcName" (dict "model" . "Values" $.Values) }}
+      {{- end }}
+      {{- with .additionalVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- if $.Values.externalModelCache }}
     initContainers:
       - name: download-models
         image: {{ include "kserve-model-serving.downloadImage" (dict "model" . "Values" $.Values) }}
@@ -82,6 +89,10 @@ spec:
       - name: kserve-container
         image: {{ include "kserve-model-serving.customImageRef" .customImage }}
         imagePullPolicy: {{ .customImage.pullPolicy | default "IfNotPresent" }}
+        {{- with .containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         {{- if .customImage.command }}
         command:
           {{- toYaml .customImage.command | nindent 10 }}
@@ -121,11 +132,28 @@ spec:
             {{- if gt (int (.gpu | default 0)) 0 }}
             nvidia.com/gpu: {{ .gpu | quote }}
             {{- end }}
-        {{- if $.Values.externalModelCache }}
+        {{- with .startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- if or $.Values.externalModelCache .additionalVolumeMounts }}
         volumeMounts:
+          {{- if $.Values.externalModelCache }}
           - name: model-cache
             mountPath: {{ $.Values.modelCache.mountPath }}
             readOnly: true
+          {{- end }}
+          {{- with .additionalVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
         {{- end }}
     {{- else }}
     model:

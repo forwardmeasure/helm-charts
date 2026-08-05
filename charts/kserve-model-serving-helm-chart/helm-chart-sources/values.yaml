@@ -45,6 +45,34 @@ imagePullSecrets: []
 #   - name: my-registry-secret
 
 # ------------------------------------------------------------------------------
+# Optional ingress isolation for predictor pods created by this release.
+# `ingress` is rendered verbatim as the NetworkPolicy ingress rule list. This
+# permits precise namespace/pod selectors without baking application names into
+# the generic model-serving chart.
+# ------------------------------------------------------------------------------
+networkPolicy:
+  enabled: false
+  ingress: []
+# Example:
+# networkPolicy:
+#   enabled: true
+#   ingress:
+#     - from:
+#         - namespaceSelector:
+#             matchLabels:
+#               kubernetes.io/metadata.name: entity-intelligence
+#       ports:
+#         - protocol: TCP
+#           port: 8080
+
+# One disruption budget is rendered for every enabled model and follows the
+# stable InferenceService pod label rather than a revision-specific Knative
+# deployment name.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# ------------------------------------------------------------------------------
 # HuggingFace token
 # Required for gated models (Gemma, some Phi variants).
 # Public models (Granite, most Phi) do not need a token.
@@ -126,6 +154,7 @@ vllmRuntime:
 #   scaling          — minReplicas / maxReplicas / timeoutSeconds
 #   nodeSelector     — Kubernetes node selector labels
 #   tolerations      — Kubernetes tolerations
+#   additionalVolumes — extra predictor pod volumes
 #   modelCache       — per-model overrides: pvcName, serviceAccountName,
 #                      skipManifestVerification
 #   modelDownload    — per-model override for download init container image/resources
@@ -135,7 +164,11 @@ vllmRuntime:
 #     registry       — Docker registry    (default: docker.io)
 #     repository     — org/image-name     (required)
 #     tag            — image tag          (default: latest)
+#     digest         — immutable registry digest; takes precedence over tag
 #     pullPolicy     — image pull policy  (default: IfNotPresent)
+#   containerSecurityContext — optional Kubernetes container security context
+#   additionalVolumeMounts   — optional mounts matching additionalVolumes
+#   startupProbe/readinessProbe/livenessProbe — optional Kubernetes probes
 #
 #   NOTE: For kserve-custom, MODEL_NAME, MODEL_BASE_PATH, and MODEL_SUBDIR
 #   are injected automatically from name, modelCache.mountPath, and
