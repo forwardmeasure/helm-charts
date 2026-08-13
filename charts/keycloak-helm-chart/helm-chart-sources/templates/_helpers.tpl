@@ -53,3 +53,12 @@ Selector labels
 app.kubernetes.io/name: {{ include "keycloak.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/* Resolve an immutable image when a digest is configured. */}}
+{{- define "keycloak.image" -}}
+{{- if .Values.image.digest -}}
+{{- printf "%s@%s" .Values.image.repository .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- end -}}
+{{- end }}
