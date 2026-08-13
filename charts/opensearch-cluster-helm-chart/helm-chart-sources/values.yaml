@@ -72,6 +72,13 @@ externalSecret:
       remoteKey: /opensearch/admin/cookie
       property: cookie
 
+# The bcrypt value is intentionally separate from the clear-text client
+# password. Generate it with OpenSearch's hash.sh and store it in the external
+# secret provider; neither value is rendered into a Helm release.
+securityConfig:
+  secretName: opensearch-security-config
+  passwordHashRemoteKey: /opensearch/admin/password-hash
+
 # ------------------------------------------------------------------------------
 # Security initialisation Job (helm hook: post-install only)
 # Runs once after first install to initialise the .opendistro_security index.
@@ -239,10 +246,10 @@ opensearch:
             - "CN=opensearch-cluster-master.opensearch-cluster.svc.cluster.local"
           authcz:
             admin_dn:
-              - "CN=opensearch-admin.datafabric.asvinau.com"
+              - "CN=opensearch-admin.example.com"
 
-  # Security plugin configuration — the Secret is managed by this wrapper
-  # chart (see templates/security-config.yaml) and referenced here by name.
+  # Security plugin configuration is materialised by ESO from the external
+  # username and bcrypt hash and referenced here by name.
   securityConfig:
     enabled: true
     path: /usr/share/opensearch/config/opensearch-security
