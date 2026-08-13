@@ -1,11 +1,21 @@
 realm:
+  serviceClients:
+    - clientId: oks-operation-adapter-example
+      name: Example Tenant OKS Operation Adapter
+      secretKey: OKS_OPERATION_ADAPTER_EXAMPLE_CLIENT_SECRET
+      realmRoles: [workflow-internal]
+      audiences: [entity-intelligence-internal]
+      claims:
+        tenant_did: did:web:tenant.platform.example.com
+        actor_did: did:web:tenant.platform.example.com:actors:oks-operation-adapter
+        actor_type: SERVICE
   adminPublicClient:
-    redirectUri1: https://dashboard.datafabric.example.com/*
-    redirectUri2: https://workbench.datafabric.example.com/*
+    redirectUri1: https://dashboard.platform.example.com/*
+    redirectUri2: https://workbench.platform.example.com/*
     additionalRedirectUris:
-      - https://agents.datafabric.example.com/*
-    webOrigin1: https://dashboard.datafabric.example.com
-    webOrigin2: https://workbench.datafabric.example.com
+      - https://workflows.platform.example.com/*
+    webOrigin1: https://dashboard.platform.example.com
+    webOrigin2: https://workbench.platform.example.com
     additionalWebOrigins:
-      - https://agents.datafabric.example.com
-    postLogoutRedirectUris: https://dashboard.datafabric.example.com/*##https://workbench.datafabric.example.com/*##https://agents.datafabric.example.com/*
+      - https://workflows.platform.example.com
+    postLogoutRedirectUris: https://dashboard.platform.example.com/*##https://workbench.platform.example.com/*##https://workflows.platform.example.com/*

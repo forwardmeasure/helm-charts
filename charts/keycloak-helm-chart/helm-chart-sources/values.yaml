@@ -14,6 +14,7 @@ enableServiceLinks: true
 image:
   repository: quay.io/keycloak/keycloak
   tag: "26.5"
+  digest: ""
   pullPolicy: Always
 
 imagePullSecrets: []
@@ -73,7 +74,7 @@ keycloak:
 # - tls.key
 # ---------------------------------------------------------------------------
 tls:
-  secretName: data-fabric-tls-secret
+  secretName: forwardmeasure-keycloak-tls
 
 # ---------------------------------------------------------------------------
 # Realm bootstrap
@@ -85,15 +86,16 @@ tls:
 realm:
   import: overwrite
 
-  realm: datafabric
-  displayName: DataFabric
-  configMapKey: datafabric-realm.json
-  file: files/datafabric-realm.json
+  realm: forwardmeasure
+  displayName: ForwardMeasure
+  loginTheme: keycloak.v2
+  configMapKey: forwardmeasure-realm.json
+  file: files/forwardmeasure-realm.json
 
   features: "scripts,authorization"
 
   # Secret must contain:
-  # - DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_SECRET
+  # - FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_SECRET
   clientSecretsSecret: keycloak-realm-client-secrets
 
   accessTokenLifespan: "3600"
@@ -103,37 +105,60 @@ realm:
   accessCodeLifespan: "60"
 
   adminPublicClient:
-    clientId: datafabric-admin-public
-    name: "DataFabric Admin Public Client"
-    redirectUri1: "https://datafabric.asvinau.com/*"
+    clientId: forwardmeasure-public
+    name: "ForwardMeasure Public Client"
+    redirectUri1: "https://tenant.example.com/*"
     redirectUri2: "http://localhost:3000/*"
     # Additional deployment-specific browser redirects are reconciled by the
     # post-install/post-upgrade hook without changing the bootstrap slots above.
     additionalRedirectUris: []
-    webOrigin1: "https://datafabric.asvinau.com"
+    webOrigin1: "https://tenant.example.com"
     webOrigin2: "http://localhost:3000"
     additionalWebOrigins: []
-    postLogoutRedirectUris: "https://datafabric.asvinau.com/*##http://localhost:3000/*"
+    audiences: []
+    postLogoutRedirectUris: "https://tenant.example.com/*##http://localhost:3000/*"
 
   adminConfidentialClient:
-    clientId: datafabric-admin-confidential
-    name: "DataFabric Admin Confidential Client"
+    clientId: forwardmeasure-confidential
+    name: "ForwardMeasure Confidential Client"
+
+  # Additional least-privilege machine clients reconciled by the lifecycle
+  # hook. `secretKey` names one key in `clientSecretsSecret`; secret values are
+  # never rendered into a ConfigMap or Helm release values.
+  serviceClients: []
+  # - clientId: oks-operation-adapter
+  #   name: OKS Operation Adapter
+  #   secretKey: OKS_OPERATION_ADAPTER_CLIENT_SECRET
+  #   realmRoles: [workflow-internal]
+  #   audiences: [entity-intelligence-internal]
+  #   claims:
+  #     tenant_did: did:web:tenant.example.com
+  #     actor_did: did:web:tenant.example.com:actors:oks-operation-adapter
+  #     actor_type: SERVICE
 
 # ---------------------------------------------------------------------------
 # Bootstrap admin user
 # Created by the post-install / post-upgrade hook.
 # ---------------------------------------------------------------------------
 bootstrapAdminUser:
+  utilityImage:
+    repository: docker.io/forwardmeasure/ml-model-utilities
+    tag: latest
+    digest: ""
+    pullPolicy: IfNotPresent
   username: "admin@forwardmeasure.com"
   email: "admin@forwardmeasure.com"
   firstName: "Admin"
   lastName: "User"
+  tenantDid: "did:web:tenant.example.com"
+  actorDid: "did:web:tenant.example.com:actors:platform-admin"
+  actorType: "HUMAN"
   passwordSecret: keycloak-bootstrap-admin-user-credentials
   tenantGroupRoles: "dossier-control,investigation-control,evidence-control,audit-control"
 
   # -----------------------------------------------------------------------
-  # Data Fabric platform roles (realm roles)
-  #    1. datafabric-platform-viewer
+  # ForwardMeasure platform roles (realm roles)
+  #    1. platform-viewer
   #  🎯 Purpose
   #
   #  Read-only visibility into the platform.
@@ -153,7 +178,7 @@ bootstrapAdminUser:
   #
   #  “Observer / auditor / read-only admin”
   #
-  #  2. datafabric-access-admin
+  #  2. platform-access-admin
   #  🎯 Purpose
   #
   #  Identity & access management (IAM) operator.
@@ -173,7 +198,7 @@ bootstrapAdminUser:
   #
   #  “User admin / IAM operator”
   #
-  #  3. datafabric-platform-admin
+  #  3. platform-admin
   #  🎯 Purpose
   #
   #  Full platform administrator.
@@ -190,12 +215,12 @@ bootstrapAdminUser:
   #  Perform admin actions via APIs
   #  💡 Think of it as:
   #
-  #  “Super admin for DataFabric”
+  #  “ForwardMeasure platform administrator”
   # -----------------------------------------------------------------------
-  datafabricRoles:
-    viewer: datafabric-platform-viewer
-    accessAdmin: datafabric-access-admin
-    platformAdmin: datafabric-platform-admin
+  platformRoles:
+    viewer: platform-viewer
+    accessAdmin: platform-access-admin
+    platformAdmin: platform-admin
 
   # -----------------------------------------------------------------------
   # Keycloak realm-management roles for bootstrap user
