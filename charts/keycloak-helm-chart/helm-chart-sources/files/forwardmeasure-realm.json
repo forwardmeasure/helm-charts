@@ -1,6 +1,7 @@
 {
     "realm": "${KC_REALM}",
     "displayName": "${KC_REALM_DISPLAY_NAME}",
+    "loginTheme": "${KC_LOGIN_THEME}",
     "enabled": true,
     "registrationAllowed": false,
     "loginWithEmailAllowed": true,
@@ -27,21 +28,21 @@
     "roles": {
         "realm": [
             {
-                "name": "datafabric-platform-viewer",
-                "description": "Read-only access to Data Fabric platform"
+                "name": "platform-viewer",
+                "description": "Read-only access to ForwardMeasure platform"
             },
             {
-                "name": "datafabric-access-admin",
-                "description": "Manage users, roles, and access in Data Fabric"
+                "name": "platform-access-admin",
+                "description": "Manage users, roles, and access in ForwardMeasure"
             },
             {
-                "name": "datafabric-platform-admin",
-                "description": "Full administrative access to Data Fabric platform",
+                "name": "platform-admin",
+                "description": "Full administrative access to ForwardMeasure platform",
                 "composite": true,
                 "composites": {
                     "realm": [
-                        "datafabric-platform-viewer",
-                        "datafabric-access-admin"
+                        "platform-viewer",
+                        "platform-access-admin"
                     ]
                 }
             }
@@ -354,8 +355,8 @@
             }
         },
         {
-            "name": "tenant_details",
-            "description": "Tenant context claims for DataFabric tokens",
+            "name": "forwardmeasure_identity",
+            "description": "Canonical tenant and actor identity claims for ForwardMeasure tokens",
             "protocol": "openid-connect",
             "attributes": {
                 "include.in.token.scope": "true",
@@ -363,13 +364,45 @@
             },
             "protocolMappers": [
                 {
-                    "name": "tenant-id",
+                    "name": "tenant-did",
                     "protocol": "openid-connect",
                     "protocolMapper": "oidc-usermodel-attribute-mapper",
                     "consentRequired": false,
                     "config": {
-                        "user.attribute": "tenant-id",
-                        "claim.name": "tenant-id",
+                        "user.attribute": "tenant_did",
+                        "claim.name": "tenant_did",
+                        "jsonType.label": "String",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "userinfo.token.claim": "true",
+                        "multivalued": "false",
+                        "aggregate.attrs": "false"
+                    }
+                },
+                {
+                    "name": "actor-did",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-usermodel-attribute-mapper",
+                    "consentRequired": false,
+                    "config": {
+                        "user.attribute": "actor_did",
+                        "claim.name": "actor_did",
+                        "jsonType.label": "String",
+                        "id.token.claim": "true",
+                        "access.token.claim": "true",
+                        "userinfo.token.claim": "true",
+                        "multivalued": "false",
+                        "aggregate.attrs": "false"
+                    }
+                },
+                {
+                    "name": "actor-type",
+                    "protocol": "openid-connect",
+                    "protocolMapper": "oidc-usermodel-attribute-mapper",
+                    "consentRequired": false,
+                    "config": {
+                        "user.attribute": "actor_type",
+                        "claim.name": "actor_type",
                         "jsonType.label": "String",
                         "id.token.claim": "true",
                         "access.token.claim": "true",
@@ -383,8 +416,8 @@
     ],
     "clients": [
         {
-            "clientId": "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}",
-            "name": "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_NAME}",
+            "clientId": "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}",
+            "name": "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_NAME}",
             "description": "Public PKCE client for interactive admin UI access",
             "enabled": true,
             "protocol": "openid-connect",
@@ -395,16 +428,16 @@
             "directAccessGrantsEnabled": false,
             "serviceAccountsEnabled": false,
             "redirectUris": [
-                "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1}",
-                "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2}"
+                "${FORWARDMEASURE_ADMIN_PUBLIC_REDIRECT_URI_1}",
+                "${FORWARDMEASURE_ADMIN_PUBLIC_REDIRECT_URI_2}"
             ],
             "webOrigins": [
-                "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1}",
-                "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2}"
+                "${FORWARDMEASURE_ADMIN_PUBLIC_WEB_ORIGIN_1}",
+                "${FORWARDMEASURE_ADMIN_PUBLIC_WEB_ORIGIN_2}"
             ],
             "attributes": {
                 "pkce.code.challenge.method": "S256",
-                "post.logout.redirect.uris": "${DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS}"
+                "post.logout.redirect.uris": "${FORWARDMEASURE_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS}"
             },
             "defaultClientScopes": [
                 "web-origins",
@@ -412,7 +445,8 @@
                 "openid",
                 "roles",
                 "profile",
-                "email"
+                "email",
+                "forwardmeasure_identity"
             ],
             "optionalClientScopes": [
                 "address",
@@ -421,8 +455,8 @@
             ]
         },
         {
-            "clientId": "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}",
-            "name": "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_NAME}",
+            "clientId": "${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}",
+            "name": "${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_NAME}",
             "description": "Confidential client for tenant provisioning and Keycloak administration",
             "enabled": true,
             "protocol": "openid-connect",
@@ -432,7 +466,7 @@
             "implicitFlowEnabled": false,
             "directAccessGrantsEnabled": false,
             "serviceAccountsEnabled": true,
-            "secret": "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_SECRET}",
+            "secret": "${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_SECRET}",
             "defaultClientScopes": [
                 "acr",
                 "openid",
@@ -446,7 +480,7 @@
     "clientScopeMappings": {
         "realm-management": [
             {
-                "client": "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}",
+                "client": "${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}",
                 "roles": [
                     "manage-clients",
                     "manage-users",
