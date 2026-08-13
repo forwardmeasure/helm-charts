@@ -89,6 +89,33 @@ kc_put_no_body() {
   fi
 }
 
+kc_delete_json() {
+  url="$1"
+  body="$2"
+  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
+    -X DELETE \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H "Content-Type: application/json" \
+    "$url" \
+    --data "$body")"
+  if [ "$code" != "204" ]; then
+    cat /tmp/kc.out >&2 || true
+    fail "DELETE $url failed with HTTP $code"
+  fi
+}
+
+kc_delete_no_body() {
+  url="$1"
+  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
+    -X DELETE \
+    -H "Authorization: Bearer ${TOKEN}" \
+    "$url")"
+  if [ "$code" != "204" ]; then
+    cat /tmp/kc.out >&2 || true
+    fail "DELETE $url failed with HTTP $code"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
@@ -97,23 +124,34 @@ print_config_banner() {
   log_section "Bootstrap configuration"
   log "KEYCLOAK_URL                            = ${KEYCLOAK_URL}"
   log "REALM                                   = ${REALM}"
+  log "REALM_LOGIN_THEME                       = ${REALM_LOGIN_THEME}"
   log "KEYCLOAK_ADMIN                          = ${KEYCLOAK_ADMIN}"
   log "ADMIN_USERNAME                          = ${ADMIN_USERNAME}"
   log "ADMIN_EMAIL                             = ${ADMIN_EMAIL}"
   log "ADMIN_FIRST_NAME                        = ${ADMIN_FIRST_NAME}"
   log "ADMIN_LAST_NAME                         = ${ADMIN_LAST_NAME}"
-  log "DATAFABRIC_ROLE_VIEWER                  = ${DATAFABRIC_ROLE_VIEWER}"
-  log "DATAFABRIC_ROLE_ACCESS_ADMIN            = ${DATAFABRIC_ROLE_ACCESS_ADMIN}"
-  log "DATAFABRIC_ROLE_PLATFORM_ADMIN          = ${DATAFABRIC_ROLE_PLATFORM_ADMIN}"
-  log "DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID = ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
-  log "DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID       = ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
-  log "DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON = ${DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON}"
-  log "DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON   = ${DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON}"
+  log "ADMIN_TENANT_DID                        = ${ADMIN_TENANT_DID}"
+  log "ADMIN_ACTOR_DID                         = ${ADMIN_ACTOR_DID}"
+  log "ADMIN_ACTOR_TYPE                        = ${ADMIN_ACTOR_TYPE}"
+  log "FORWARDMEASURE_ROLE_VIEWER                  = ${FORWARDMEASURE_ROLE_VIEWER}"
+  log "FORWARDMEASURE_ROLE_ACCESS_ADMIN            = ${FORWARDMEASURE_ROLE_ACCESS_ADMIN}"
+  log "FORWARDMEASURE_ROLE_PLATFORM_ADMIN          = ${FORWARDMEASURE_ROLE_PLATFORM_ADMIN}"
+  log "FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID = ${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}"
+  log "FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID       = ${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}"
+  log "FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON = ${FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON}"
+  log "FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON   = ${FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON}"
   log "KEYCLOAK_REALM_MGMT_ROLES               = ${KEYCLOAK_REALM_MGMT_ROLES}"
-  log "DATAFABRIC_TENANT_GROUP_ROLES           = ${DATAFABRIC_TENANT_GROUP_ROLES:-<empty>}"
+  log "FORWARDMEASURE_TENANT_GROUP_ROLES           = ${FORWARDMEASURE_TENANT_GROUP_ROLES:-<empty>}"
   log "KEYCLOAK_READY_SLEEP_SECONDS            = ${KEYCLOAK_READY_SLEEP_SECONDS}"
   log "KEYCLOAK_READY_MAX_ATTEMPTS             = ${KEYCLOAK_READY_MAX_ATTEMPTS}"
   log_section "Starting bootstrap"
+}
+
+configure_realm_theme() {
+  log_section "Realm theme configuration"
+  body="$(jq -n --arg login_theme "${REALM_LOGIN_THEME}" '{loginTheme: $login_theme}')"
+  kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}" "$body"
+  log "Realm login theme reconciled: ${REALM_LOGIN_THEME}"
 }
 
 # ---------------------------------------------------------------------------
@@ -265,6 +303,15 @@ create_or_update_bootstrap_user() {
 }
 EOF
 )"
+  user_body="$(printf '%s' "$user_body" | jq \
+    --arg tenant_did "$ADMIN_TENANT_DID" \
+    --arg actor_did "$ADMIN_ACTOR_DID" \
+    --arg actor_type "$ADMIN_ACTOR_TYPE" \
+    '.attributes = {
+      "tenant_did": [$tenant_did],
+      "actor_did": [$actor_did],
+      "actor_type": [$actor_type]
+    }')"
   if [ -z "$user_id" ]; then
     log "Bootstrap user not found — creating: ${ADMIN_USERNAME}"
     kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users" "$user_body"
@@ -414,6 +461,75 @@ ensure_client_scope() {
   [ -n "$new_id" ] || fail "Created scope '${scope_name}' but could not retrieve its UUID"
   log "Created client scope: ${scope_name} (id=${new_id})"
   printf '%s' "$new_id"
+}
+
+ensure_scope_forwardmeasure_identity() {
+  scope_body="$(cat <<'EOF'
+{
+  "name": "forwardmeasure_identity",
+  "description": "Canonical tenant and actor identity claims for ForwardMeasure tokens",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "name": "tenant-did",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-attribute-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "tenant_did",
+        "claim.name": "tenant_did",
+        "jsonType.label": "String",
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "userinfo.token.claim": "true",
+        "multivalued": "false",
+        "aggregate.attrs": "false"
+      }
+    },
+    {
+      "name": "actor-did",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-attribute-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "actor_did",
+        "claim.name": "actor_did",
+        "jsonType.label": "String",
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "userinfo.token.claim": "true",
+        "multivalued": "false",
+        "aggregate.attrs": "false"
+      }
+    },
+    {
+      "name": "actor-type",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-attribute-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "actor_type",
+        "claim.name": "actor_type",
+        "jsonType.label": "String",
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "userinfo.token.claim": "true",
+        "multivalued": "false",
+        "aggregate.attrs": "false"
+      }
+    }
+  ]
+}
+EOF
+)"
+  scope_id="$(ensure_client_scope "forwardmeasure_identity" "$scope_body")"
+  kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/client-scopes/${scope_id}" "$scope_body"
+  log "Canonical identity client scope reconciled (id=${scope_id})"
+  printf '%s' "$scope_id"
 }
 
 assign_default_scope_to_client_if_missing() {
@@ -812,17 +928,17 @@ configure_client_scopes() {
   SCOPE_ID_ADDRESS="$(ensure_scope_address)"
   SCOPE_ID_PHONE="$(ensure_scope_phone)"
   SCOPE_ID_OFFLINE="$(get_scope_id_by_name "offline_access")"
-  SCOPE_ID_TENANT="$(get_scope_id_by_name "tenant_details")"
+  SCOPE_ID_IDENTITY="$(ensure_scope_forwardmeasure_identity)"
 
   [ -n "$SCOPE_ID_OFFLINE" ] || fail "Could not find scope 'offline_access' — realm import may have failed"
-  [ -n "$SCOPE_ID_TENANT"  ] || fail "Could not find scope 'tenant_details' — realm import may have failed"
+  [ -n "$SCOPE_ID_IDENTITY" ] || fail "Could not reconcile scope 'forwardmeasure_identity'"
 
   log "All client scopes verified"
 
-  # datafabric-admin-public
-  log "Configuring scopes for client: ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
-  admin_pub_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}")"
-  [ -n "$admin_pub_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}'"
+  # ForwardMeasure public client
+  log "Configuring scopes for client: ${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}"
+  admin_pub_uuid="$(get_client_uuid_by_client_id "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}")"
+  [ -n "$admin_pub_uuid" ] || fail "Could not resolve UUID for client '${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}'"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "web-origins"   "$SCOPE_ID_WEB_ORIGINS"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "acr"            "$SCOPE_ID_ACR"
   assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "openid"         "$SCOPE_ID_OPENID"
@@ -832,11 +948,12 @@ configure_client_scopes() {
   assign_optional_scope_to_client_if_missing "$admin_pub_uuid" "address"        "$SCOPE_ID_ADDRESS"
   assign_optional_scope_to_client_if_missing "$admin_pub_uuid" "phone"          "$SCOPE_ID_PHONE"
   assign_optional_scope_to_client_if_missing "$admin_pub_uuid" "offline_access" "$SCOPE_ID_OFFLINE"
+  assign_default_scope_to_client_if_missing  "$admin_pub_uuid" "forwardmeasure_identity" "$SCOPE_ID_IDENTITY"
 
-  # datafabric-admin-confidential
-  log "Configuring scopes for client: ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
-  admin_conf_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}")"
-  [ -n "$admin_conf_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
+  # ForwardMeasure confidential client
+  log "Configuring scopes for client: ${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}"
+  admin_conf_uuid="$(get_client_uuid_by_client_id "${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}")"
+  [ -n "$admin_conf_uuid" ] || fail "Could not resolve UUID for client '${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
   assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "acr"            "$SCOPE_ID_ACR"
   assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "openid"         "$SCOPE_ID_OPENID"
   assign_default_scope_to_client_if_missing  "$admin_conf_uuid" "roles"          "$SCOPE_ID_ROLES"
@@ -854,26 +971,279 @@ configure_client_scopes() {
 configure_public_client_redirects() {
   log_section "Public client redirect configuration"
 
-  client_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}")"
-  [ -n "$client_uuid" ] || fail "Could not resolve UUID for client '${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}'"
+  client_uuid="$(get_client_uuid_by_client_id "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}")"
+  [ -n "$client_uuid" ] || fail "Could not resolve UUID for client '${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}'"
 
   client_json="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}")"
   updated_json="$(
     printf '%s' "$client_json" | jq \
-      --arg redirect1 "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1}" \
-      --arg redirect2 "${DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2}" \
-      --argjson additionalRedirects "${DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON}" \
-      --arg origin1 "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1}" \
-      --arg origin2 "${DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2}" \
-      --argjson additionalOrigins "${DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON}" \
-      --arg logout "${DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS}" \
+      --arg redirect1 "${FORWARDMEASURE_ADMIN_PUBLIC_REDIRECT_URI_1}" \
+      --arg redirect2 "${FORWARDMEASURE_ADMIN_PUBLIC_REDIRECT_URI_2}" \
+      --argjson additionalRedirects "${FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON}" \
+      --arg origin1 "${FORWARDMEASURE_ADMIN_PUBLIC_WEB_ORIGIN_1}" \
+      --arg origin2 "${FORWARDMEASURE_ADMIN_PUBLIC_WEB_ORIGIN_2}" \
+      --argjson additionalOrigins "${FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON}" \
+      --arg logout "${FORWARDMEASURE_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS}" \
       '.redirectUris = ([$redirect1, $redirect2] + $additionalRedirects | map(select(type == "string" and length > 0)) | unique)
        | .webOrigins = ([$origin1, $origin2] + $additionalOrigins | map(select(type == "string" and length > 0)) | unique)
        | .attributes["post.logout.redirect.uris"] = $logout'
   )"
 
   kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}" "$updated_json"
-  log "Redirect URIs and web origins reconciled for client: ${DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID}"
+  log "Redirect URIs and web origins reconciled for client: ${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}"
+}
+
+configure_public_client_audiences() {
+  log_section "Public client audience configuration"
+  client_uuid="$(get_client_uuid_by_client_id "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}")"
+  [ -n "$client_uuid" ] || fail "Could not resolve UUID for client '${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}'"
+  reconcile_client_audiences "$client_uuid" "${FORWARDMEASURE_ADMIN_PUBLIC_AUDIENCES_JSON}"
+  existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models")"
+  printf '%s' "${FORWARDMEASURE_ADMIN_PUBLIC_AUDIENCES_JSON}" | jq -r '.[]' | while IFS= read -r audience; do
+    mapper_name="hardcoded-audience:${audience}"
+    if printf '%s' "$existing" | jq -e --arg name "$mapper_name" '.[] | select(.name == $name)' >/dev/null; then
+      log "Audience mapper already exists: ${audience}"
+      continue
+    fi
+    body="$(jq -n --arg name "$mapper_name" --arg audience "$audience" '{
+      name: $name,
+      protocol: "openid-connect",
+      protocolMapper: "oidc-audience-mapper",
+      consentRequired: false,
+      config: {
+        "included.custom.audience": $audience,
+        "access.token.claim": "true",
+        "id.token.claim": "false"
+      }
+    }')"
+    kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models" "$body"
+    log "Created public-client audience mapper: ${audience}"
+  done
+}
+
+ensure_client_audience() {
+  client_uuid="$1"
+  audience="$2"
+  existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models")"
+  mapper_name="hardcoded-audience:${audience}"
+  if printf '%s' "$existing" | jq -e --arg name "$mapper_name" '.[] | select(.name == $name)' >/dev/null; then
+    return 0
+  fi
+  body="$(jq -n --arg name "$mapper_name" --arg audience "$audience" '{
+    name: $name,
+    protocol: "openid-connect",
+    protocolMapper: "oidc-audience-mapper",
+    consentRequired: false,
+    config: {
+      "included.custom.audience": $audience,
+      "access.token.claim": "true",
+      "id.token.claim": "false"
+    }
+  }')"
+  kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models" "$body"
+}
+
+reconcile_client_audiences() {
+  client_uuid="$1"
+  desired="$2"
+  existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models")"
+  printf '%s' "$existing" | jq -c '.[] | select(.name | startswith("hardcoded-audience:"))' \
+    | while IFS= read -r mapper; do
+      mapper_id="$(printf '%s' "$mapper" | jq -r '.id')"
+      audience="$(printf '%s' "$mapper" | jq -r '.config["included.custom.audience"] // empty')"
+      if ! printf '%s' "$desired" | jq -e --arg audience "$audience" \
+          'index($audience) != null' >/dev/null; then
+        kc_delete_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models/${mapper_id}"
+        log "Removed obsolete service-client audience mapper: ${audience}"
+      fi
+    done
+}
+
+ensure_client_hardcoded_claim() {
+  client_uuid="$1"
+  claim_name="$2"
+  claim_value="$3"
+  mapper_name="hardcoded-claim:${claim_name}"
+  existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models")"
+  existing_mapper="$(printf '%s' "$existing" | jq -c --arg name "$mapper_name" '.[] | select(.name == $name)' | head -n 1)"
+  body="$(jq -n \
+    --arg name "$mapper_name" \
+    --arg claim "$claim_name" \
+    --arg value "$claim_value" '{
+      name: $name,
+      protocol: "openid-connect",
+      protocolMapper: "oidc-hardcoded-claim-mapper",
+      consentRequired: false,
+      config: {
+        "claim.name": $claim,
+        "claim.value": $value,
+        "jsonType.label": "String",
+        "access.token.claim": "true",
+        "id.token.claim": "false",
+        "userinfo.token.claim": "false"
+      }
+    }')"
+  if [ -z "$existing_mapper" ]; then
+    kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models" "$body"
+    return 0
+  fi
+  mapper_id="$(printf '%s' "$existing_mapper" | jq -r '.id')"
+  if ! printf '%s' "$existing_mapper" | jq -e \
+      --arg claim "$claim_name" --arg value "$claim_value" '
+        .protocol == "openid-connect"
+        and .protocolMapper == "oidc-hardcoded-claim-mapper"
+        and .config["claim.name"] == $claim
+        and .config["claim.value"] == $value
+        and .config["jsonType.label"] == "String"
+        and .config["access.token.claim"] == "true"
+        and .config["id.token.claim"] == "false"
+        and .config["userinfo.token.claim"] == "false"' >/dev/null; then
+    body="$(printf '%s' "$body" | jq --arg id "$mapper_id" '.id = $id')"
+    kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models/${mapper_id}" "$body"
+  fi
+  printf '%s' "$existing" | jq -r --arg name "$mapper_name" \
+    '[.[] | select(.name == $name) | .id][1:][]' \
+    | while IFS= read -r duplicate_id; do
+      kc_delete_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models/${duplicate_id}"
+      log "Removed duplicate service-client hardcoded claim mapper: ${claim_name}"
+    done
+}
+
+reconcile_client_hardcoded_claims() {
+  client_uuid="$1"
+  desired="$2"
+  existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models")"
+  printf '%s' "$existing" | jq -c '.[] | select(.name | startswith("hardcoded-claim:"))' \
+    | while IFS= read -r mapper; do
+      mapper_id="$(printf '%s' "$mapper" | jq -r '.id')"
+      claim_name="$(printf '%s' "$mapper" | jq -r '.config["claim.name"] // empty')"
+      if ! printf '%s' "$desired" | jq -e --arg claim "$claim_name" \
+          'has($claim)' >/dev/null; then
+        kc_delete_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/protocol-mappers/models/${mapper_id}"
+        log "Removed obsolete service-client hardcoded claim: ${claim_name}"
+      fi
+    done
+}
+
+reconcile_service_account_realm_roles() {
+  user_id="$1"
+  desired="$2"
+  existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/realm")"
+  printf '%s' "$existing" | jq -c '.[]' | while IFS= read -r role_json; do
+    role_name="$(printf '%s' "$role_json" | jq -r '.name')"
+    if ! printf '%s' "$desired" | jq -e --arg role "$role_name" \
+        'index($role) != null' >/dev/null; then
+      kc_delete_json \
+        "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/realm" \
+        "[$role_json]"
+      log "Removed obsolete service-account realm role: ${role_name}"
+    fi
+  done
+}
+
+configure_service_clients() {
+  log_section "Least-privilege service clients"
+  printf '%s' "${FORWARDMEASURE_SERVICE_CLIENTS_JSON}" | jq -e 'type == "array"' >/dev/null \
+    || fail "FORWARDMEASURE_SERVICE_CLIENTS_JSON must be a JSON array"
+  count="$(printf '%s' "${FORWARDMEASURE_SERVICE_CLIENTS_JSON}" | jq 'length')"
+  index=0
+  while [ "$index" -lt "$count" ]; do
+    client="$(printf '%s' "${FORWARDMEASURE_SERVICE_CLIENTS_JSON}" | jq -c ".[$index]")"
+    client_id="$(printf '%s' "$client" | jq -er '.clientId | select(type == "string" and length > 0)')" \
+      || fail "serviceClients[$index].clientId is required"
+    client_name="$(printf '%s' "$client" | jq -er '.name | select(type == "string" and length > 0)')" \
+      || fail "serviceClients[$index].name is required"
+    secret_key="$(printf '%s' "$client" | jq -er '.secretKey | select(type == "string" and test("^[A-Za-z0-9_.-]+$"))')" \
+      || fail "serviceClients[$index].secretKey is invalid"
+    secret_path="${FORWARDMEASURE_SERVICE_CLIENT_SECRETS_DIRECTORY}/${secret_key}"
+    [ -f "$secret_path" ] || fail "Missing secret key '${secret_key}' for service client '${client_id}'"
+    client_secret="$(cat "$secret_path")"
+    [ -n "$client_secret" ] || fail "Secret key '${secret_key}' is empty"
+    body="$(jq -n --arg id "$client_id" --arg name "$client_name" --arg secret "$client_secret" '{
+      clientId: $id,
+      name: $name,
+      description: "Least-privilege ForwardMeasure workload client",
+      enabled: true,
+      protocol: "openid-connect",
+      publicClient: false,
+      bearerOnly: false,
+      standardFlowEnabled: false,
+      implicitFlowEnabled: false,
+      directAccessGrantsEnabled: false,
+      serviceAccountsEnabled: true,
+      clientAuthenticatorType: "client-secret",
+      secret: $secret
+    }')"
+    client_uuid="$(get_client_uuid_by_client_id "$client_id")"
+    if [ -z "$client_uuid" ]; then
+      kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients" "$body"
+      client_uuid="$(get_client_uuid_by_client_id "$client_id")"
+    else
+      existing_client="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}")"
+      updated_client="$(printf '%s' "$existing_client" | jq --arg name "$client_name" --arg secret "$client_secret" '
+        .name = $name
+        | .enabled = true
+        | .publicClient = false
+        | .bearerOnly = false
+        | .standardFlowEnabled = false
+        | .implicitFlowEnabled = false
+        | .directAccessGrantsEnabled = false
+        | .serviceAccountsEnabled = true
+        | .clientAuthenticatorType = "client-secret"
+        | .secret = $secret')"
+      kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}" "$updated_client"
+    fi
+    [ -n "$client_uuid" ] || fail "Could not reconcile service client '${client_id}'"
+    assign_default_scope_to_client_if_missing "$client_uuid" "openid" "$SCOPE_ID_OPENID"
+    assign_default_scope_to_client_if_missing "$client_uuid" "roles" "$SCOPE_ID_ROLES"
+    service_user="$(get_service_account_user_id "$client_uuid")"
+    [ -n "$service_user" ] || fail "No service account exists for '${client_id}'"
+    role_count="$(printf '%s' "$client" | jq -er '(.realmRoles // []) | if type == "array" then length else error("realmRoles must be an array") end')" \
+      || fail "serviceClients[$index].realmRoles must be an array"
+    desired_roles="$(printf '%s' "$client" | jq -c '.realmRoles // []')"
+    reconcile_service_account_realm_roles "$service_user" "$desired_roles"
+    role_index=0
+    while [ "$role_index" -lt "$role_count" ]; do
+      role="$(printf '%s' "$client" | jq -er ".realmRoles[$role_index] | select(type == \"string\" and length > 0)")" \
+        || fail "serviceClients[$index].realmRoles[$role_index] is invalid"
+      ensure_realm_role "$role" "ForwardMeasure workload authorization role"
+      assign_realm_role_to_user_if_missing "$service_user" "$role"
+      role_index=$((role_index + 1))
+    done
+    audience_count="$(printf '%s' "$client" | jq -er '(.audiences // []) | if type == "array" then length else error("audiences must be an array") end')" \
+      || fail "serviceClients[$index].audiences must be an array"
+    desired_audiences="$(printf '%s' "$client" | jq -c '.audiences // []')"
+    reconcile_client_audiences "$client_uuid" "$desired_audiences"
+    audience_index=0
+    while [ "$audience_index" -lt "$audience_count" ]; do
+      audience="$(printf '%s' "$client" | jq -er ".audiences[$audience_index] | select(type == \"string\" and length > 0)")" \
+        || fail "serviceClients[$index].audiences[$audience_index] is invalid"
+      ensure_client_audience "$client_uuid" "$audience"
+      audience_index=$((audience_index + 1))
+    done
+    claims="$(printf '%s' "$client" | jq -ec '
+      (.claims // {})
+      | if type == "object"
+        then with_entries(
+          if ((.key | test("^[A-Za-z][A-Za-z0-9_.-]*$"))
+            and ((.key | test("^(iss|sub|aud|exp|iat|nbf|jti|azp)$")) | not)
+            and (.value | type == "string" and length > 0))
+          then .
+          else error("claims must contain non-empty string values under safe, non-reserved claim names")
+          end)
+        else error("claims must be an object")
+        end')" \
+      || fail "serviceClients[$index].claims is invalid"
+    reconcile_client_hardcoded_claims "$client_uuid" "$claims"
+    printf '%s' "$claims" | jq -c 'to_entries[]' | while IFS= read -r claim; do
+      claim_name="$(printf '%s' "$claim" | jq -r '.key')"
+      claim_value="$(printf '%s' "$claim" | jq -r '.value')"
+      ensure_client_hardcoded_claim "$client_uuid" "$claim_name" "$claim_value"
+    done
+    log "Service client reconciled: ${client_id}"
+    unset client_secret
+    index=$((index + 1))
+  done
 }
 
 # ---------------------------------------------------------------------------
@@ -882,27 +1252,27 @@ configure_public_client_redirects() {
 
 configure_platform_roles() {
   log_section "Phase 1: platform realm roles"
-  ensure_realm_role "${DATAFABRIC_ROLE_VIEWER}"         "Read-only access to Data Fabric platform"
-  ensure_realm_role "${DATAFABRIC_ROLE_ACCESS_ADMIN}"   "Manage users, roles, and access in Data Fabric"
-  ensure_realm_role "${DATAFABRIC_ROLE_PLATFORM_ADMIN}" "Full administrative access to Data Fabric platform"
-  ensure_composite_role "${DATAFABRIC_ROLE_PLATFORM_ADMIN}" "${DATAFABRIC_ROLE_VIEWER}"
-  ensure_composite_role "${DATAFABRIC_ROLE_PLATFORM_ADMIN}" "${DATAFABRIC_ROLE_ACCESS_ADMIN}"
+  ensure_realm_role "${FORWARDMEASURE_ROLE_VIEWER}"         "Read-only access to ForwardMeasure platform"
+  ensure_realm_role "${FORWARDMEASURE_ROLE_ACCESS_ADMIN}"   "Manage users, roles, and access in ForwardMeasure"
+  ensure_realm_role "${FORWARDMEASURE_ROLE_PLATFORM_ADMIN}" "Full administrative access to ForwardMeasure platform"
+  ensure_composite_role "${FORWARDMEASURE_ROLE_PLATFORM_ADMIN}" "${FORWARDMEASURE_ROLE_VIEWER}"
+  ensure_composite_role "${FORWARDMEASURE_ROLE_PLATFORM_ADMIN}" "${FORWARDMEASURE_ROLE_ACCESS_ADMIN}"
   log "Platform roles configured"
 }
 
 configure_services_roles() {
   log_section "Phase 1a: services realm roles"
-  if [ -z "${DATAFABRIC_TENANT_GROUP_ROLES}" ]; then
-    log "DATAFABRIC_TENANT_GROUP_ROLES is empty — skipping services roles"
+  if [ -z "${FORWARDMEASURE_TENANT_GROUP_ROLES}" ]; then
+    log "FORWARDMEASURE_TENANT_GROUP_ROLES is empty — skipping services roles"
     return 0
   fi
   OLD_IFS="$IFS"
   IFS=','
-  for role in ${DATAFABRIC_TENANT_GROUP_ROLES}; do
+  for role in ${FORWARDMEASURE_TENANT_GROUP_ROLES}; do
     IFS="$OLD_IFS"
     trimmed="$(printf '%s' "$role" | tr -d '[:space:]')"
     [ -n "$trimmed" ] || continue
-    ensure_realm_role "$trimmed" "Data Fabric tenant service role: ${trimmed}"
+    ensure_realm_role "$trimmed" "ForwardMeasure tenant service role: ${trimmed}"
     IFS=','
   done
   IFS="$OLD_IFS"
@@ -913,27 +1283,27 @@ configure_bootstrap_user() {
   log_section "Phase 2: bootstrap admin user"
   create_or_update_bootstrap_user
   set_bootstrap_user_password
-  assign_realm_role_to_user_if_missing "${BOOTSTRAP_USER_ID}" "${DATAFABRIC_ROLE_PLATFORM_ADMIN}"
+  assign_realm_role_to_user_if_missing "${BOOTSTRAP_USER_ID}" "${FORWARDMEASURE_ROLE_PLATFORM_ADMIN}"
   log "Bootstrap user configured"
 }
 
 configure_admin_confidential_service_account() {
   log_section "Phase 3: admin confidential client service account"
-  log "Resolving client uuid for: ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
-  admin_client_uuid="$(get_client_uuid_by_client_id "${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}")"
-  [ -n "$admin_client_uuid" ] || fail "Could not resolve client uuid for '${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
+  log "Resolving client uuid for: ${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}"
+  admin_client_uuid="$(get_client_uuid_by_client_id "${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}")"
+  [ -n "$admin_client_uuid" ] || fail "Could not resolve client uuid for '${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
   log "Resolved client uuid: ${admin_client_uuid}"
   log "Resolving service account user for client: ${admin_client_uuid}"
   service_account_user_id="$(get_service_account_user_id "${admin_client_uuid}")"
-  [ -n "$service_account_user_id" ] || fail "Could not resolve service account user for '${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
+  [ -n "$service_account_user_id" ] || fail "Could not resolve service account user for '${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}'"
   log "Resolved service account user id: ${service_account_user_id}"
   log "Resolving uuid for built-in client: realm-management"
   realm_mgmt_uuid="$(get_client_uuid_by_client_id "realm-management")"
   [ -n "$realm_mgmt_uuid" ] || fail "Could not resolve realm-management client uuid"
   log "Resolved realm-management uuid: ${realm_mgmt_uuid}"
-  assign_realm_role_to_user_if_missing "${service_account_user_id}" "${DATAFABRIC_ROLE_PLATFORM_ADMIN}"
+  assign_realm_role_to_user_if_missing "${service_account_user_id}" "${FORWARDMEASURE_ROLE_PLATFORM_ADMIN}"
   assign_client_roles_to_user_if_missing "${service_account_user_id}" "${realm_mgmt_uuid}" "${KEYCLOAK_REALM_MGMT_ROLES}"
-  log "Service account configured for: ${DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID}"
+  log "Service account configured for: ${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}"
 }
 
 # ---------------------------------------------------------------------------
@@ -946,34 +1316,41 @@ main() {
       | tr -d '[:space:]' \
       | sed 's/,\+/,/g; s/^,//; s/,$//'
   )"
-  DATAFABRIC_TENANT_GROUP_ROLES="$(
-    printf '%s' "${DATAFABRIC_TENANT_GROUP_ROLES:-}" \
+  FORWARDMEASURE_TENANT_GROUP_ROLES="$(
+    printf '%s' "${FORWARDMEASURE_TENANT_GROUP_ROLES:-}" \
       | tr -d '[:space:]' \
       | sed 's/,\+/,/g; s/^,//; s/,$//'
   )"
 
   require_env KEYCLOAK_URL
   require_env REALM
+  require_env REALM_LOGIN_THEME
   require_env KEYCLOAK_ADMIN
   require_env KEYCLOAK_ADMIN_PASSWORD
   require_env ADMIN_USERNAME
   require_env ADMIN_EMAIL
   require_env ADMIN_FIRST_NAME
   require_env ADMIN_LAST_NAME
+  require_env ADMIN_TENANT_DID
+  require_env ADMIN_ACTOR_DID
+  require_env ADMIN_ACTOR_TYPE
   require_env ADMIN_PASSWORD
-  require_env DATAFABRIC_ROLE_VIEWER
-  require_env DATAFABRIC_ROLE_ACCESS_ADMIN
-  require_env DATAFABRIC_ROLE_PLATFORM_ADMIN
+  require_env FORWARDMEASURE_ROLE_VIEWER
+  require_env FORWARDMEASURE_ROLE_ACCESS_ADMIN
+  require_env FORWARDMEASURE_ROLE_PLATFORM_ADMIN
   require_env KEYCLOAK_REALM_MGMT_ROLES
-  require_env DATAFABRIC_ADMIN_CONFIDENTIAL_CLIENT_ID
-  require_env DATAFABRIC_ADMIN_PUBLIC_CLIENT_ID
-  require_env DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_1
-  require_env DATAFABRIC_ADMIN_PUBLIC_REDIRECT_URI_2
-  require_env DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON
-  require_env DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_1
-  require_env DATAFABRIC_ADMIN_PUBLIC_WEB_ORIGIN_2
-  require_env DATAFABRIC_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON
-  require_env DATAFABRIC_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS
+  require_env FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_REDIRECT_URI_1
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_REDIRECT_URI_2
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_REDIRECT_URIS_JSON
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_WEB_ORIGIN_1
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_WEB_ORIGIN_2
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_POST_LOGOUT_REDIRECT_URIS
+  require_env FORWARDMEASURE_ADMIN_PUBLIC_AUDIENCES_JSON
+  require_env FORWARDMEASURE_SERVICE_CLIENTS_JSON
+  require_env FORWARDMEASURE_SERVICE_CLIENT_SECRETS_DIRECTORY
 
   # All request paths below begin with "/". Normalise a configured root
   # context so URL joining never produces a Keycloak-rejected "//" path.
@@ -986,12 +1363,15 @@ main() {
   wait_for_keycloak
   fetch_admin_token
   wait_for_realm_management_client
+  configure_realm_theme
   configure_platform_roles
   configure_services_roles
   configure_bootstrap_user
   configure_admin_confidential_service_account
   configure_client_scopes
+  configure_service_clients
   configure_public_client_redirects
+  configure_public_client_audiences
 
   log_section "Bootstrap provisioning complete"
 }
