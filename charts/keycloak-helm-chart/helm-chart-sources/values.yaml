@@ -349,6 +349,15 @@ cloudSqlProxy:
     pullPolicy: IfNotPresent
   instanceConnectionName: ""
   port: 5432
+  # When true, the sidecar and the keycloak container itself skip the
+  # mounted-JSON-key path entirely (no credentialsSecret, no
+  # GOOGLE_APPLICATION_CREDENTIALS) and the proxy relies on ambient
+  # Application Default Credentials instead - i.e. the GKE metadata server
+  # resolving credentials via this pod's own KSA, which needs
+  # serviceAccount.annotations["iam.gke.io/gcp-service-account"] set to a
+  # real GSA bound via Workload Identity. Preferred over a static key when
+  # available; credentialsSecret below only matters when this is false.
+  ambientCredentials: false
   credentialsSecret: gcp-service-account-credentials
   resources:
     requests:
