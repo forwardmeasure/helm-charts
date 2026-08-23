@@ -63,7 +63,7 @@ spec:
               - key: {{ .Values.realm.configMapKey }}
                 path: {{ .Values.realm.configMapKey }}
         {{- end }}
-        {{- if .Values.cloudSqlProxy.enabled }}
+        {{- if and .Values.cloudSqlProxy.enabled (not .Values.cloudSqlProxy.ambientCredentials) }}
         - name: gcp-service-account-credentials-volume
           secret:
             secretName: {{ .Values.cloudSqlProxy.credentialsSecret }}
@@ -86,13 +86,17 @@ spec:
             - "--port={{ .Values.cloudSqlProxy.port }}"
             - "--address=0.0.0.0"
             - "--structured-logs"
+            {{- if not .Values.cloudSqlProxy.ambientCredentials }}
             - "--credentials-file=/secrets/gcp/gcp-service-account-credentials.json"
+            {{- end }}
           securityContext:
             runAsNonRoot: true
+          {{- if not .Values.cloudSqlProxy.ambientCredentials }}
           volumeMounts:
             - name: gcp-service-account-credentials-volume
               mountPath: /secrets/gcp
               readOnly: true
+          {{- end }}
           resources:
             {{- toYaml .Values.cloudSqlProxy.resources | nindent 12 }}
         {{- end }}
@@ -263,7 +267,7 @@ spec:
                   key: FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_SECRET
             {{- end }}
 
-            {{- if .Values.cloudSqlProxy.enabled }}
+            {{- if and .Values.cloudSqlProxy.enabled (not .Values.cloudSqlProxy.ambientCredentials) }}
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /secrets/gcp/gcp-service-account-credentials.json
             {{- end }}
@@ -281,7 +285,7 @@ spec:
               mountPath: /opt/keycloak/data/import
               readOnly: true
             {{- end }}
-            {{- if .Values.cloudSqlProxy.enabled }}
+            {{- if and .Values.cloudSqlProxy.enabled (not .Values.cloudSqlProxy.ambientCredentials) }}
             - name: gcp-service-account-credentials-volume
               mountPath: /secrets/gcp
               readOnly: true
