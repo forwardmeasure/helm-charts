@@ -150,7 +150,7 @@ modelDownload:
   # Hugging Face repos to download for VLM pipelines.
   hfRepos:
     vlm-small: "ibm-granite/granite-docling-258M"
-    vlm-large: "ibm-granite/granite-4.0-3b-vision"
+    vlm-large: "ibm-granite/granite-vision-3.2-2b"
 
 # ---------------------------------------------------------------------------
 # GPU configuration
@@ -240,20 +240,35 @@ resources:
 # ---------------------------------------------------------------------------
 # Pipeline-to-model mapping
 #
-# These are runtime identifiers the deployment template can use to set env vars.
-# They should correspond to directories present under /opt/docling-serve/models
-# when models are mounted from PVC.
-# ---------------------------------------------------------------------------
+# vlmModelId: the Hugging Face repo to download (modelDownload.hfRepos below
+# mirrors this) - not read by docling-serve itself.
+# vlmPreset: the docling-serve VLM preset NAME (DOCLING_SERVE_DEFAULT_VLM_PRESET
+# / DOCLING_SERVE_ALLOWED_VLM_PRESETS) that actually selects this model at
+# inference time - one of docling's built-in VlmModelType values
+# ("granite_docling", "granite_vision", etc), confirmed against its source.
+# These are deliberately two different values, not the same field reused -
+# a preset name and a repo_id are different strings that happen to both
+# exist per model.
+#
+# vlm-large was ibm-granite/granite-4.0-3b-vision - not one of docling's
+# supported VLM-pipeline document-conversion models (confirmed against
+# docling's own docs and vlm_model_specs.py registry): it's a task-specific
+# extraction model (chart/table/key-value, via task tags like <chart2csv>),
+# not a whole-page-to-DocTags converter. Switched to granite-vision-3.2-2b,
+# which is one of docling's built-in supported presets.
 pipelines:
   standard:
     type: ensemble
     vlmModelId: ""
+    vlmPreset: ""
   vlm-small:
     type: vlm
     vlmModelId: "ibm-granite/granite-docling-258M"
+    vlmPreset: "granite_docling"
   vlm-large:
     type: vlm
-    vlmModelId: "ibm-granite/granite-4.0-3b-vision"
+    vlmModelId: "ibm-granite/granite-vision-3.2-2b"
+    vlmPreset: "granite_vision"
 
 probes:
   liveness:

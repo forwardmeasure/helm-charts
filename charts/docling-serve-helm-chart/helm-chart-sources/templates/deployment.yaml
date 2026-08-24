@@ -183,8 +183,17 @@ spec:
           # Environment
           # ---------------------------------------------------------------
           env:
-            - name: DOCLING_PROFILE
-              value: {{ $pipeline | quote }}
+            # DOCLING_PROFILE was never a real docling-serve setting - no
+            # env var controls which pipeline (standard vs VLM) a request
+            # runs; that's chosen exclusively per-request via the caller's
+            # own options.pipeline field, with a hardcoded class-level
+            # default of STANDARD that nothing server-side can override
+            # (confirmed directly against docling's ConvertDocumentsOptions
+            # source). There's no server-side replacement for this to set -
+            # a caller that doesn't explicitly send
+            # options.pipeline="vlm" + options.vlm_pipeline_preset will
+            # always get the standard pipeline from this pod regardless of
+            # which mode/pipeline it was deployed with.
 
             - name: DOCLING_SERVE_ARTIFACTS_PATH
               value: {{ .Values.paths.models | quote }}
@@ -194,14 +203,31 @@ spec:
               value: "Running vlm-small on CPU. Expect high latency."
             {{- end }}
 
+            {{- /*
+            DOCLING_VLM_MODEL_ID was also never real - it matched no field
+            docling-serve reads at all (confirmed against its actual
+            settings.py: env_prefix is DOCLING_SERVE_, and VLM model
+            selection is by named preset, not a raw repo_id). The real
+            mechanism: DOCLING_SERVE_DEFAULT_VLM_PRESET sets what a
+            pipeline=vlm request gets when it doesn't name a preset itself,
+            and DOCLING_SERVE_ALLOWED_VLM_PRESETS locks this pod to only
+            ever serving the one model it was deployed for. Preset names
+            (not repo_ids) - see values.yaml's pipelines.*.vlmPreset,
+            matching docling's own VlmModelType enum ("granite_docling",
+            "granite_vision", etc).
+            */}}
             {{- if eq $pipeline "vlm-small" }}
-            - name: DOCLING_VLM_MODEL_ID
-              value: {{ (index .Values.pipelines "vlm-small").vlmModelId | quote }}
+            - name: DOCLING_SERVE_DEFAULT_VLM_PRESET
+              value: {{ (index .Values.pipelines "vlm-small").vlmPreset | quote }}
+            - name: DOCLING_SERVE_ALLOWED_VLM_PRESETS
+              value: {{ (index .Values.pipelines "vlm-small").vlmPreset | quote }}
             {{- end }}
 
             {{- if eq $pipeline "vlm-large" }}
-            - name: DOCLING_VLM_MODEL_ID
-              value: {{ (index .Values.pipelines "vlm-large").vlmModelId | quote }}
+            - name: DOCLING_SERVE_DEFAULT_VLM_PRESET
+              value: {{ (index .Values.pipelines "vlm-large").vlmPreset | quote }}
+            - name: DOCLING_SERVE_ALLOWED_VLM_PRESETS
+              value: {{ (index .Values.pipelines "vlm-large").vlmPreset | quote }}
             {{- end }}
 
             {{- range $k, $v := .Values.env }}
