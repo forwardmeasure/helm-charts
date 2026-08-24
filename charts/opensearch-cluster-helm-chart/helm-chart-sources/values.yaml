@@ -90,8 +90,18 @@ securityInit:
   retries: 20
   retryIntervalSeconds: 15
   image:
-    repository: docker.io/forwardmeasure/opensearch
-    tag: 3.6.0
+    # Stock opensearchproject/opensearch, matching the actual cluster nodes
+    # below (opensearch.image.repository) - docker.io/forwardmeasure/opensearch
+    # was never built or pushed anywhere (confirmed via `docker manifest
+    # inspect`: not found), same class of never-built placeholder image as
+    # forwardmeasure/forwardmeasure-keycloak was.
+    repository: opensearchproject/opensearch
+    # Kept in sync with Chart.yaml's appVersion/dependencies by hand -
+    # unlike opensearch.image.tag below (which the opensearch subchart
+    # itself defaults from its own Chart.AppVersion when empty),
+    # securityInit is this wrapper chart's own Job, so nothing resolves
+    # this one automatically.
+    tag: 3.8.0
     pullPolicy: IfNotPresent
   resources:
     requests:

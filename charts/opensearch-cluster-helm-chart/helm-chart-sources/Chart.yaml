@@ -6,15 +6,15 @@ description: |
   Adds cert-manager Certificate CRs, External Secrets Operator integration,
   Istio PeerAuthentication, and OpenSearch security plugin configuration.
 type: application
-version: "0.1.4"
+version: "0.1.5"
 # appVersion tracks the OpenSearch release. Both subchart dependency versions
 # below must be kept in sync with this value.
-appVersion: "3.5.0"
+appVersion: "3.8.0"
 
 dependencies:
   - name: opensearch
-    version: "3.5.0"
+    version: "3.8.0"
     repository: https://opensearch-project.github.io/helm-charts/
   - name: opensearch-dashboards
-    version: "3.5.0"
+    version: "3.8.0"
     repository: https://opensearch-project.github.io/helm-charts/
