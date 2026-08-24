@@ -27,11 +27,11 @@ pipeline: standard
 image:
   cpu:
     repository: quay.io/docling-project/docling-serve-cpu
-    tag: v1.16.1
+    tag: v1.31.0
     pullPolicy: IfNotPresent
   gpu:
     repository: quay.io/docling-project/docling-serve-cu128
-    tag: v1.16.1
+    tag: v1.31.0
     pullPolicy: IfNotPresent
 
 containerPort: 5001
@@ -39,7 +39,11 @@ containerPort: 5001
 env:
   HF_HOME: /opt/docling-serve/cache/huggingface
   HF_HUB_CACHE: /opt/docling-serve/cache/huggingface
-  DOCLING_SERVE_ARTIFACTS_PATH: /opt/docling-serve/models
+  # Not DOCLING_SERVE_ARTIFACTS_PATH - deployment.yaml already sets it
+  # explicitly from paths.models (same value). Having it here too meant
+  # the range over this map emitted a second "env[].name ==
+  # DOCLING_SERVE_ARTIFACTS_PATH" entry, which Kubernetes rejects outright
+  # ("duplicate entries for key") - confirmed the hard way.
   HF_HUB_ENABLE_HF_TRANSFER: "1"
   DOCLING_REPO_TYPE: model
   DOCLING_SERVE_ENABLE_UI: "1"
@@ -70,6 +74,11 @@ persistence:
   accessMode: ReadWriteOnce
   size: 64Gi
   storageClass: ""
+  # false: create gets you a dynamically provisioned PVC only (via
+  # storageClass) - the normal path. true: also renders the static
+  # PersistentVolume template, which requires a cloud-specific overlay to
+  # patch in a real volume source (nothing in this repo does).
+  bindToPv: false
 
 # ---------------------------------------------------------------------------
 # ServiceAccount
@@ -107,11 +116,11 @@ modelDownload:
   image:
     cpu:
       repository: quay.io/docling-project/docling-serve-cpu
-      tag: v1.16.1
+      tag: v1.31.0
       pullPolicy: IfNotPresent
     gpu:
       repository: quay.io/docling-project/docling-serve-cu128
-      tag: v1.16.1
+      tag: v1.31.0
       pullPolicy: IfNotPresent
   resources:
     cpu:
