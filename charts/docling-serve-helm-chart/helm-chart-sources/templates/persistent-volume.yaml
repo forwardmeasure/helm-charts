@@ -9,10 +9,16 @@ When persistence.existingClaim is set, the PV is assumed to already exist
 externally and this template is skipped.
 
 Note:
-- The CSI/source-specific block is expected to be patched in by an
-  environment- or cloud-specific overlay.
+- Only rendered when persistence.bindToPv is also true - matching
+  persistent-volume-claim.yaml's own documented behavior ("Bind to static
+  PV only if explicitly desired"). Without this same guard, this template
+  rendered a PV without a volume source (nothing patches one in - no
+  overlay in this repo ever did) whenever persistence.create was true,
+  which every consumer sets just to get the (perfectly fine, dynamically
+  provisioned) PVC below - confirmed the hard way: "PersistentVolume ...
+  is invalid: spec: Required value: must specify a volume type".
 */ -}}
-{{- if and (not .Values.persistence.existingClaim) .Values.persistence.create }}
+{{- if and (not .Values.persistence.existingClaim) .Values.persistence.create .Values.persistence.bindToPv }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
