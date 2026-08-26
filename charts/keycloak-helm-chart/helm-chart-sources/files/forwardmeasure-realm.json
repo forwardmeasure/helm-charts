@@ -3,6 +3,7 @@
     "displayName": "${KC_REALM_DISPLAY_NAME}",
     "loginTheme": "${KC_LOGIN_THEME}",
     "enabled": true,
+    "organizationsEnabled": true,
     "registrationAllowed": false,
     "loginWithEmailAllowed": true,
     "duplicateEmailsAllowed": false,

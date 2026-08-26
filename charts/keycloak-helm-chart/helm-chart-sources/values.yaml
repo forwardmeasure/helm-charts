@@ -13,7 +13,7 @@ enableServiceLinks: true
 
 image:
   repository: quay.io/keycloak/keycloak
-  tag: "26.5"
+  tag: "26.7.2"
   digest: ""
   pullPolicy: Always
 
@@ -155,6 +155,14 @@ bootstrapAdminUser:
   actorType: "HUMAN"
   passwordSecret: keycloak-bootstrap-admin-user-credentials
   tenantGroupRoles: "dossier-control,investigation-control,evidence-control,audit-control"
+  # Adds the bootstrap admin user as a member of one existing Keycloak
+  # Organization (alias) and one of its role groups - see
+  # configure_tenant_organization_membership() in bootstrap-admin.sh. Empty
+  # by default: most deployments have no tenant Organization for this user
+  # to join at all, and TenantOrganizationReconciler (which creates the
+  # Organization itself) never assigns membership on its own.
+  tenantOrganizationAlias: ""
+  tenantOrganizationRole: ""
 
   # -----------------------------------------------------------------------
   # ForwardMeasure platform roles (realm roles)
