@@ -1438,24 +1438,52 @@ configure_tenant_organization_membership() {
     log "FORWARDMEASURE_TENANT_ORGANIZATION_ROLE is empty — skipping role-group membership"
     return 0
   fi
-  # Matches HttpKeycloakOrganizationAdmin.java's own approach exactly: a
-  # top-level realm Group named after the tenant alias, with per-role child
-  # groups underneath - NOT organizations/{id}/groups, which that class's
-  # own comment records as confirmed-live HTTP 404 on this Keycloak version.
-  encoded_alias="$(printf '%s' "${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}" | jq -sRr @uri)"
-  tenant_group_id="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/groups?search=${encoded_alias}&exact=true&briefRepresentation=true" \
-    | jq -r --arg n "${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}" '.[] | select(.name==$n) | .id' | head -n1)"
-  [ -n "$tenant_group_id" ] || fail "No realm group named '${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}' — has the capability pack been reconciled for this tenant yet?"
-  role_group_id="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/groups/${tenant_group_id}/children" \
+  # Genuine Keycloak Organization Groups (26.6+), NOT a top-level realm
+  # Group merely named after the tenant alias. That was this function's
+  # first version, written against HttpKeycloakOrganizationAdmin.java's own
+  # comment that organizations/{id}/groups 404s - true on the Keycloak
+  # version that comment was written against, confirmed NOT true on 26.7.2
+  # (GET returns 200 []). Organization Groups have their own dedicated API
+  # surface: the standard /groups/{id}/role-mappings/... and
+  # /users/{id}/groups/{id} endpoints both reject them outright with
+  # "Cannot manage/access organization related group via non Organization
+  # API" (confirmed live, HTTP 400) - role-mappings and membership must go
+  # through organizations/{orgId}/groups/{groupId}/... instead. This is also
+  # why oidc-organization-group-membership-mapper's addGroupRoleMappings
+  # finds nothing when a user is only in an unrelated same-named realm
+  # group: it isn't reading realm groups, it's reading organization-scoped
+  # ones.
+  org_group_id="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups" \
     | jq -r --arg n "${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}" '.[] | select(.name==$n) | .id' | head -n1)"
-  [ -n "$role_group_id" ] || fail "No role group '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}' under tenant group '${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}' — has the capability pack been reconciled for this tenant yet?"
+  if [ -z "$org_group_id" ]; then
+    log "Creating organization group '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}' under Organization '${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}'"
+    kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups" \
+      "$(jq -n --arg name "${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}" '{name: $name}')"
+    org_group_id="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups" \
+      | jq -r --arg n "${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}" '.[] | select(.name==$n) | .id' | head -n1)"
+  fi
+  [ -n "$org_group_id" ] || fail "Could not create/resolve organization group '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}' under '${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}'"
 
-  existing_group_members="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/groups/${role_group_id}/members" | jq -r '.[].id')"
-  if printf '%s\n' "$existing_group_members" | grep -qx "${BOOTSTRAP_USER_ID}"; then
-    log "${ADMIN_USERNAME} already in role group '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}'"
+  admin_pub_uuid="$(get_client_uuid_by_client_id "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}")"
+  [ -n "$admin_pub_uuid" ] || fail "Could not resolve UUID for client '${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}'"
+  org_group="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups/${org_group_id}")"
+  has_role="$(printf '%s' "$org_group" | jq -r --arg client "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}" --arg role "${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}" \
+    '(.clientRoles[$client] // []) | index($role) != null')"
+  if [ "$has_role" = "true" ]; then
+    log "Organization group '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}' already has client role mapped"
   else
-    kc_put_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${BOOTSTRAP_USER_ID}/groups/${role_group_id}"
-    log "${ADMIN_USERNAME} added to role group '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}' under '${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}'"
+    role_json="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${admin_pub_uuid}/roles/${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}")"
+    kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups/${org_group_id}/role-mappings/clients/${admin_pub_uuid}" \
+      "[$role_json]"
+    log "Mapped client role '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}' onto organization group"
+  fi
+
+  existing_group_members="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups/${org_group_id}/members" | jq -r '.[].id')"
+  if printf '%s\n' "$existing_group_members" | grep -qx "${BOOTSTRAP_USER_ID}"; then
+    log "${ADMIN_USERNAME} already in organization group '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}'"
+  else
+    kc_put_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups/${org_group_id}/members/${BOOTSTRAP_USER_ID}"
+    log "${ADMIN_USERNAME} added to organization group '${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}' under '${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}'"
   fi
 }
 
