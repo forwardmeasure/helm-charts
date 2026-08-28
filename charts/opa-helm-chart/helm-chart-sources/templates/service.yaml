@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opa.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opa.labels" . | nindent 4 }}
+    app.kubernetes.io/component: http
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "opa.selectorLabels" . | nindent 4 }}
