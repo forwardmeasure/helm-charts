@@ -1,0 +1,100 @@
+# ---------------------------------------------------------------------------
+# values.yaml — Open Policy Agent Helm chart defaults
+#
+# Deploys OPA as a plain, standalone policy-decision server (docker run
+# --server, the same shape documented at openpolicyagent.org/docs/deploy/
+# docker) - not Gatekeeper and not the kube-mgmt admission-controller
+# sidecar. Callers reach it over its own REST API
+# (POST /v1/data/{policyPath}), same as any other internal HTTP service.
+# ---------------------------------------------------------------------------
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: docker.io/openpolicyagent/opa
+  tag: "1.20.1"
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+service:
+  type: ClusterIP
+  port: 8181
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+# --log-level / --log-format passed to `opa run --server`.
+logLevel: info
+logFormat: json
+
+# ---------------------------------------------------------------------------
+# Policy bundle
+# Each entry becomes one file under /policies inside the container (OPA is
+# started with `-d /policies`, loading every .rego file there at startup).
+# Deliberately empty here - this chart is generic, not tied to any one
+# product's policies. A consuming values file supplies real Rego, e.g.:
+#
+#   policies:
+#     action_gate.rego: |
+#       package agentos.execution.actionGate
+#       ...
+#
+# There is currently no shared source of truth between a policy authored in
+# an application repo (e.g. forwardmeasure-agent-os's own
+# agent-os-policy-opa starter bundle) and the copy supplied here - keep them
+# in sync by hand until/unless an OCI bundle registry replaces this
+# ConfigMap-mount approach.
+# ---------------------------------------------------------------------------
+policies: {}
+
+readinessProbe:
+  enabled: true
+  # bundle=true also waits for configured bundles to have loaded at least
+  # once - irrelevant with no bundle service configured (ConfigMap-mounted
+  # policies load synchronously at startup), kept for parity if that
+  # changes later.
+  path: /health?bundle=true
+  port: http
+  initialDelaySeconds: 3
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 6
+
+livenessProbe:
+  enabled: true
+  path: /health
+  port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 6
+
+podAnnotations: {}
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []
