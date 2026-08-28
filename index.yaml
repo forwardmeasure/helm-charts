@@ -2397,6 +2397,27 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/model-service-helm-chart/model-service-0.1.0.tgz
     version: 0.1.0
+  opa:
+  - apiVersion: v2
+    appVersion: 1.20.1
+    created: "2026-08-28T12:36:04.426792127-04:00"
+    description: Helm chart for deploying Open Policy Agent as a standalone policy-decision
+      server (plain REST API, not the Kubernetes admission-controller / Gatekeeper
+      use case).
+    digest: 9f4f62e5698401430273b7cec41c6b238f379ea0883a1bd3291648139aca05e3
+    keywords:
+    - opa
+    - open-policy-agent
+    - policy
+    - authorization
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: opa
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/opa-helm-chart/opa-0.1.1.tgz
+    version: 0.1.1
   opensearch-cluster:
   - apiVersion: v2
     appVersion: 3.8.0
@@ -3578,4 +3599,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-08-27T14:07:29.581721947-04:00"
+generated: "2026-08-28T12:36:04.426230374-04:00"
