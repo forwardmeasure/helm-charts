@@ -1,0 +1,14 @@
+apiVersion: v2
+name: opa
+description: Helm chart for deploying Open Policy Agent as a standalone policy-decision server (plain REST API, not the Kubernetes admission-controller / Gatekeeper use case).
+type: application
+version: "0.1.1"
+appVersion: "1.20.1"
+keywords:
+  - opa
+  - open-policy-agent
+  - policy
+  - authorization
+maintainers:
+  - name: Prashanth Nandavanam
+    email: pn@forwardmeasure.com
