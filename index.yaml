@@ -34,6 +34,28 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/apicurio-registry-operator-helm-chart/apicurio-registry-operator-0.1.1.tgz
     version: 0.1.1
+  decision-engine:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-08-31T07:57:36.002557263-04:00"
+    description: Standalone Drools-based rule evaluation server exposed over gRPC.
+      The fact-window connection is supplied as a resolved host, port, and credentials
+      secret; embedded-versus-external Valkey orchestration belongs to the consuming
+      Helmfile.
+    digest: b41658ff080aaa28c3ecd1adf2024009eb060c3fc4e0322f8991f3b0fd0514f8
+    keywords:
+    - decision-engine
+    - drools
+    - rules
+    - grpc
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: decision-engine
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/decision-engine-helm-chart/decision-engine-0.1.1.tgz
+    version: 0.1.1
   docling-serve:
   - apiVersion: v2
     appVersion: latest
@@ -3599,4 +3621,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-08-28T12:36:04.426230374-04:00"
+generated: "2026-08-31T07:57:36.002197301-04:00"
