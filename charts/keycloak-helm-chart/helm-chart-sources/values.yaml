@@ -129,6 +129,12 @@ realm:
   # - clientId: oks-operation-adapter
   #   name: OKS Operation Adapter
   #   secretKey: OKS_OPERATION_ADAPTER_CLIENT_SECRET
+  #   # Optional, defaults to false. Only set true when this client owns its own
+  #   # resources/scopes/policies/permissions via Keycloak's authz admin API (e.g.
+  #   # a tenant-reconciliation workload) - without it, /authz/resource-server/*
+  #   # 404s for this client (no resource server exists), indistinguishable from a
+  #   # real 404 to the caller.
+  #   authorizationServicesEnabled: false
   #   realmRoles: [workflow-internal]
   #   audiences: [entity-intelligence-internal]
   #   claims:

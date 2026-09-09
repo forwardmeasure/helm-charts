@@ -1203,7 +1203,14 @@ configure_service_clients() {
     [ -f "$secret_path" ] || fail "Missing secret key '${secret_key}' for service client '${client_id}'"
     client_secret="$(cat "$secret_path")"
     [ -n "$client_secret" ] || fail "Secret key '${secret_key}' is empty"
-    body="$(jq -n --arg id "$client_id" --arg name "$client_name" --arg secret "$client_secret" '{
+    # Off by default (least-privilege: most service clients never touch Keycloak's authz
+    # admin API at all) - a client opts in when it owns resources/scopes/policies/permissions
+    # of its own (e.g. openworkflow's TenantOrganizationReconciler). Without this, Keycloak's
+    # /authz/resource-server/* endpoints 404 for the client - there is no resource server to
+    # query - which is indistinguishable from a real 404 to the caller.
+    authz_enabled="$(printf '%s' "$client" | jq -er '(.authorizationServicesEnabled // false) | if type == "boolean" then . else error("must be a boolean") end')" \
+      || fail "serviceClients[$index].authorizationServicesEnabled is invalid"
+    body="$(jq -n --arg id "$client_id" --arg name "$client_name" --arg secret "$client_secret" --argjson authzEnabled "$authz_enabled" '{
       clientId: $id,
       name: $name,
       description: "Least-privilege ForwardMeasure workload client",
@@ -1215,6 +1222,7 @@ configure_service_clients() {
       implicitFlowEnabled: false,
       directAccessGrantsEnabled: false,
       serviceAccountsEnabled: true,
+      authorizationServicesEnabled: $authzEnabled,
       clientAuthenticatorType: "client-secret",
       secret: $secret
     }')"
@@ -1224,7 +1232,7 @@ configure_service_clients() {
       client_uuid="$(get_client_uuid_by_client_id "$client_id")"
     else
       existing_client="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}")"
-      updated_client="$(printf '%s' "$existing_client" | jq --arg name "$client_name" --arg secret "$client_secret" '
+      updated_client="$(printf '%s' "$existing_client" | jq --arg name "$client_name" --arg secret "$client_secret" --argjson authzEnabled "$authz_enabled" '
         .name = $name
         | .enabled = true
         | .publicClient = false
@@ -1233,6 +1241,7 @@ configure_service_clients() {
         | .implicitFlowEnabled = false
         | .directAccessGrantsEnabled = false
         | .serviceAccountsEnabled = true
+        | .authorizationServicesEnabled = $authzEnabled
         | .clientAuthenticatorType = "client-secret"
         | .secret = $secret')"
       kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}" "$updated_client"
