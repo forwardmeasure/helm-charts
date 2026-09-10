@@ -31,6 +31,50 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       containers:
+        {{- if or .Values.migration.enabled .Values.postgresql.enabled }}
+        - name: database-migration
+          image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"
+          imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - name: DECISION_ENGINE_DATABASE_URL
+              value: {{ if .Values.postgresql.enabled }}{{ printf "jdbc:postgresql://%s-postgresql:5432/%s" .Release.Name .Values.postgresql.auth.database | quote }}{{ else }}{{ .Values.database.url | quote }}{{ end }}
+            {{- if .Values.postgresql.enabled }}
+            - name: DECISION_ENGINE_DATABASE_USERNAME
+              value: {{ .Values.migration.administratorUsername | quote }}
+            - name: DECISION_ENGINE_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-postgresql" .Release.Name }}
+                  key: {{ .Values.migration.administratorPasswordKey }}
+            - name: DECISION_ENGINE_RUNTIME_DATABASE_USERNAME
+              value: {{ .Values.database.runtimeUsername | quote }}
+            - name: DECISION_ENGINE_RUNTIME_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-postgresql" .Release.Name }}
+                  key: {{ .Values.migration.runtimeDatabasePasswordKey }}
+            {{- else }}
+            - name: DECISION_ENGINE_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.adminCredentialsSecret }}
+                  key: username
+            - name: DECISION_ENGINE_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.adminCredentialsSecret }}
+                  key: password
+            - name: DECISION_ENGINE_RUNTIME_DATABASE_USERNAME
+              value: {{ .Values.database.runtimeUsername | quote }}
+            - name: DECISION_ENGINE_RUNTIME_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.credentialsSecret }}
+                  key: password
+            {{- end }}
+        {{- end }}
         - name: decision-engine
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{- if .Values.image.digest }}@{{ .Values.image.digest }}{{- end }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -42,27 +86,38 @@ spec:
               protocol: TCP
           env:
             - name: DECISION_ENGINE_DATABASE_URL
-              value: {{ .Values.database.url | quote }}
+              value: {{ if .Values.postgresql.enabled }}{{ printf "jdbc:postgresql://%s-postgresql:5432/%s" .Release.Name .Values.postgresql.auth.database | quote }}{{ else }}{{ .Values.database.url | quote }}{{ end }}
             - name: DECISION_ENGINE_DATABASE_USERNAME
+              {{- if .Values.postgresql.enabled }}
+              value: {{ .Values.database.runtimeUsername | quote }}
+              {{- else }}
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.database.credentialsSecret }}
                   key: username
+              {{- end }}
             - name: DECISION_ENGINE_DATABASE_PASSWORD
+              {{- if .Values.postgresql.enabled }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-postgresql" .Release.Name }}
+                  key: {{ .Values.migration.runtimeDatabasePasswordKey }}
+              {{- else }}
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.database.credentialsSecret }}
                   key: password
+              {{- end }}
             - name: DECISION_ENGINE_VALKEY_HOST
-              value: {{ .Values.factWindow.valkey.host | quote }}
+              value: {{ if .Values.valkey.enabled }}{{ printf "%s-valkey-primary" .Release.Name | quote }}{{ else }}{{ .Values.factWindow.valkey.host | quote }}{{ end }}
             - name: DECISION_ENGINE_VALKEY_PORT
               value: {{ .Values.factWindow.valkey.port | quote }}
-            {{- if .Values.factWindow.valkey.credentialsSecret }}
+            {{- if or .Values.factWindow.valkey.credentialsSecret .Values.valkey.enabled }}
             - name: DECISION_ENGINE_VALKEY_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.factWindow.valkey.credentialsSecret }}
-                  key: password
+                  name: {{ if .Values.valkey.enabled }}{{ printf "%s-valkey" .Release.Name }}{{ else }}{{ .Values.factWindow.valkey.credentialsSecret }}{{ end }}
+                  key: {{ if .Values.valkey.enabled }}valkey-password{{ else }}password{{ end }}
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
