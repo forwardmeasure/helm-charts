@@ -1,0 +1,58 @@
+{{- range (include "java-microservice.normalizedServices" . | fromYamlArray) }}
+{{- if and .enabled (eq (.deploymentMode | default "knative") "knative") }}
+{{- include "java-microservice.validateService" (dict "service" . "root" $) }}
+{{- $scaling := .scaling | default (dict) }}
+{{- $minScale := 1 }}
+{{- if hasKey $scaling "minReplicas" }}
+{{- $minScale = $scaling.minReplicas }}
+{{- end }}
+{{- $maxScale := 5 }}
+{{- if hasKey $scaling "maxReplicas" }}
+{{- $maxScale = $scaling.maxReplicas }}
+{{- end }}
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+  annotations:
+    {{- with $.Values.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/class: {{ $scaling.class | default "kpa.autoscaling.knative.dev" | quote }}
+        autoscaling.knative.dev/metric: {{ $scaling.metric | default "concurrency" | quote }}
+        autoscaling.knative.dev/target: {{ $scaling.target | default "10" | quote }}
+        autoscaling.knative.dev/minScale: {{ $minScale | toString | quote }}
+        autoscaling.knative.dev/maxScale: {{ $maxScale | toString | quote }}
+        {{- include "java-microservice.podAnnotations" (dict "service" . "root" $) | nindent 8 }}
+      labels:
+        {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $.Values.serviceAccount.name }}
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "java-microservice.podVolumes" (dict "service" . "root" $) | nindent 6 }}
+      timeoutSeconds: {{ $scaling.timeoutSeconds | default 300 }}
+      containerConcurrency: {{ $scaling.containerConcurrency | default 0 }}
+      {{- include "java-microservice.initContainers" (dict "service" . "root" $) | nindent 6 }}
+      containers:
+        {{- include "java-microservice.mainContainer" (dict "service" . "root" $) | nindent 8 }}
+        {{- include "java-microservice.cloudSqlProxySidecar" (dict "service" . "root" $) | nindent 8 }}
+{{- end }}
+{{- end }}

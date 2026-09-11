@@ -1,0 +1,78 @@
+{{- /*
+  ============================================================================
+  Spark Executor RBAC
+  
+  Renders a Role and RoleBinding granting the chart ServiceAccount the
+  minimum permissions required for Spark on Kubernetes (k8s://) to spawn
+  executor pods in this namespace.
+
+  Only rendered when at least one service in this release has
+  ENTITY_INTELLIGENCE_INGESTION_SPARK_EXECUTOR_IMAGE or
+  DATA_FABRIC_SPARK_EXECUTOR_IMAGE set in its env block — indicating that
+  the service acts as a Spark driver submitting jobs to Kubernetes.
+
+  Permissions required by the Spark driver:
+    pods:                    create, get, list, watch, delete, deletecollection, patch
+    services:                create, get, list, watch, delete, deletecollection
+    configmaps:              create, get, list, watch, delete, deletecollection
+    persistentvolumeclaims:  create, get, list, watch, delete, deletecollection
+    pods/log:                get, list  (for executor log collection)
+  ============================================================================
+*/}}
+{{- $needsSparkRbac := false -}}
+{{- range (include "java-microservice.normalizedServices" . | fromYamlArray) -}}
+  {{- if and .enabled .env -}}
+    {{- if or (hasKey .env "ENTITY_INTELLIGENCE_INGESTION_SPARK_EXECUTOR_IMAGE") (hasKey .env "DATA_FABRIC_SPARK_EXECUTOR_IMAGE") -}}
+      {{- $needsSparkRbac = true -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $needsSparkRbac }}
+---
+# ---------------------------------------------------------------------------
+# Role: spark-executor-role
+# Grants the service account permission to manage Spark executor pods,
+# services, configmaps, and persistent volume claims in this namespace.
+# ---------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spark-executor-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "java-microservice.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims"]
+    verbs: ["create", "get", "list", "watch", "delete", "deletecollection", "patch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+---
+# ---------------------------------------------------------------------------
+# RoleBinding: spark-executor-rolebinding
+# Binds spark-executor-role to the chart ServiceAccount.
+# ---------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-executor-rolebinding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "java-microservice.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: spark-executor-role
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

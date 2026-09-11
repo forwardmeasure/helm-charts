@@ -1,0 +1,111 @@
+serviceAccount:
+  create: false
+  name: test-service-account
+
+liquibaseWait:
+  enabled: false
+
+services:
+  evidence-api:
+    enabled: true
+    deploymentMode: deployment
+    strategy:
+      type: Recreate
+    image:
+      repository: example/evidence-api
+      tag: test
+    database:
+      enabled: true
+      secretName: db
+    env:
+      BASE_SETTING: retained
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Test-only fixture proving the framework generalization: default probe
+  # paths and datasource env var names follow Spring Boot conventions, and
+  # the Quarkus-only QUARKUS_RUNTIME_MODE env var is not rendered at all.
+  spring-api:
+    enabled: true
+    deploymentMode: deployment
+    framework: spring
+    image:
+      repository: example/spring-api
+      tag: test
+    database:
+      enabled: true
+      secretName: db
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Test-only fixture proving the framework generalization for Micronaut.
+  micronaut-api:
+    enabled: true
+    deploymentMode: deployment
+    framework: micronaut
+    image:
+      repository: example/micronaut-api
+      tag: test
+    database:
+      enabled: true
+      secretName: db
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Test-only fixture for generic custom init-container rendering.
+  init-container-fixture:
+    enabled: true
+    deploymentMode: deployment
+    image:
+      repository: example/init-container-fixture
+      tag: test
+    secretVolumeMounts:
+      - name: runtime-credential
+        secretName: tenant-runtime-credential
+        mountPath: /var/run/secrets/runtime
+        defaultMode: 0400
+        items:
+          - key: client-id
+            path: client-id
+          - key: client-secret
+            path: client-secret
+    initContainers:
+      - enabled: true
+        name: publish-contracts
+        image: example/contract-publisher:test
+        env:
+          REGISTRY_URL: http://registry.example/apis/registry/v3
+        secrets:
+          - envVar: REGISTRY_CLIENT_SECRET
+            existingSecretName: registry-publisher
+            secretKey: client-secret
+        script: exec /deployments/publish-contracts
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
