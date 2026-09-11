@@ -1,0 +1,64 @@
+{{- range (include "java-microservice.normalizedServices" . | fromYamlArray) }}
+{{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
+{{- include "java-microservice.validateService" (dict "service" . "root" $) }}
+{{- $scaling := .scaling | default (dict) }}
+{{- $minReplicas := 1 }}
+{{- if hasKey $scaling "initialReplicas" }}
+{{- $minReplicas = $scaling.initialReplicas }}
+{{- else if hasKey $scaling "minReplicas" }}
+{{- $minReplicas = $scaling.minReplicas }}
+{{- end }}
+---
+# ---------------------------------------------------------------------------
+# Deployment: {{ .name }}
+# Standard Kubernetes Deployment.
+# Autoscaling is selected explicitly with scaling.autoscaler:
+# none | hpa | keda.
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+spec:
+  replicas: {{ $minReplicas }}
+  {{- with .strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ .name }}
+      java-microservice/family: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 8 }}
+      {{- $podAnnotations := include "java-microservice.podAnnotations" (dict "service" . "root" $) }}
+      {{- if $podAnnotations }}
+      annotations:
+        {{- $podAnnotations | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ $.Values.serviceAccount.name }}
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "java-microservice.podVolumes" (dict "service" . "root" $) | nindent 6 }}
+      {{- include "java-microservice.initContainers" (dict "service" . "root" $) | nindent 6 }}
+      containers:
+        {{- include "java-microservice.mainContainer" (dict "service" . "root" $) | nindent 8 }}
+        {{- include "java-microservice.cloudSqlProxySidecar" (dict "service" . "root" $) | nindent 8 }}
+{{- end }}
+{{- end }}

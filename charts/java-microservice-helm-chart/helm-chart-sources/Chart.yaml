@@ -1,0 +1,38 @@
+apiVersion: v2
+name: java-microservice
+description: |
+  Generic Knative Service chart for JVM microservice deployments — Quarkus,
+  Spring Boot, and Micronaut. Deploys one or more services per release, each
+  independently configurable with its own image, resources, secrets, and
+  scaling policy.
+
+  Supports both JVM and GraalVM native runtime modes — controlled per service
+  via the image digest/tag. Secrets are injected via External Secrets
+  Operator. Per-service `framework: quarkus | spring | micronaut` (default
+  quarkus) selects the framework-conventional default health-probe paths and,
+  when `database.enabled: true` is used, the framework-conventional datasource
+  environment variable names — both remain fully overridable per service
+  regardless of framework.
+
+  Designed to be deployed once per service family (e.g. entity-resolution-serving)
+  with service-specific resource and scaling configuration keyed by stable
+  service name in the services map.
+
+  Integrates with Istio for mTLS and traffic management, and with
+  Knative for serverless scaling including scale-to-zero.
+type: application
+version: "0.1.1"
+appVersion: "1.0.0"
+keywords:
+  - quarkus
+  - spring
+  - micronaut
+  - java
+  - knative
+  - serverless
+  - microservices
+  - entity-resolution
+  - camel
+maintainers:
+  - name: Prashanth Nandavanam
+    email: pn@forwardmeasure.com
