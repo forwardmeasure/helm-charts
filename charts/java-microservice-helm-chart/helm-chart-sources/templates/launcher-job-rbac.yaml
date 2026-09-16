@@ -1,0 +1,87 @@
+{{- /*
+  ============================================================================
+  Data Streaming Launcher RBAC
+
+  Renders a Role and RoleBinding granting the chart ServiceAccount the
+  permissions forwardmeasure-data-streaming's own DirectIngestionLauncher/
+  DirectCorrelationLauncher need: they create batch/v1 Job resources (via
+  openworkflow-kubernetes-job-lifecycle) to run the pekko/spark executor
+  images as one-shot Jobs, and fetch pod logs for observability - a genuinely
+  different need from spark-rbac.yaml's own grant (a Spark *driver* spawning
+  its own raw executor pods via k8s://, not creating Job resources at all).
+
+  Only rendered when at least one service in this release has
+  DATASTREAMING_LAUNCHER_K8S_NAMESPACES set in its env block - the same
+  env-var-presence detection convention spark-rbac.yaml already uses, keyed
+  on the launcher's own real Quarkus/Spring/Micronaut config property
+  (datastreaming.launcher.k8s.namespaces), which all three frameworks expose
+  as this same environment variable name via their own standard config
+  overrides.
+
+  Permissions required by the launcher:
+    jobs (batch):  create, get, list, watch, delete, deletecollection
+    pods:          get, list       (observation only - it doesn't spawn pods
+                                     directly, the Job controller does)
+    pods/log:      get, list       (podLogs() diagnostics on a failed Job)
+  ============================================================================
+*/}}
+{{- $needsLauncherJobRbac := false -}}
+{{- range (include "java-microservice.normalizedServices" . | fromYamlArray) -}}
+  {{- if and .enabled .env -}}
+    {{- if hasKey .env "DATASTREAMING_LAUNCHER_K8S_NAMESPACES" -}}
+      {{- $needsLauncherJobRbac = true -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $needsLauncherJobRbac }}
+---
+# ---------------------------------------------------------------------------
+# Role: data-streaming-launcher-job-role
+# Grants the service account permission to launch and observe the pekko/spark
+# executor images as real Kubernetes Jobs, in this namespace.
+# ---------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: data-streaming-launcher-job-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "java-microservice.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete", "deletecollection"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+---
+# ---------------------------------------------------------------------------
+# RoleBinding: data-streaming-launcher-job-rolebinding
+# Binds data-streaming-launcher-job-role to the chart ServiceAccount.
+# ---------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: data-streaming-launcher-job-rolebinding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "java-microservice.labels" . | nindent 4 }}
+  annotations:
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: data-streaming-launcher-job-role
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
