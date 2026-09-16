@@ -22,9 +22,24 @@ spec:
     kind: {{ ($secret.secretStoreRef).kind | default $root.Values.secretStoreRef.kind }}
   target:
     name: {{ $secret.name }}
-    {{- if $secret.secretType }}
+    {{- if or $secret.secretType $secret.templateData }}
     template:
+      {{- if $secret.secretType }}
       type: {{ $secret.secretType }}
+      {{- end }}
+      {{- if $secret.templateData }}
+      # Composes one or more target Secret fields from multiple fetched remoteRefs (each
+      # available by its own secretKey alias, e.g. {{ "{{ .server }}" }}) instead of a single
+      # remoteRef being copied verbatim - used when the remote store holds a secret's real parts
+      # separately (e.g. a registry's server/auth pair) rather than one pre-assembled blob
+      # (e.g. a full .dockerconfigjson). External Secrets Operator evaluates these as real Go
+      # templates at sync time - the {{ "{{ }}" }} markers below are meant to survive Helm
+      # rendering unevaluated, not be filled in by this chart.
+      data:
+        {{- range $key, $value := $secret.templateData }}
+        {{ $key | quote }}: {{ $value | quote }}
+        {{- end }}
+      {{- end }}
     {{- end }}
   data:
     {{- range $secret.remoteRefs }}

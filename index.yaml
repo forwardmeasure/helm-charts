@@ -2737,7 +2737,20 @@ entries:
     version: 0.0.2
   platform-secrets:
   - apiVersion: v2
-    created: "2026-03-19T23:26:43.584752331-04:00"
+    appVersion: 0.1.6
+    created: "2026-09-16T16:18:35.140316009-04:00"
+    description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
+      (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
+      AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
+      chain. '
+    digest: 788650578bf5410f9dcc51db6a4842019137732b6f0e718526c25a63aaf4742c
+    name: platform-secrets
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.6.tgz
+    version: 0.1.6
+  - apiVersion: v2
+    created: "2026-09-16T16:18:35.140214934-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -2749,7 +2762,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.5.tgz
     version: 0.1.5
   - apiVersion: v2
-    created: "2026-03-19T23:26:43.584671311-04:00"
+    created: "2026-09-16T16:18:35.1401401-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -2761,7 +2774,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.4.tgz
     version: 0.1.4
   - apiVersion: v2
-    created: "2026-03-19T23:26:43.58459785-04:00"
+    created: "2026-09-16T16:18:35.14006446-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -2773,7 +2786,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.3.tgz
     version: 0.1.3
   - apiVersion: v2
-    created: "2026-03-19T23:26:43.584525711-04:00"
+    created: "2026-09-16T16:18:35.139990864-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -2785,7 +2798,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.2.tgz
     version: 0.1.2
   - apiVersion: v2
-    created: "2026-03-19T23:26:43.584449037-04:00"
+    created: "2026-09-16T16:18:35.139904929-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -3715,4 +3728,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-09-16T16:17:10.15850192-04:00"
+generated: "2026-09-16T16:18:35.139730226-04:00"
