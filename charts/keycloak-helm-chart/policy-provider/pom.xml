@@ -40,33 +40,52 @@
     <!-- Matches the real, digest-pinned Keycloak version this chart deploys - see
          forwardmeasure-platform/deploy/helmfile/environments/image-versions.yaml. Every dependency
          below is `provided` scope: Keycloak's own runtime supplies these classes; this artifact
-         only ever contributes its own two classes plus the SPI registration file. -->
+         only ever contributes its own two classes plus the SPI registration file. Also drives the
+         keycloak-parent BOM import below, which manages every dependency's real version - no version
+         literal anywhere else in this file, so nothing here can drift out of sync with the real
+         Keycloak release the way a hand-maintained jboss-logging version once did (caught live:
+         a guessed 3.6.1.Final differed from the real bundled 3.6.2.Final and went unnoticed until
+         checked directly against the real image). -->
     <keycloak.version>26.7.4</keycloak.version>
   </properties>
+
+  <!-- Imports Keycloak's own real release BOM so every dependency below resolves to exactly the
+       version that Keycloak ${keycloak.version} itself was built and released with - including
+       transitive-looking ones like jboss-logging, which is NOT actually a transitive dependency of
+       keycloak-server-spi/keycloak-core (compilation fails without declaring it directly) but IS
+       managed by this BOM, confirmed empirically by importing it and checking the resolved version
+       matches the real jar Keycloak's own image bundles. -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.keycloak</groupId>
+        <artifactId>keycloak-parent</artifactId>
+        <version>${keycloak.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>
       <groupId>org.jboss.logging</groupId>
       <artifactId>jboss-logging</artifactId>
-      <version>3.6.1.Final</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.keycloak</groupId>
       <artifactId>keycloak-server-spi</artifactId>
-      <version>${keycloak.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.keycloak</groupId>
       <artifactId>keycloak-server-spi-private</artifactId>
-      <version>${keycloak.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.keycloak</groupId>
       <artifactId>keycloak-core</artifactId>
-      <version>${keycloak.version}</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
