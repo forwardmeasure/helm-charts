@@ -34,7 +34,9 @@ DOCKER_TAG="${DOCKER_TAG:-${KEYCLOAK_VERSION}-authz}"
 DOCKER_REFERENCE="${DOCKER_REGISTRY}/${DOCKER_REPOSITORY}/${DOCKER_IMAGE_NAME}:${DOCKER_TAG}"
 KEYCLOAK_BASE_IMAGE="${KEYCLOAK_BASE_IMAGE:-quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}}"
 
-mvn -f "${SCRIPT_DIR}/policy-provider/pom.xml" -q package -DskipTests
+# Deliberately runs the real unit tests (no -DskipTests) - this is the one gate standing between a
+# broken OrganizationRolePolicyProvider and a pushed, deployed image. Never skip it here.
+mvn -f "${SCRIPT_DIR}/policy-provider/pom.xml" -q package
 
 docker build \
   --build-arg KEYCLOAK_BASE_IMAGE="${KEYCLOAK_BASE_IMAGE}" \
