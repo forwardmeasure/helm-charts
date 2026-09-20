@@ -1,5 +1,9 @@
 {{- range (include "java-microservice.normalizedServices" . | fromYamlArray) }}
 {{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
+{{- $svcCfg := .service | default (dict) }}
+{{- if and $svcCfg.clusterIP (ne $svcCfg.clusterIP "None") }}
+{{- fail (printf "service '%s' has service.clusterIP '%s'; only \"None\" (headless Service) is supported" .name $svcCfg.clusterIP) }}
+{{- end }}
 ---
 # ---------------------------------------------------------------------------
 # Service: {{ .name }}
@@ -16,6 +20,9 @@ metadata:
     {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
 spec:
   type: ClusterIP
+  {{- if eq ($svcCfg.clusterIP | default "") "None" }}
+  clusterIP: None
+  {{- end }}
   selector:
     app.kubernetes.io/component: {{ .name }}
     java-microservice/family: {{ $.Release.Name }}

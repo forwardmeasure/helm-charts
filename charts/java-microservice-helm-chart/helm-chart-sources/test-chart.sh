@@ -5,7 +5,8 @@ chart_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 map_render="$(mktemp)"
 neutral_render="$(mktemp)"
 legacy_render="$(mktemp)"
-trap 'rm -f "${map_render}" "${neutral_render}" "${legacy_render}"' EXIT
+gaps_render="$(mktemp)"
+trap 'rm -f "${map_render}" "${neutral_render}" "${legacy_render}" "${gaps_render}"' EXIT
 
 helm lint "${chart_dir}"
 
@@ -87,5 +88,74 @@ helm template legacy-test "${chart_dir}" \
 grep -q 'name: legacy-api' "${legacy_render}"
 grep -q 'image: docker.io/example/legacy-api:test' "${legacy_render}"
 grep -q 'name: LEGACY_SETTING' "${legacy_render}"
+
+# ---------------------------------------------------------------------------
+# Additive capability gaps closed alongside the fowf Deployment/Job
+# migrations: emptyDir volumes, optional secretKeyRef, cloudSqlProxy
+# existingSecretName, job-mode probe opt-out, headless Service, release-level
+# literal ConfigMaps.
+# ---------------------------------------------------------------------------
+helm template gaps-test "${chart_dir}" \
+  --namespace test \
+  -f "${chart_dir}/test-values-gaps.yaml" > "${gaps_render}"
+
+# Gap 1: generic emptyDir volume support.
+grep -A3 -q '^      volumes:$' "${gaps_render}"
+grep -A2 -q '        - name: tmp$' "${gaps_render}"
+grep -q 'sizeLimit: 256Mi' "${gaps_render}"
+grep -A2 -q 'name: tmp$' "${gaps_render}"
+grep -q 'mountPath: "/tmp"' "${gaps_render}"
+
+# Gap 2: optional flag on secrets[] env-var secretKeyRef injection — one
+# entry sets optional: true, a sibling entry omits it and must default false.
+grep -q 'key: review-secret' "${gaps_render}"
+if ! awk '/key: review-secret/{getline; print; exit}' "${gaps_render}" | grep -q 'optional: true'; then
+  echo "expected optional: true immediately after the review-secret secretKeyRef" >&2
+  exit 1
+fi
+grep -q 'key: required-key' "${gaps_render}"
+if ! awk '/key: required-key/{getline; print; exit}' "${gaps_render}" | grep -q 'optional: false'; then
+  echo "expected optional: false (default) immediately after the required-key secretKeyRef" >&2
+  exit 1
+fi
+
+# Gap 3: cloudSqlProxy.existingSecretName resolves verbatim, not chart-managed.
+grep -q 'name: externally-managed-cloud-sql-secret' "${gaps_render}"
+if grep -q 'gaps-test-cloudsql-existing-secret-fixture' "${gaps_render}"; then
+  echo "cloudSqlProxy.existingSecretName must bypass the chart-managed <release>-<secretName> name" >&2
+  exit 1
+fi
+
+# Gap 4: deploymentMode: job defaults probes off; explicit probes.enabled: true opts back in.
+if awk '/^# Job: job-probes-off-fixture$/,/^---$/' "${gaps_render}" | grep -q 'Probe:'; then
+  echo "deploymentMode: job must default probes off (no liveness/readiness/startupProbe)" >&2
+  exit 1
+fi
+if ! awk '/^# Job: job-probes-optin-fixture$/,/^---$/' "${gaps_render}" | grep -q 'startupProbe:'; then
+  echo "deploymentMode: job with probes.enabled: true must still render probes" >&2
+  exit 1
+fi
+# Sibling non-job modes are unaffected — probes still default on.
+grep -q 'name: emptydir-fixture$' "${gaps_render}"
+if ! awk '/^# Deployment: emptydir-fixture$/,/^---$/' "${gaps_render}" | grep -q 'startupProbe:'; then
+  echo "deploymentMode: deployment must still default probes on" >&2
+  exit 1
+fi
+
+# Gap 5: headless Service via service.clusterIP: "None".
+if ! awk '/^# Service: headless-service-fixture$/,/^---$/' "${gaps_render}" | grep -q '^  clusterIP: None$'; then
+  echo "service.clusterIP: \"None\" must render clusterIP: None on the Service" >&2
+  exit 1
+fi
+# Sibling non-headless Service is unaffected — no clusterIP field at all.
+if awk '/^# Service: optional-secret-fixture$/,/^---$/' "${gaps_render}" | grep -q 'clusterIP:'; then
+  echo "a service without service.clusterIP must not render a clusterIP field" >&2
+  exit 1
+fi
+
+# Gap 6: release-level literal ConfigMap, created and mounted within one release.
+grep -q 'name: gaps-test-bootstrap-script' "${gaps_render}"
+grep -q 'bootstrap.sh:' "${gaps_render}"
+grep -q 'configMapName: gaps-test-bootstrap-script\|name: gaps-test-bootstrap-script' "${gaps_render}"
 
 echo "java-microservice chart tests passed"

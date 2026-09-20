@@ -1,0 +1,40 @@
+{{- /*
+  ==============================================================================
+  Release-level literal ConfigMaps (Values.configMaps[]).
+
+  Deliberate design boundary: this chart owns exactly this one generic,
+  self-contained ConfigMap shape - a name plus literal string data, scoped to
+  this release. It does not try to also own arbitrary cross-release wiring.
+  A service in this same release mounts a ConfigMap created here via the
+  existing configMapVolumeMounts[] mechanism (see _helpers.tpl podVolumes/
+  mainContainer), referencing the resolved name <release>-<name>. A ConfigMap
+  that needs to be consumed by a *different* Helm release stays a separate
+  release + `needs:` in the consuming helmfile, same as secret sharing across
+  releases already works via existingSecretName.
+  ==============================================================================
+*/ -}}
+{{- range .Values.configMaps }}
+---
+# ---------------------------------------------------------------------------
+# ConfigMap: {{ include "java-microservice.configMapName" (dict "root" $ "name" .name) }}
+# Release-level literal ConfigMap, declared under Values.configMaps[].
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "java-microservice.configMapName" (dict "root" $ "name" (required "configMaps[].name is required" .name)) }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "java-microservice.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  {{- range $key, $val := .data }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}
+{{- end }}

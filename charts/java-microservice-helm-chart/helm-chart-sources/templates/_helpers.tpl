@@ -235,6 +235,17 @@ Usage: include "java-microservice.k8sSecretName" (dict "root" $ "secretName" "my
 {{- end }}
 
 {{/*
+Kubernetes ConfigMap name for a release-level literal ConfigMap (Values.configMaps[]).
+Convention: <release>-<name> - same shape as k8sSecretName, deliberately, so
+a service's configMapVolumeMounts[].configMapName reference reads the same way
+as it already does for a shared secretName.
+Usage: include "java-microservice.configMapName" (dict "root" $ "name" "my-configmap")
+*/}}
+{{- define "java-microservice.configMapName" -}}
+{{- printf "%s-%s" .root.Release.Name .name -}}
+{{- end }}
+
+{{/*
 Kubernetes Secret name for per-service ESO-materialised secrets.
 Convention: <release>-<serviceName>-<secretName>
 Usage: include "java-microservice.k8sPerServiceSecretName" (dict "root" $ "serviceName" "my-service" "secretName" "my-secret")
@@ -305,9 +316,17 @@ Resolve the effective ESO refresh interval.
 
 {{/*
 Resolve the Cloud SQL proxy secret name for a service.
+An existingSecretName is used verbatim (a pre-existing Secret managed by
+another mechanism, no <release>-<secretName> transformation) - the Cloud SQL
+proxy sibling of resolveSecretName's own existingSecretName handling for the
+generic secrets[] list. Otherwise falls through to the pre-existing
+secretName -> database.secretName -> service.name resolution chain, unchanged.
 Usage: include "java-microservice.cloudSqlProxySecretName" (dict "service" . "root" $)
 */}}
 {{- define "java-microservice.cloudSqlProxySecretName" -}}
+{{- if and (hasKey .service "cloudSqlProxy") (hasKey .service.cloudSqlProxy "existingSecretName") (.service.cloudSqlProxy.existingSecretName) -}}
+{{- .service.cloudSqlProxy.existingSecretName -}}
+{{- else -}}
 {{- $secretName := "" -}}
 {{- if and (hasKey .service "cloudSqlProxy") (hasKey .service.cloudSqlProxy "secretName") (.service.cloudSqlProxy.secretName) -}}
 {{- $secretName = .service.cloudSqlProxy.secretName -}}
@@ -317,6 +336,7 @@ Usage: include "java-microservice.cloudSqlProxySecretName" (dict "service" . "ro
 {{- $secretName = .service.name -}}
 {{- end -}}
 {{- include "java-microservice.k8sSecretName" (dict "root" .root "secretName" $secretName) -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -587,6 +607,7 @@ initContainers:
           secretKeyRef:
             name: {{ include "java-microservice.resolveSecretName" (dict "root" $root "service" $svc "secretEntry" .) }}
             key: {{ .secretKey }}
+            optional: {{ .optional | default false }}
       {{- end }}
     {{- end }}
     command:
@@ -614,12 +635,20 @@ Usage: include "java-microservice.podVolumes" (dict "service" . "root" $)
 {{- define "java-microservice.podVolumes" -}}
 {{- $secretMounts := .service.secretVolumeMounts | default (list) -}}
 {{- $configMapMounts := .service.configMapVolumeMounts | default (list) -}}
-{{- if or (eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true") (gt (len $secretMounts) 0) (gt (len $configMapMounts) 0) }}
+{{- $emptyDirMounts := .service.emptyDirVolumeMounts | default (list) -}}
+{{- if or (eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true") (gt (len $secretMounts) 0) (gt (len $configMapMounts) 0) (gt (len $emptyDirMounts) 0) }}
 volumes:
   {{- if eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true" }}
   - name: {{ include "java-microservice.sparkExecutorPodTemplateVolumeName" . }}
     configMap:
       name: {{ include "java-microservice.sparkExecutorPodTemplateConfigMapName" (dict "service" .service "root" .root) }}
+  {{- end }}
+  {{- range $emptyDirMounts }}
+  - name: {{ required "emptyDirVolumeMounts[].name is required" .name }}
+    emptyDir:
+      {{- with .sizeLimit }}
+      sizeLimit: {{ . }}
+      {{- end }}
   {{- end }}
   {{- range $secretMounts }}
   - name: {{ required "secretVolumeMounts[].name is required" .name }}
@@ -716,6 +745,28 @@ url: QUARKUS_DATASOURCE_JDBC_URL
 {{- end }}
 
 {{/*
+Resolve whether the main container gets liveness/readiness/startup probes.
+service.probes.enabled wins when set explicitly. Otherwise the default
+depends on deploymentMode: true for knative/deployment/scaledJob (identical
+to today, where probes always render), false for job - a one-shot batch/v1
+Job is supposed to run to completion, not be supervised like a long-running
+service, and a failing startupProbe on a slow-starting or non-HTTP Job kills
+and restarts it before it ever finishes.
+Usage: include "java-microservice.probesEnabled" (dict "service" . "root" $)
+Returns "true" or "false" as a string.
+*/}}
+{{- define "java-microservice.probesEnabled" -}}
+{{- $probes := .service.probes | default (dict) -}}
+{{- if hasKey $probes "enabled" -}}
+{{- $probes.enabled | toString -}}
+{{- else if eq (.service.deploymentMode | default "knative") "job" -}}
+false
+{{- else -}}
+true
+{{- end -}}
+{{- end }}
+
+{{/*
 Main application container.
 Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
 */}}
@@ -765,6 +816,7 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
         secretKeyRef:
           name: {{ include "java-microservice.resolveSecretName" (dict "root" $root "service" $svc "secretEntry" .) }}
           key: {{ .secretKey }}
+          optional: {{ .optional | default false }}
     {{- end }}
     {{- end }}
     {{- $database := $svc.database | default (dict) }}
@@ -808,12 +860,18 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
       memory: {{ $svc.resources.limits.memory | default "1Gi" }}
   {{- $secretMounts := $svc.secretVolumeMounts | default (list) }}
   {{- $configMapMounts := $svc.configMapVolumeMounts | default (list) }}
-  {{- if or (eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true") (gt (len $secretMounts) 0) (gt (len $configMapMounts) 0) }}
+  {{- $emptyDirMounts := $svc.emptyDirVolumeMounts | default (list) }}
+  {{- if or (eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true") (gt (len $secretMounts) 0) (gt (len $configMapMounts) 0) (gt (len $emptyDirMounts) 0) }}
   volumeMounts:
     {{- if eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true" }}
     - name: {{ include "java-microservice.sparkExecutorPodTemplateVolumeName" . }}
       mountPath: {{ include "java-microservice.sparkExecutorPodTemplateMountPath" (dict "service" $svc "root" $root) | quote }}
       readOnly: true
+    {{- end }}
+    {{- range $emptyDirMounts }}
+    - name: {{ required "emptyDirVolumeMounts[].name is required" .name }}
+      mountPath: {{ required "emptyDirVolumeMounts[].mountPath is required" .mountPath | quote }}
+      readOnly: {{ .readOnly | default false }}
     {{- end }}
     {{- range $secretMounts }}
     - name: {{ required "secretVolumeMounts[].name is required" .name }}
@@ -831,6 +889,7 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
   securityContext:
     {{- $containerSecurityContext | nindent 4 }}
   {{- end }}
+  {{- if eq (include "java-microservice.probesEnabled" (dict "service" $svc "root" $root)) "true" }}
   livenessProbe:
     httpGet:
       path: {{ $probes.liveness | default $probeDefaults.liveness }}
@@ -854,6 +913,7 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
     initialDelaySeconds: {{ $probes.initialDelaySeconds | default 10 }}
     periodSeconds: {{ $probes.periodSeconds | default 5 }}
     failureThreshold: {{ $probes.startupFailureThreshold | default 30 }}
+  {{- end }}
 {{- end }}
 
 {{/*

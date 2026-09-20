@@ -108,6 +108,46 @@ externalSecret:
 secrets: []
 
 # ------------------------------------------------------------------------------
+# Release-level literal ConfigMaps
+# Renders one plain ConfigMap per entry, named <release>-<name>, with `data`
+# passed straight through as string values (no ExternalSecrets/remote lookup
+# involved — this is for non-secret, in-chart-values content only, e.g. an
+# inline bootstrap script assembled from Helm values).
+#
+# Deliberate design boundary: this chart intentionally supports ONLY this
+# generic, self-contained ConfigMap shape at the release level. It does not
+# try to also own arbitrary cross-resource wiring beyond what
+# configMapVolumeMounts[] already gives a service (mounting any ConfigMap,
+# including one created here, by name). A release that needs a ConfigMap
+# consumed by a *different* Helm release (rather than a service within this
+# same release) should keep that as a separate release + `needs:` in the
+# consuming helmfile, the same way secret sharing across releases already
+# works via existingSecretName.
+#
+# Format:
+#   configMaps:
+#     - name: bootstrap-script
+#       data:
+#         bootstrap.sh: |
+#           #!/bin/sh
+#           echo "bootstrapping..."
+#       labels: {}        # optional, merged with chart-level labels
+#       annotations: {}   # optional
+#
+# A service in this release mounts it via the existing configMapVolumeMounts[]
+# mechanism, referencing the resolved name <release>-<name>:
+#   configMapVolumeMounts:
+#     - name: bootstrap-script
+#       configMapName: <release-name>-bootstrap-script
+#       mountPath: /opt/bootstrap
+#       items:
+#         - key: bootstrap.sh
+#           path: bootstrap.sh
+#           mode: 0755
+# ------------------------------------------------------------------------------
+configMaps: []
+
+# ------------------------------------------------------------------------------
 # Cloud SQL Auth Proxy sidecar — chart-level defaults
 # Applied to all services with cloudSqlProxy.enabled: true.
 # Proxy listens on localhost:<port>, handles IAM auth via Workload Identity.
@@ -272,7 +312,20 @@ kafka:
 #
 # Per-service secrets (unique to that service) are declared under secrets[].
 # Shared secrets across services are declared at the top-level secrets[] above.
+# Each entry renders as a secretKeyRef env var on the main container:
+#   secrets:
+#     - envVar: OPENWORKFLOW_HUMAN_TASK_REVIEW_SECRET
+#       secretName: human-task
+#       secretKey: review-secret
+#       optional: true   # optional, default false (today's always-required
+#                         # behavior). Set true when the app has its own
+#                         # fallback default and the key may not exist in the
+#                         # secret - matches Kubernetes' own native
+#                         # secretKeyRef.optional. false/omitted keeps a
+#                         # missing key a hard CreateContainerConfigError, same
+#                         # as today.
 #
+
 # Read-only Secret volumes are generic and opt-in:
 #   secretVolumeMounts:
 #     - name: service-credentials
@@ -302,6 +355,17 @@ kafka:
 #           path: bootstrap.sh
 #           mode: 0755
 #
+# Writable scratch-space volumes are generic and opt-in, the emptyDir sibling
+# of secretVolumeMounts/configMapVolumeMounts above. Needed whenever
+# securityContext.readOnlyRootFilesystem: true leaves the JVM (or any other
+# process in the container) with nowhere to write temp files - mount an
+# emptyDir instead of loosening readOnlyRootFilesystem:
+#   emptyDirVolumeMounts:
+#     - name: tmp
+#       mountPath: /tmp
+#       sizeLimit: 256Mi   # optional - omitted renders an unbounded emptyDir
+#       readOnly: false    # optional, default false (this is a writable mount)
+#
 # Extra container ports, alongside the always-present http1 port (named
 # "http1", from `port` below). Each entry also gets its own port on the
 # ClusterIP Service that deploymentMode: deployment/job render (service.yaml)
@@ -317,6 +381,16 @@ kafka:
 #     - name: pekko-mgmt
 #       containerPort: 8558
 #       servicePort: 8558
+#
+# Headless Service — the ClusterIP Service that deploymentMode: deployment/job
+# render (service.yaml) is a normal, address-assigned ClusterIP Service by
+# default (unset, identical to today). Set service.clusterIP: "None" to render
+# a headless Service instead - needed for peer discovery mechanisms that
+# resolve individual pod IPs via DNS (e.g. A/SRV records per pod), such as
+# Pekko actor-cluster bootstrap. "None" is the only supported value; anything
+# else fails chart rendering.
+#   service:
+#     clusterIP: "None"
 #
 # Helm hook annotations — unset by default, so no annotations are rendered
 # (identical to today for every existing release). When set, renders
@@ -356,6 +430,26 @@ kafka:
 #                .activeDeadlineSeconds/.ttlSecondsAfterFinished/
 #                .restartPolicy — same meaning as scaledJob's job.* fields
 #                below (job.restartPolicy defaults to "Never").
+#
+# probes.enabled: whether the main container gets liveness/readiness/startup
+# HTTP probes at all (see probes.liveness/.readiness/.startup path overrides
+# above). Default depends on deploymentMode:
+#   - knative, deployment, scaledJob: true (unchanged, identical to today —
+#     these are long-running workloads a probe genuinely supervises).
+#   - job: false. A one-shot batch/v1 Job is supposed to run to completion,
+#     not be supervised like a long-running service — a failing startupProbe
+#     on a slow-starting or non-HTTP Job kills and restarts it before it ever
+#     finishes, which is a correctness bug, not a missing feature. Probes
+#     also assume an HTTP endpoint on `port`, which plenty of batch Jobs never
+#     expose at all. A service can still opt back in explicitly:
+#   services:
+#     my-migration-job:
+#       deploymentMode: job
+#       probes:
+#         enabled: true   # opt back in for a Job that does serve /q/health/*
+# This default only changes deploymentMode: job's own behavior — no existing
+# knative/deployment/scaledJob consumer is affected, and no real
+# deploymentMode: job consumer exists yet to be affected either way.
 #
 # scaling fields:
 #
@@ -477,6 +571,23 @@ kafka:
 #     the Spark executor pod template's own copy) — a second source-of-truth
 #     input there would need to be threaded through and kept in sync across
 #     all three, for a value that costs nothing to put in a Secret already.
+#
+#     services.<name>.cloudSqlProxy.existingSecretName names a pre-existing
+#     Kubernetes Secret directly, with no <release>-<secretName> name
+#     transformation and no ExternalSecret generated for it - the sibling of
+#     the generic secrets[] list's own existingSecretName (see
+#     resolveSecretName above) applied to the Cloud SQL proxy's own instance-
+#     connection-name secret. Needed for an environment with no ExternalSecrets/
+#     ClusterSecretStore backend, where instanceConnectionName has to come from
+#     a Secret created by some other externally-managed mechanism instead:
+#       services:
+#         my-worker:
+#           cloudSqlProxy:
+#             enabled: true
+#             existingSecretName: my-worker-cloud-sql-instance
+#             instanceKey: instance-connection-name
+#     Unset by default - falls through to the existing secretName ->
+#     database.secretName -> service.name resolution chain, unchanged.
 #
 # Per-service securityContext / podSecurityContext / automountServiceAccountToken /
 # terminationGracePeriodSeconds override the chart-level defaults of the same

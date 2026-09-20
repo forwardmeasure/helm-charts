@@ -1,0 +1,153 @@
+# ------------------------------------------------------------------------------
+# Test-only fixture exercising each of the 6 additive chart capabilities added
+# alongside the fowf Deployment/Job migrations (emptyDir volumes, optional
+# secretKeyRef, cloudSqlProxy existingSecretName, job-mode probe opt-out,
+# headless Service, release-level literal ConfigMaps). Self-contained -
+# renders standalone, not layered on the other test-values-*.yaml fixtures.
+# ------------------------------------------------------------------------------
+serviceAccount:
+  create: false
+  name: test-service-account
+
+liquibaseWait:
+  enabled: false
+
+configMaps:
+  - name: bootstrap-script
+    data:
+      bootstrap.sh: |
+        #!/bin/sh
+        echo "bootstrapping"
+
+services:
+  # Gap 1 — generic emptyDir volume support.
+  emptydir-fixture:
+    enabled: true
+    deploymentMode: deployment
+    image:
+      repository: example/emptydir-fixture
+      tag: test
+    emptyDirVolumeMounts:
+      - name: tmp
+        mountPath: /tmp
+        sizeLimit: 256Mi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 2 — optional flag on the per-service secrets[] env-var mechanism.
+  optional-secret-fixture:
+    enabled: true
+    deploymentMode: deployment
+    image:
+      repository: example/optional-secret-fixture
+      tag: test
+    secrets:
+      - envVar: OPENWORKFLOW_HUMAN_TASK_REVIEW_SECRET
+        secretName: human-task
+        secretKey: review-secret
+        optional: true
+      - envVar: REQUIRED_SECRET
+        secretName: human-task
+        secretKey: required-key
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 3 — cloudSqlProxy.existingSecretName escape hatch.
+  cloudsql-existing-secret-fixture:
+    enabled: true
+    deploymentMode: deployment
+    image:
+      repository: example/cloudsql-existing-secret-fixture
+      tag: test
+    cloudSqlProxy:
+      enabled: true
+      existingSecretName: externally-managed-cloud-sql-secret
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 4 — deploymentMode: job defaults probes off; no opt-in here.
+  job-probes-off-fixture:
+    enabled: true
+    deploymentMode: job
+    image:
+      repository: example/job-probes-off-fixture
+      tag: test
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 4 — same job mode, explicit opt back in.
+  job-probes-optin-fixture:
+    enabled: true
+    deploymentMode: job
+    probes:
+      enabled: true
+    image:
+      repository: example/job-probes-optin-fixture
+      tag: test
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 5 — headless Service via service.clusterIP: "None".
+  headless-service-fixture:
+    enabled: true
+    deploymentMode: deployment
+    image:
+      repository: example/headless-service-fixture
+      tag: test
+    service:
+      clusterIP: "None"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 6 — mounts the release-level literal ConfigMap declared above.
+  configmap-mount-fixture:
+    enabled: true
+    deploymentMode: deployment
+    image:
+      repository: example/configmap-mount-fixture
+      tag: test
+    configMapVolumeMounts:
+      - name: bootstrap-script
+        configMapName: gaps-test-bootstrap-script
+        mountPath: /opt/bootstrap
+        items:
+          - key: bootstrap.sh
+            path: bootstrap.sh
+            mode: 0755
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
