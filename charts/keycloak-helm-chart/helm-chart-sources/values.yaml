@@ -11,9 +11,23 @@ updateStrategy: RollingUpdate
 terminationGracePeriodSeconds: 60
 enableServiceLinks: true
 
+# Single source of truth for the real upstream Keycloak version this chart deploys. Both the
+# default image.tag below (via the "keycloak.image" helper) and this chart's own Dockerfile/
+# build-and-push-image.sh key off this one value - never duplicate a Keycloak version literal
+# anywhere else in this chart.
+keycloakVersion: "26.7.4"
+
 image:
-  repository: quay.io/keycloak/keycloak
-  tag: "26.7.2"
+  # The custom image built by this chart's own Dockerfile/build-and-push-image.sh, layering the
+  # real "organization-role" Policy Provider (policy-provider/) onto the official
+  # quay.io/keycloak/keycloak:{{ .Values.keycloakVersion }} base - not the bare official image.
+  # Every deployment needs this provider for any Organization-group-derived role to be usable by
+  # Keycloak's own Authorization Services engine (regex/role/group policies cannot see a role
+  # granted only via Organization-group membership - confirmed live, see that module's own javadoc).
+  repository: docker.io/forwardmeasure/keycloak
+  # Empty derives "<keycloakVersion>-authz" from keycloakVersion above (see the "keycloak.image"
+  # helper) - set explicitly only to pin a specific build, e.g. for a one-off local test image.
+  tag: ""
   digest: ""
   pullPolicy: Always
 
@@ -92,7 +106,12 @@ realm:
   configMapKey: forwardmeasure-realm.json
   file: files/forwardmeasure-realm.json
 
-  features: "scripts,authorization"
+  # "authzen" enables Keycloak's native /realms/{realm}/authzen/access/v1/{evaluation,evaluations}
+  # PDP endpoint (experimental as of 26.7.4, per Keycloak's own docs) - required for every real
+  # AuthzenAuthorizationService call in production; without it every AuthZEN evaluation call 404s
+  # before ever reaching a policy. Confirmed live this session that enabling it is safe/harmless on
+  # its own (reuses the existing Authorization Services engine, same policy/permission data).
+  features: "scripts,authorization,authzen"
 
   # Secret must contain:
   # - FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_SECRET

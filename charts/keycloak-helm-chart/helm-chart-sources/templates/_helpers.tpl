@@ -59,6 +59,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Values.image.digest -}}
 {{- printf "%s@%s" .Values.image.repository .Values.image.digest -}}
 {{- else -}}
-{{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- $tag := .Values.image.tag | default (printf "%s-authz" .Values.keycloakVersion) -}}
+{{- printf "%s:%s" .Values.image.repository $tag -}}
 {{- end -}}
 {{- end }}
