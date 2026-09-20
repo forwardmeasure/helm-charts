@@ -101,10 +101,25 @@ global pod annotations.
 {{/*
 Container image reference resolver.
 digest takes precedence over tag.
+
+repository may itself be a Go template referencing {{ .framework }} (and anything
+else on the chart's own root context) - e.g.
+  repository: "forwardmeasure/entity-intelligence-ingestion-service-{{ .framework }}"
+lets one service.framework value (quarkus | spring | micronaut) drive BOTH which
+image gets pulled and the framework-conventional probe/datasource-env defaults
+(see java-microservice.mainContainer below) from a single place, instead of two
+values an author has to keep in sync by hand. A service with no real per-framework
+image split just writes a plain, non-templated repository string, same as always -
+tpl on a string with no {{ }} in it is a no-op, so this is fully backward compatible.
+Usage: include "java-microservice.imageRef" (dict "image" $svc.image "framework" $framework "root" $root)
 */}}
 {{- define "java-microservice.imageRef" -}}
 {{- $registry := .image.registry | default "docker.io" -}}
 {{- $repo     := .image.repository -}}
+{{- if .root -}}
+{{- $context := mergeOverwrite (deepCopy .root) (dict "framework" (.framework | default "quarkus")) -}}
+{{- $repo = tpl $repo $context -}}
+{{- end -}}
 {{- $digest   := .image.digest | default "" -}}
 {{- if $digest -}}
 {{- printf "%s/%s@%s" $registry $repo $digest -}}
@@ -591,7 +606,7 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
 {{- $probeDefaults := include "java-microservice.frameworkProbeDefaults" $framework | fromYaml -}}
 {{- $datasourceEnv := include "java-microservice.frameworkDatasourceEnv" $framework | fromYaml -}}
 - name: {{ $svc.name }}
-  image: {{ include "java-microservice.imageRef" (dict "image" $svc.image) }}
+  image: {{ include "java-microservice.imageRef" (dict "image" $svc.image "framework" $framework "root" $root) }}
   imagePullPolicy: {{ $svc.image.pullPolicy | default "IfNotPresent" }}
   ports:
     - name: http1
