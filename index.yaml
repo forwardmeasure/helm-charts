@@ -885,7 +885,7 @@ entries:
   keycloak:
   - apiVersion: v2
     appVersion: 26.7.4-authz
-    created: "2026-09-20T15:33:53.21856662-04:00"
+    created: "2026-09-20T15:38:05.747836801-04:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 6ce559850d2fe23977995d2e2065d9dddbff873017a9a430853e56a0da9cc84b
@@ -904,7 +904,7 @@ entries:
     version: 0.0.27
   - apiVersion: v2
     appVersion: 26.7.2
-    created: "2026-09-20T15:33:53.21769255-04:00"
+    created: "2026-09-20T15:38:05.746645426-04:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 20ce4a3c48b7345b36f1cc0dc8df7d9153a768cdd60fa68483af15195a3a7d8c
@@ -3847,4 +3847,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-09-20T15:36:43.94896154-04:00"
+generated: "2026-09-20T15:38:05.744744673-04:00"
