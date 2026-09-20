@@ -1,22 +1,23 @@
 {{- range (include "java-microservice.normalizedServices" . | fromYamlArray) }}
-{{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
+{{- if and .enabled (eq (.deploymentMode | default "knative") "job") }}
 {{- include "java-microservice.validateService" (dict "service" . "root" $) }}
-{{- $scaling := .scaling | default (dict) }}
-{{- $minReplicas := 1 }}
-{{- if hasKey $scaling "initialReplicas" }}
-{{- $minReplicas = $scaling.initialReplicas }}
-{{- else if hasKey $scaling "minReplicas" }}
-{{- $minReplicas = $scaling.minReplicas }}
-{{- end }}
+{{- $job := .job | default (dict) }}
 ---
 # ---------------------------------------------------------------------------
-# Deployment: {{ .name }}
-# Standard Kubernetes Deployment.
-# Autoscaling is selected explicitly with scaling.autoscaler:
-# none | hpa | keda.
+# Job: {{ .name }}
+# Plain one-shot Kubernetes Job (batch/v1) for hook-driven or run-once
+# workloads (e.g. an install/upgrade Helm hook that bootstraps a tenant or
+# runs a migration). Neither existing workload mode fits this need:
+# deploymentMode: deployment only ever renders apps/v1 Deployment (a
+# long-running, self-restarting workload, not a one-shot Job), and
+# deploymentMode: scaledJob is KEDA-managed and requires scaling.triggers
+# (a queue-driven autoscaled worker, not a hook-ordered one-off task).
+# Attach Helm hook annotations via the optional `hooks` block (see
+# _helpers.tpl java-microservice.hookAnnotations) to run this Job as a
+# pre-install/pre-upgrade/etc. hook with a specific weight.
 # ---------------------------------------------------------------------------
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: {{ .name }}
   namespace: {{ $.Release.Namespace }}
@@ -28,15 +29,15 @@ metadata:
     {{- $hookAnnotations | nindent 4 }}
   {{- end }}
 spec:
-  replicas: {{ $minReplicas }}
-  {{- with .strategy }}
-  strategy:
-    {{- toYaml . | nindent 4 }}
+  backoffLimit: {{ $job.backoffLimit | default 0 }}
+  completions: {{ $job.completions | default 1 }}
+  parallelism: {{ $job.parallelism | default 1 }}
+  {{- if hasKey $job "activeDeadlineSeconds" }}
+  activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
   {{- end }}
-  selector:
-    matchLabels:
-      app.kubernetes.io/component: {{ .name }}
-      java-microservice/family: {{ $.Release.Name }}
+  {{- if hasKey $job "ttlSecondsAfterFinished" }}
+  ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -47,6 +48,7 @@ spec:
         {{- $podAnnotations | nindent 8 }}
       {{- end }}
     spec:
+      restartPolicy: {{ $job.restartPolicy | default "Never" }}
       serviceAccountName: {{ $.Values.serviceAccount.name }}
       {{- $automount := include "java-microservice.automountServiceAccountToken" (dict "service" . "root" $) }}
       {{- if $automount }}
@@ -77,6 +79,5 @@ spec:
       {{- include "java-microservice.initContainers" (dict "service" . "root" $) | nindent 6 }}
       containers:
         {{- include "java-microservice.mainContainer" (dict "service" . "root" $) | nindent 8 }}
-        {{- include "java-microservice.cloudSqlProxySidecar" (dict "service" . "root" $) | nindent 8 }}
 {{- end }}
 {{- end }}

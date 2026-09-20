@@ -24,5 +24,11 @@ spec:
       port: 80
       targetPort: {{ .port | default 8080 }}
       protocol: TCP
+    {{- range .extraPorts }}
+    - name: {{ required "extraPorts[].name is required" .name }}
+      port: {{ .servicePort | default .containerPort }}
+      targetPort: {{ required "extraPorts[].containerPort is required" .containerPort }}
+      protocol: {{ .protocol | default "TCP" }}
+    {{- end }}
 {{- end }}
 {{- end }}

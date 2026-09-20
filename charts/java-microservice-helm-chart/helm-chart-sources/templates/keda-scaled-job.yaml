@@ -28,6 +28,11 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+  {{- $hookAnnotations := include "java-microservice.hookAnnotations" (dict "service" . "root" $) }}
+  {{- if $hookAnnotations }}
+  annotations:
+    {{- $hookAnnotations | nindent 4 }}
+  {{- end }}
 spec:
   pollingInterval: {{ $scaling.pollingInterval | default 15 }}
   minReplicaCount: {{ $minReplicaCount }}
@@ -64,6 +69,19 @@ spec:
       spec:
         restartPolicy: Never
         serviceAccountName: {{ $.Values.serviceAccount.name }}
+        {{- $automount := include "java-microservice.automountServiceAccountToken" (dict "service" . "root" $) }}
+        {{- if $automount }}
+        automountServiceAccountToken: {{ $automount }}
+        {{- end }}
+        {{- $termGrace := include "java-microservice.terminationGracePeriodSeconds" (dict "service" . "root" $) }}
+        {{- if $termGrace }}
+        terminationGracePeriodSeconds: {{ $termGrace }}
+        {{- end }}
+        {{- $podSecurityContext := include "java-microservice.podSecurityContext" (dict "service" . "root" $) }}
+        {{- if $podSecurityContext }}
+        securityContext:
+          {{- $podSecurityContext | nindent 10 }}
+        {{- end }}
         {{- with $.Values.imagePullSecrets }}
         imagePullSecrets:
           {{- toYaml . | nindent 10 }}

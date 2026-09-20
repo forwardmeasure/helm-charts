@@ -99,6 +99,103 @@ global pod annotations.
 {{- end }}
 
 {{/*
+Merged pod-level securityContext.
+Chart-level Values.podSecurityContext is the base; service-level
+podSecurityContext overrides matching keys. Both default to an empty dict,
+which renders nothing at all — matching today's behavior of never setting
+spec.template.spec.securityContext.
+Usage: include "java-microservice.podSecurityContext" (dict "service" . "root" $)
+Returns bare YAML content (no "securityContext:" key) or an empty string.
+*/}}
+{{- define "java-microservice.podSecurityContext" -}}
+{{- $rootCtx := .root.Values.podSecurityContext | default (dict) -}}
+{{- $svcCtx := .service.podSecurityContext | default (dict) -}}
+{{- $merged := mergeOverwrite (deepCopy $rootCtx) $svcCtx -}}
+{{- if $merged -}}
+{{- toYaml $merged -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Merged container-level securityContext. Same override semantics as
+java-microservice.podSecurityContext above, applied to the main application
+container instead of the pod.
+Usage: include "java-microservice.containerSecurityContext" (dict "service" . "root" $)
+*/}}
+{{- define "java-microservice.containerSecurityContext" -}}
+{{- $rootCtx := .root.Values.securityContext | default (dict) -}}
+{{- $svcCtx := .service.securityContext | default (dict) -}}
+{{- $merged := mergeOverwrite (deepCopy $rootCtx) $svcCtx -}}
+{{- if $merged -}}
+{{- toYaml $merged -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolve automountServiceAccountToken: service-level setting wins, then
+chart-level Values.automountServiceAccountToken, else unset (renders
+nothing, leaving Kubernetes' own implicit default of true in effect - same
+as today, where this field is never rendered at all).
+Usage: include "java-microservice.automountServiceAccountToken" (dict "service" . "root" $)
+Returns "true"/"false" or an empty string.
+*/}}
+{{- define "java-microservice.automountServiceAccountToken" -}}
+{{- if hasKey .service "automountServiceAccountToken" -}}
+{{- .service.automountServiceAccountToken | toString -}}
+{{- else if hasKey .root.Values "automountServiceAccountToken" -}}
+{{- .root.Values.automountServiceAccountToken | toString -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolve terminationGracePeriodSeconds: service-level setting wins, then
+chart-level Values.terminationGracePeriodSeconds, else unset (renders
+nothing, leaving Kubernetes' own implicit default of 30 seconds in effect -
+same as today).
+Usage: include "java-microservice.terminationGracePeriodSeconds" (dict "service" . "root" $)
+Returns the number as a string, or an empty string.
+*/}}
+{{- define "java-microservice.terminationGracePeriodSeconds" -}}
+{{- if hasKey .service "terminationGracePeriodSeconds" -}}
+{{- .service.terminationGracePeriodSeconds | toString -}}
+{{- else if hasKey .root.Values "terminationGracePeriodSeconds" -}}
+{{- .root.Values.terminationGracePeriodSeconds | toString -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Helm hook annotations for a service's rendered workload resource.
+
+hooks:
+  events: ["pre-install", "pre-upgrade"]   # -> helm.sh/hook
+  weight: "10"                             # -> helm.sh/hook-weight
+  deletePolicy: "before-hook-creation"     # -> helm.sh/hook-delete-policy
+
+Unset by default -> no annotations rendered, matching every existing
+consumer. Event names match Helm's own hook-event vocabulary verbatim (see
+https://helm.sh/docs/topics/charts_hooks/) so values can be copied straight
+from Helm's docs.
+Usage: include "java-microservice.hookAnnotations" (dict "service" . "root" $)
+Returns bare YAML content (no leading key) or an empty string.
+*/}}
+{{- define "java-microservice.hookAnnotations" -}}
+{{- $hooks := .service.hooks | default (dict) -}}
+{{- $lines := list -}}
+{{- if $hooks.events -}}
+{{- $lines = append $lines (printf "helm.sh/hook: %s" ($hooks.events | join "," | quote)) -}}
+{{- end -}}
+{{- if $hooks.weight -}}
+{{- $lines = append $lines (printf "helm.sh/hook-weight: %s" ($hooks.weight | toString | quote)) -}}
+{{- end -}}
+{{- if $hooks.deletePolicy -}}
+{{- $lines = append $lines (printf "helm.sh/hook-delete-policy: %s" ($hooks.deletePolicy | quote)) -}}
+{{- end -}}
+{{- if $lines -}}
+{{- join "\n" $lines -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Container image reference resolver.
 digest takes precedence over tag.
 
@@ -356,8 +453,11 @@ Validate a service entry has all required fields.
 {{- end }}
 {{- $deploymentMode := .service.deploymentMode | default "knative" }}
 {{- $scaling := .service.scaling | default (dict) }}
-{{- if not (or (eq $deploymentMode "knative") (eq $deploymentMode "deployment") (eq $deploymentMode "scaledJob")) }}
-{{- fail (printf "service '%s' has invalid deploymentMode '%s'; expected one of: knative, deployment, scaledJob" .service.name $deploymentMode) }}
+{{- if not (or (eq $deploymentMode "knative") (eq $deploymentMode "deployment") (eq $deploymentMode "scaledJob") (eq $deploymentMode "job")) }}
+{{- fail (printf "service '%s' has invalid deploymentMode '%s'; expected one of: knative, deployment, scaledJob, job" .service.name $deploymentMode) }}
+{{- end }}
+{{- if and (eq $deploymentMode "knative") .service.extraPorts (gt (len .service.extraPorts) 0) }}
+{{- fail (printf "service '%s' sets extraPorts but deploymentMode=knative; Knative Serving permits only a single container port, use deploymentMode: deployment or job" .service.name) }}
 {{- end }}
 {{- if eq $deploymentMode "deployment" }}
 {{- $autoscaler := $scaling.autoscaler | default "none" }}
@@ -422,7 +522,8 @@ Usage: include "java-microservice.initContainers" (dict "service" . "root" $)
 {{- $root := .root -}}
 {{- $liquibaseEnabled := include "java-microservice.liquibaseWaitEnabled" (dict "service" $svc "root" $root) -}}
 {{- $hasCustomInit := and $svc.initContainers (gt (len $svc.initContainers) 0) -}}
-{{- $cloudSqlProxyAsNativeSidecar := and (eq ($svc.deploymentMode | default "knative") "scaledJob") $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled -}}
+{{- $isFiniteJobMode := or (eq ($svc.deploymentMode | default "knative") "scaledJob") (eq ($svc.deploymentMode | default "knative") "job") -}}
+{{- $cloudSqlProxyAsNativeSidecar := and $isFiniteJobMode $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled -}}
 {{- if or (eq $liquibaseEnabled "true") $hasCustomInit $cloudSqlProxyAsNativeSidecar }}
 initContainers:
   {{- if $cloudSqlProxyAsNativeSidecar }}
@@ -512,7 +613,8 @@ Usage: include "java-microservice.podVolumes" (dict "service" . "root" $)
 */}}
 {{- define "java-microservice.podVolumes" -}}
 {{- $secretMounts := .service.secretVolumeMounts | default (list) -}}
-{{- if or (eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true") (gt (len $secretMounts) 0) }}
+{{- $configMapMounts := .service.configMapVolumeMounts | default (list) -}}
+{{- if or (eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true") (gt (len $secretMounts) 0) (gt (len $configMapMounts) 0) }}
 volumes:
   {{- if eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" .service "root" .root)) "true" }}
   - name: {{ include "java-microservice.sparkExecutorPodTemplateVolumeName" . }}
@@ -532,6 +634,25 @@ volumes:
         {{- range . }}
         - key: {{ required "secretVolumeMounts[].items[].key is required" .key }}
           path: {{ required "secretVolumeMounts[].items[].path is required" .path }}
+          {{- with .mode }}
+          mode: {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+  {{- end }}
+  {{- range $configMapMounts }}
+  - name: {{ required "configMapVolumeMounts[].name is required" .name }}
+    configMap:
+      name: {{ required "configMapVolumeMounts[].configMapName is required" .configMapName }}
+      optional: {{ .optional | default false }}
+      {{- with .defaultMode }}
+      defaultMode: {{ . }}
+      {{- end }}
+      {{- with .items }}
+      items:
+        {{- range . }}
+        - key: {{ required "configMapVolumeMounts[].items[].key is required" .key }}
+          path: {{ required "configMapVolumeMounts[].items[].path is required" .path }}
           {{- with .mode }}
           mode: {{ . }}
           {{- end }}
@@ -612,6 +733,11 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
     - name: http1
       containerPort: {{ $svc.port | default 8080 }}
       protocol: TCP
+    {{- range $svc.extraPorts }}
+    - name: {{ required "extraPorts[].name is required" .name }}
+      containerPort: {{ required "extraPorts[].containerPort is required" .containerPort }}
+      protocol: {{ .protocol | default "TCP" }}
+    {{- end }}
   env:
     {{- if eq $framework "quarkus" }}
     # Read by this image's own entrypoint script to select the jvm vs.
@@ -681,7 +807,8 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
       cpu: {{ $svc.resources.limits.cpu | default "2000m" | quote }}
       memory: {{ $svc.resources.limits.memory | default "1Gi" }}
   {{- $secretMounts := $svc.secretVolumeMounts | default (list) }}
-  {{- if or (eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true") (gt (len $secretMounts) 0) }}
+  {{- $configMapMounts := $svc.configMapVolumeMounts | default (list) }}
+  {{- if or (eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true") (gt (len $secretMounts) 0) (gt (len $configMapMounts) 0) }}
   volumeMounts:
     {{- if eq (include "java-microservice.sparkExecutorPodTemplateEnabled" (dict "service" $svc "root" $root)) "true" }}
     - name: {{ include "java-microservice.sparkExecutorPodTemplateVolumeName" . }}
@@ -693,6 +820,16 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
       mountPath: {{ required "secretVolumeMounts[].mountPath is required" .mountPath | quote }}
       readOnly: {{ .readOnly | default true }}
     {{- end }}
+    {{- range $configMapMounts }}
+    - name: {{ required "configMapVolumeMounts[].name is required" .name }}
+      mountPath: {{ required "configMapVolumeMounts[].mountPath is required" .mountPath | quote }}
+      readOnly: {{ .readOnly | default true }}
+    {{- end }}
+  {{- end }}
+  {{- $containerSecurityContext := include "java-microservice.containerSecurityContext" (dict "service" $svc "root" $root) }}
+  {{- if $containerSecurityContext }}
+  securityContext:
+    {{- $containerSecurityContext | nindent 4 }}
   {{- end }}
   livenessProbe:
     httpGet:
@@ -727,7 +864,8 @@ Usage: include "java-microservice.cloudSqlProxySidecar" (dict "service" . "root"
 {{- define "java-microservice.cloudSqlProxySidecar" -}}
 {{- $svc := .service -}}
 {{- $root := .root -}}
-{{- if and (ne ($svc.deploymentMode | default "knative") "scaledJob") $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
+{{- $deploymentMode := $svc.deploymentMode | default "knative" -}}
+{{- if and (ne $deploymentMode "scaledJob") (ne $deploymentMode "job") $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
 {{- $proxy := $root.Values.cloudSqlProxy }}
 - name: cloud-sql-proxy
   image: {{ include "java-microservice.cloudSqlProxyImageRef" $proxy }}

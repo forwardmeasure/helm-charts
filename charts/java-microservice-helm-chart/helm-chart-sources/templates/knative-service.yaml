@@ -25,6 +25,10 @@ metadata:
     {{- with .annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{- $hookAnnotations := include "java-microservice.hookAnnotations" (dict "service" . "root" $) }}
+    {{- if $hookAnnotations }}
+    {{- $hookAnnotations | nindent 4 }}
+    {{- end }}
 spec:
   template:
     metadata:
@@ -39,6 +43,15 @@ spec:
         {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 8 }}
     spec:
       serviceAccountName: {{ $.Values.serviceAccount.name }}
+      {{- $automount := include "java-microservice.automountServiceAccountToken" (dict "service" . "root" $) }}
+      {{- if $automount }}
+      automountServiceAccountToken: {{ $automount }}
+      {{- end }}
+      {{- $podSecurityContext := include "java-microservice.podSecurityContext" (dict "service" . "root" $) }}
+      {{- if $podSecurityContext }}
+      securityContext:
+        {{- $podSecurityContext | nindent 8 }}
+      {{- end }}
       {{- with .nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -1,0 +1,52 @@
+{{- /*
+  ============================================================================
+  Generic per-release RBAC.
+
+  Renders a Role and RoleBinding scoped to the chart's own ServiceAccount
+  (Values.serviceAccount.name), granting exactly the rules the release
+  author supplies. Unlike spark-rbac.yaml/launcher-job-rbac.yaml (narrow,
+  env-var-triggered grants for specific chart-internal features), this is a
+  fully generic mechanism for a release to request whatever permissions its
+  own application logic needs (e.g. an fowf Job that reconciles tenant
+  namespaces).
+
+  Off by default (rbac.create: false) - no Role/RoleBinding is rendered for
+  any of today's consumers unless a release explicitly opts in.
+  ============================================================================
+*/ -}}
+{{- if and .Values.rbac .Values.rbac.create }}
+---
+# ---------------------------------------------------------------------------
+# Role: {{ .Values.rbac.name | default (printf "%s-role" .Release.Name) }}
+# Generic release-scoped RBAC grant, rendered only when rbac.create: true.
+# ---------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.rbac.name | default (printf "%s-role" .Release.Name) }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "java-microservice.labels" . | nindent 4 }}
+rules:
+  {{- toYaml (.Values.rbac.rules | default (list)) | nindent 2 }}
+---
+# ---------------------------------------------------------------------------
+# RoleBinding: {{ .Values.rbac.name | default (printf "%s-role" .Release.Name) }}
+# Binds the Role above to the chart's own ServiceAccount.
+# ---------------------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.rbac.name | default (printf "%s-role" .Release.Name) }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "java-microservice.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ .Values.rbac.name | default (printf "%s-role" .Release.Name) }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

@@ -29,6 +29,53 @@ serviceAccount:
   annotations: {}
 
 # ------------------------------------------------------------------------------
+# Generic per-release RBAC — off by default.
+# create: true renders a Role + RoleBinding scoped to serviceAccount.name,
+# granting exactly the rules supplied below. Use for a release whose own
+# application logic needs Kubernetes API access beyond what
+# spark-rbac.yaml/launcher-job-rbac.yaml's narrow, feature-specific grants
+# already cover (e.g. a Job that reconciles tenant namespaces).
+#
+# rbac:
+#   create: true
+#   name: my-release-role   # defaults to "<release-name>-role"
+#   rules:
+#     - apiGroups: [""]
+#       resources: ["configmaps"]
+#       verbs: ["get", "list", "watch"]
+# ------------------------------------------------------------------------------
+rbac:
+  create: false
+  rules: []
+
+# ------------------------------------------------------------------------------
+# Chart-level pod/container securityContext defaults — empty (unset) by
+# default, matching today's behavior of never rendering a securityContext at
+# all. Both are deep-mergeable at the service level (services.<name>.
+# securityContext / services.<name>.podSecurityContext), with service-level
+# keys overriding matching chart-level keys.
+#
+# podSecurityContext applies to spec.template.spec.securityContext (the Pod).
+# securityContext applies to the main application container only.
+#
+# Not wired into deploymentMode: knative's terminationGracePeriodSeconds -
+# Knative Serving's PodSpec admission webhook whitelists a narrower,
+# feature-flag-gated set of fields than plain Deployment/Job pods, and none
+# of this chart's knative-mode consumers need it.
+# ------------------------------------------------------------------------------
+podSecurityContext: {}
+securityContext: {}
+
+# automountServiceAccountToken / terminationGracePeriodSeconds: unset by
+# default, leaving Kubernetes' own implicit defaults in effect (true / 30s) -
+# exactly today's behavior, where neither field is ever rendered. Settable at
+# chart level here or overridden per service
+# (services.<name>.automountServiceAccountToken /
+# services.<name>.terminationGracePeriodSeconds).
+# automountServiceAccountToken: false
+# terminationGracePeriodSeconds: 60
+
+# ------------------------------------------------------------------------------
 # External Secrets Operator — chart-level defaults
 # Applied to all ExternalSecrets unless overridden.
 # ------------------------------------------------------------------------------
@@ -240,7 +287,51 @@ kafka:
 #         - key: client-secret
 #           path: client-secret
 #
-# deploymentMode: knative (default) | deployment | scaledJob
+# Read-only ConfigMap-as-file volumes are the sibling of secretVolumeMounts
+# above — same shape, mounting an existing ConfigMap instead of a Secret.
+# Use for e.g. an executable bootstrap script baked into a ConfigMap:
+#   configMapVolumeMounts:
+#     - name: bootstrap-script
+#       configMapName: existing-configmap
+#       mountPath: /opt/bootstrap
+#       readOnly: true
+#       optional: false
+#       defaultMode: 0755
+#       items:
+#         - key: bootstrap.sh
+#           path: bootstrap.sh
+#           mode: 0755
+#
+# Extra container ports, alongside the always-present http1 port (named
+# "http1", from `port` below). Each entry also gets its own port on the
+# ClusterIP Service that deploymentMode: deployment/job render (service.yaml)
+# — targetPort defaults to containerPort; servicePort defaults to the same
+# value if you need the Service-facing port number to differ. Only valid for
+# deploymentMode: deployment or job — Knative Serving permits exactly one
+# container port and deploymentMode: knative will fail validation if
+# extraPorts is set. Needed for e.g. Pekko cluster remoting/management ports
+# alongside a service's normal HTTP port.
+#   extraPorts:
+#     - name: pekko-remote
+#       containerPort: 25520
+#     - name: pekko-mgmt
+#       containerPort: 8558
+#       servicePort: 8558
+#
+# Helm hook annotations — unset by default, so no annotations are rendered
+# (identical to today for every existing release). When set, renders
+# helm.sh/hook / helm.sh/hook-weight / helm.sh/hook-delete-policy onto
+# whichever resource this service's deploymentMode produces (Deployment,
+# Knative Service, ScaledJob, or Job). `events` uses Helm's own hook-event
+# vocabulary verbatim: pre-install, post-install, pre-upgrade, post-upgrade,
+# pre-delete, post-delete, pre-rollback, post-rollback, test. Typical use:
+# a deploymentMode: job release that must run once before/after install.
+#   hooks:
+#     events: ["pre-install", "pre-upgrade"]
+#     weight: "10"
+#     deletePolicy: "before-hook-creation,hook-succeeded"
+#
+# deploymentMode: knative (default) | deployment | scaledJob | job
 #   knative    — Knative Service with scale-to-zero and Knative traffic
 #                management. Use for pure HTTP request/response workloads.
 #   deployment — Standard Kubernetes Deployment + ClusterIP Service.
@@ -252,6 +343,19 @@ kafka:
 #                generations never share one application.id.
 #   scaledJob  — KEDA ScaledJob for queue-triggered finite workers that
 #                process one unit of work and exit.
+#   job        — Plain batch/v1 Job for a single run-once workload, typically
+#                driven by the `hooks` block above (e.g. a Helm pre-install
+#                hook that bootstraps a tenant or runs a one-off migration).
+#                Distinct from scaledJob: no KEDA, no scaling.triggers, not
+#                autoscaled or re-triggered — it runs exactly once per Helm
+#                operation that fires its hook (or once at apply time with no
+#                hooks set). Cloud SQL proxy (if enabled) renders as a native
+#                sidecar (like scaledJob), not a persistent sidecar, so the
+#                Job can actually reach completion.
+#                job.parallelism/.completions/.backoffLimit/
+#                .activeDeadlineSeconds/.ttlSecondsAfterFinished/
+#                .restartPolicy — same meaning as scaledJob's job.* fields
+#                below (job.restartPolicy defaults to "Never").
 #
 # scaling fields:
 #
@@ -360,5 +464,31 @@ kafka:
 #       passwordKey: db-password
 #       jdbcUrlKey: db-jdbc-url
 #       databaseNameKey: db-name
+#
+#     Cloud SQL instanceConnectionName is deliberately still Secret-key-only
+#     (cloudSqlProxy.instanceKey, default "db-cloud-sql-instance") — this
+#     chart does not support it as a plain, non-Secret value. A consumer that
+#     only has it as a plain string (not already in a Secret) should put it
+#     in a Secret at that key; existingSecretName/secretName/instanceKey are
+#     already fully configurable per service, so no chart change is needed
+#     either way. Chosen over adding plain-value support because the
+#     instance connection name is duplicated across three template call
+#     sites (deployment/knative sidecar, scaledJob/job native sidecar, and
+#     the Spark executor pod template's own copy) — a second source-of-truth
+#     input there would need to be threaded through and kept in sync across
+#     all three, for a value that costs nothing to put in a Secret already.
+#
+# Per-service securityContext / podSecurityContext / automountServiceAccountToken /
+# terminationGracePeriodSeconds override the chart-level defaults of the same
+# name (see top of this file) — same semantics, just scoped to one service.
+#   services:
+#     my-worker:
+#       securityContext:
+#         runAsNonRoot: true
+#         allowPrivilegeEscalation: false
+#       podSecurityContext:
+#         fsGroup: 1000
+#       automountServiceAccountToken: false
+#       terminationGracePeriodSeconds: 60
 # ------------------------------------------------------------------------------
 services: {}
