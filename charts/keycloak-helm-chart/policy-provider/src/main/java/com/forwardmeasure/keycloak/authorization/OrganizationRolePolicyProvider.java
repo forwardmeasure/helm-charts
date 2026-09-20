@@ -55,6 +55,16 @@ import org.keycloak.organization.OrganizationProvider;
  * assertion itself is cross-checked, not blindly trusted: {@link OrganizationModel#isMember} must
  * independently confirm the resolved user is a real member of that exact Organization before the
  * role check ever runs.
+ *
+ * <p>No mock-based unit test exists for this class (Mockito is banned org-wide) - real verification
+ * lives in forwardmeasure-authzen's {@code AuthzenAuthorizationServiceKeycloakIntegrationTest} and
+ * forwardmeasure-data-streaming's {@code DirectIngestionLauncherKeycloakIntegrationTest}, both real,
+ * live, no-mocks end-to-end tests against a real Keycloak container running this exact provider (a
+ * real PERMIT with a full decision trace, and two real negative controls - wrong organization
+ * asserted, no organization asserted - both correctly denied). A self-contained real Testcontainers
+ * test for this module specifically (build a fresh image from {@code target/*.jar} via
+ * `ImageFromDockerfile`, provision real Organizations/policies, issue a real evaluation call) is a
+ * reasonable follow-up, not built yet - flagged, not silently skipped.
  */
 public class OrganizationRolePolicyProvider implements PolicyProvider {
 

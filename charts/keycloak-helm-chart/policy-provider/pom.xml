@@ -69,39 +69,9 @@
       <version>${keycloak.version}</version>
       <scope>provided</scope>
     </dependency>
-    <!-- KeycloakContext's own methods reference jakarta.ws.rs.core.UriInfo - not needed by this
-         module's own code, but Mockito/ByteBuddy must load every class in a mocked interface's
-         method signatures to build its type hierarchy at test time. Keycloak's real runtime
-         already provides this; only the test classpath needs it explicitly. -->
-    <dependency>
-      <groupId>jakarta.ws.rs</groupId>
-      <artifactId>jakarta.ws.rs-api</artifactId>
-      <version>3.1.0</version>
-      <scope>provided</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>5.13.4</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>5.20.0</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <build>
     <finalName>forwardmeasure-keycloak-authorization-policy-provider</finalName>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.5.2</version>
-      </plugin>
-    </plugins>
   </build>
 </project>
