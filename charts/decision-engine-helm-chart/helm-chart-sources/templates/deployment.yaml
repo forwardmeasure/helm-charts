@@ -87,6 +87,17 @@ spec:
           env:
             - name: DECISION_ENGINE_DATABASE_URL
               value: {{ if .Values.postgresql.enabled }}{{ printf "jdbc:postgresql://%s-postgresql:5432/%s" .Release.Name .Values.postgresql.auth.database | quote }}{{ else }}{{ .Values.database.url | quote }}{{ end }}
+            # forwardmeasure.jpa.tenant-database.host/port (the per-tenant Postgres routing config
+            # ForwardMeasureJpa{Quarkus,Spring,Micronaut}'s TenantDataSourceRegistry bean requires,
+            # with no default anywhere - found 2026-09-17) - DECISION_ENGINE_DATABASE_URL above
+            # carries a full JDBC URL, but the tenant-database resolver needs host/port broken out
+            # separately to build one JDBC URL per tenant database. Derived from the same source
+            # (the embedded-postgresql Service name, or a regex split of the external URL) so it can
+            # never drift from the real connection target.
+            - name: DECISION_ENGINE_DATABASE_HOST
+              value: {{ if .Values.postgresql.enabled }}{{ printf "%s-postgresql" .Release.Name | quote }}{{ else }}{{ regexReplaceAll "^jdbc:postgresql://([^:/]+)(:([0-9]+))?/.*$" .Values.database.url "${1}" | quote }}{{ end }}
+            - name: DECISION_ENGINE_DATABASE_PORT
+              value: {{ if .Values.postgresql.enabled }}"5432"{{ else }}{{ regexReplaceAll "^jdbc:postgresql://([^:/]+)(:([0-9]+))?/.*$" .Values.database.url "${3}" | default "5432" | quote }}{{ end }}
             - name: DECISION_ENGINE_DATABASE_USERNAME
               {{- if .Values.postgresql.enabled }}
               value: {{ .Values.database.runtimeUsername | quote }}
