@@ -9,6 +9,18 @@ fullnameOverride: ""
 podAnnotations:
   traffic.sidecar.istio.io/excludeInboundPorts: "8080"
 
+# telemetry.injectJava: whether every pod in this release gets the real
+# instrumentation.opentelemetry.io/inject-java: "true" pod annotation the
+# OpenTelemetry Operator's admission webhook looks for, to auto-inject the
+# Java agent at pod creation - no source-code changes needed in the service
+# itself. Chart-level default here; a service can override it individually
+# (see the per-service telemetry.injectJava example further down, next to
+# probes.enabled). false by default - only meaningful where a real OTel
+# Operator + collector are actually deployed in the target cluster; setting
+# this true where neither exists just adds a no-op annotation.
+telemetry:
+  injectJava: false
+
 # ------------------------------------------------------------------------------
 # Image pull secrets
 # ------------------------------------------------------------------------------
@@ -65,6 +77,62 @@ rbac:
 # ------------------------------------------------------------------------------
 podSecurityContext: {}
 securityContext: {}
+
+# ------------------------------------------------------------------------------
+# Pod disruption/scheduling hardening — opt-in, off by default. Generalized,
+# chart-level versions of two things the old openworkflow-studio chart had
+# (one unconditionally, one behind its own local flag) before that chart was
+# retired in favor of this shared one. Neither is Studio- or UI-specific —
+# any deploymentMode: deployment service benefits equally, arguably more so
+# for a stateful long-running service (e.g. a Pekko execution engine) than
+# for a UI. Both apply only to deploymentMode: deployment — a Knative
+# revision manages its own pod lifecycle/scaling, and scaledJob/job pods are
+# one-shot work units where neither "minimum availability during voluntary
+# disruption" nor "spread long-lived replicas across nodes" is a meaningful
+# concept (a preempted Job pod just retries).
+#
+# podDisruptionBudget.enabled: renders a PodDisruptionBudget scoped to this
+# service's own pods (selector matches the same labels the Deployment
+# itself uses, so it protects exactly this service's replicas). Set exactly
+# one of minAvailable/maxUnavailable when enabling — both accept either an
+# integer or a percentage string (e.g. "50%"), same as the native
+# PodDisruptionBudgetSpec fields; setting both is a chart-render error.
+# Chart-level default below intentionally sets neither, so enabling with no
+# override falls through to maxUnavailable: 1 — tolerate losing exactly one
+# replica at a time to a voluntary node drain/upgrade, never more.
+# Per-service override example, next to the telemetry.injectJava one below:
+#   services:
+#     my-worker:
+#       podDisruptionBudget:
+#         enabled: true
+#         minAvailable: 2   # or maxUnavailable — not both
+#
+# podAntiAffinity.enabled: adds a soft (preferred, weight 100)
+# podAntiAffinity rule spreading this service's own replicas across nodes
+# by kubernetes.io/hostname, matching the same selector labels as above.
+# Deliberately soft (preferredDuringSchedulingIgnoredDuringExecution), never
+# required — with fewer nodes than replicas a hard constraint would leave a
+# pod permanently Pending, whereas soft only nudges the scheduler's
+# preference when multiple nodes are actually available, with zero risk of
+# blocking scheduling.
+#   services:
+#     my-worker:
+#       podAntiAffinity:
+#         enabled: true
+#
+# NetworkPolicy is deliberately NOT included here. The old openworkflow-studio
+# chart's own NetworkPolicy was functionally close to a no-op (its ingress
+# rule was `from: - podSelector: {}`, which matches every pod in the
+# namespace — i.e. it didn't meaningfully restrict ingress at all) and is not
+# being ported as-is. A real NetworkPolicy needs actual ingress source
+# restrictions (e.g. only from the gateway/mesh) — that's a separate,
+# deliberately deferred design task, not a quick port.
+# ------------------------------------------------------------------------------
+podDisruptionBudget:
+  enabled: false
+
+podAntiAffinity:
+  enabled: false
 
 # automountServiceAccountToken / terminationGracePeriodSeconds: unset by
 # default, leaving Kubernetes' own implicit defaults in effect (true / 30s) -
@@ -469,6 +537,16 @@ kafka:
 # knative/deployment/scaledJob consumer is affected, and no real
 # deploymentMode: job consumer exists yet to be affected either way.
 #
+# telemetry.injectJava: per-service override of the chart-level default
+# above (see that field's own comment). A service that doesn't set this at
+# all inherits the chart-level value unchanged - only set this here to
+# differ from that default for one specific service:
+#   services:
+#     my-service:
+#       telemetry:
+#         injectJava: true
+#
+
 # scaling fields:
 #
 #   Both modes:
@@ -619,5 +697,16 @@ kafka:
 #         fsGroup: 1000
 #       automountServiceAccountToken: false
 #       terminationGracePeriodSeconds: 60
+#
+# Per-service podDisruptionBudget / podAntiAffinity override the chart-level
+# defaults of the same name (see the pod disruption/scheduling hardening
+# section above) — same semantics, just scoped to one service.
+#   services:
+#     my-worker:
+#       podDisruptionBudget:
+#         enabled: true
+#         maxUnavailable: 1
+#       podAntiAffinity:
+#         enabled: true
 # ------------------------------------------------------------------------------
 services: {}

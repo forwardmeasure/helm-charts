@@ -88,11 +88,39 @@ Merged pod annotations.
 Service-level podAnnotations override chart-level podAnnotations for matching
 keys. This avoids rendering duplicate YAML keys when a service needs to refine
 global pod annotations.
+
+Also folds in telemetry.injectJava (chart-level default, service-level
+override - same two-tier pattern as podAnnotations itself and probes.enabled)
+as the real instrumentation.opentelemetry.io/inject-java pod annotation the
+OpenTelemetry Operator's admission webhook looks for. This exists because
+every consumer of this chart that wanted Java auto-instrumentation was
+independently hand-rolling the identical podAnnotations entry itself
+(confirmed duplicated across forwardmeasure-openworkflow's own helmfile
+templates before this fix) - a real, named field here means any consumer,
+not just the one that happened to copy the pattern first, gets it for free.
+Deliberately just this one annotation for now (not a generalized
+instrumentation.language field) since Java is the only real consumer need
+today - extending to inject-python/inject-nodejs/etc. later is a small,
+additive change to this same helper, not a redesign.
 */}}
 {{- define "java-microservice.podAnnotations" -}}
 {{- $rootAnnotations := .root.Values.podAnnotations | default (dict) -}}
 {{- $serviceAnnotations := .service.podAnnotations | default (dict) -}}
 {{- $annotations := mergeOverwrite (deepCopy $rootAnnotations) $serviceAnnotations -}}
+{{/* .root.Values is Helm's own typed values wrapper, not a plain map - dig's
+internal type assertion to map[string]interface{} fails against it directly
+(confirmed live). Plain dot-access works fine there instead (ordinary Go
+template field resolution, not a Sprig function with a strict type
+assertion) and is safe here specifically because telemetry.injectJava is a
+REAL chart-level default in values.yaml, so the key always exists. .service
+comes from fromYamlArray-parsed normalized service data, a genuine plain
+map, so dig (which needs its own "key might not exist" graceful default)
+still applies correctly there. */}}
+{{- $chartInjectJava := .root.Values.telemetry.injectJava | default false -}}
+{{- $injectJava := dig "telemetry" "injectJava" $chartInjectJava .service -}}
+{{- if $injectJava -}}
+{{- $annotations = mergeOverwrite $annotations (dict "instrumentation.opentelemetry.io/inject-java" "true") -}}
+{{- end -}}
 {{- if $annotations -}}
 {{- toYaml $annotations -}}
 {{- end -}}
@@ -128,6 +156,53 @@ Usage: include "java-microservice.containerSecurityContext" (dict "service" . "r
 {{- $merged := mergeOverwrite (deepCopy $rootCtx) $svcCtx -}}
 {{- if $merged -}}
 {{- toYaml $merged -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Merged PodDisruptionBudget config: chart-level Values.podDisruptionBudget is
+the base, service-level podDisruptionBudget overrides matching keys (same
+two-tier pattern as podAnnotations/podSecurityContext above). Returns the
+merged dict serialized as YAML - the poddisruptionbudget.yaml template
+parses it back with fromYaml, the same round-trip
+java-microservice.normalizedServices already uses for its own consumer.
+Usage: include "java-microservice.podDisruptionBudget" (dict "service" . "root" $) | fromYaml
+*/}}
+{{- define "java-microservice.podDisruptionBudget" -}}
+{{- $chartPdb := .root.Values.podDisruptionBudget | default (dict) -}}
+{{- $svcPdb := .service.podDisruptionBudget | default (dict) -}}
+{{- $merged := mergeOverwrite (deepCopy $chartPdb) $svcPdb -}}
+{{- toYaml $merged -}}
+{{- end }}
+
+{{/*
+Soft pod anti-affinity: chart-level Values.podAntiAffinity.enabled default,
+service-level podAntiAffinity.enabled override (same two-tier pattern as
+podSecurityContext above). When enabled, spreads this service's own
+replicas across nodes via a soft (preferred, weight 100) rule matching the
+same selector labels used by the Deployment/PodDisruptionBudget for this
+service - deliberately soft (preferredDuringScheduling, not
+requiredDuringScheduling) so a cluster with fewer nodes than replicas never
+leaves a pod stuck Pending.
+Usage: include "java-microservice.podAntiAffinity" (dict "service" . "root" $)
+Returns bare YAML content (no "affinity:" key) or an empty string.
+*/}}
+{{- define "java-microservice.podAntiAffinity" -}}
+{{- $svcAntiAffinity := .service.podAntiAffinity | default (dict) -}}
+{{- $enabled := .root.Values.podAntiAffinity.enabled | default false -}}
+{{- if hasKey $svcAntiAffinity "enabled" -}}
+{{- $enabled = $svcAntiAffinity.enabled -}}
+{{- end -}}
+{{- if $enabled -}}
+podAntiAffinity:
+  preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: {{ .service.name }}
+            java-microservice/family: {{ .root.Release.Name }}
 {{- end -}}
 {{- end }}
 
