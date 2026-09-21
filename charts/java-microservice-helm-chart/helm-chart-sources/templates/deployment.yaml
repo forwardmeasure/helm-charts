@@ -61,6 +61,11 @@ spec:
       securityContext:
         {{- $podSecurityContext | nindent 8 }}
       {{- end }}
+      {{- $podAntiAffinity := include "java-microservice.podAntiAffinity" (dict "service" . "root" $) }}
+      {{- if $podAntiAffinity }}
+      affinity:
+        {{- $podAntiAffinity | nindent 8 }}
+      {{- end }}
       {{- with $.Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

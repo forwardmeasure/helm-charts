@@ -1,0 +1,34 @@
+{{- range (include "java-microservice.normalizedServices" . | fromYamlArray) }}
+{{- if and .enabled (eq (.deploymentMode | default "knative") "deployment") }}
+{{- $pdb := include "java-microservice.podDisruptionBudget" (dict "service" . "root" $) | fromYaml }}
+{{- if $pdb.enabled }}
+{{- if and (hasKey $pdb "minAvailable") (hasKey $pdb "maxUnavailable") }}
+{{- fail (printf "service '%s' podDisruptionBudget must set only one of minAvailable or maxUnavailable" .name) }}
+{{- end }}
+---
+# ---------------------------------------------------------------------------
+# PodDisruptionBudget: {{ .name }}
+# Rendered only when podDisruptionBudget.enabled: true (chart- or
+# service-level). Protects against a voluntary disruption (node drain,
+# cluster upgrade) evicting too many replicas of this service at once.
+# ---------------------------------------------------------------------------
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+spec:
+  {{- if hasKey $pdb "minAvailable" }}
+  minAvailable: {{ $pdb.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ $pdb.maxUnavailable | default 1 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ .name }}
+      java-microservice/family: {{ $.Release.Name }}
+{{- end }}
+{{- end }}
+{{- end }}

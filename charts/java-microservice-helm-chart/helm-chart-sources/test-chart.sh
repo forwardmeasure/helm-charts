@@ -158,4 +158,51 @@ grep -q 'name: gaps-test-bootstrap-script' "${gaps_render}"
 grep -q 'bootstrap.sh:' "${gaps_render}"
 grep -q 'configMapName: gaps-test-bootstrap-script\|name: gaps-test-bootstrap-script' "${gaps_render}"
 
+# Gap 7: telemetry.injectJava per-service override renders the real
+# OpenTelemetry Operator pod annotation; a sibling service with no override
+# (the chart-level default is false, untouched at the top of this fixture
+# file) must not render it at all.
+if ! awk '/^# Deployment: telemetry-injectjava-fixture$/,/^---$/' "${gaps_render}" | grep -q 'instrumentation.opentelemetry.io/inject-java: "true"'; then
+  echo "telemetry.injectJava: true must render the inject-java pod annotation" >&2
+  exit 1
+fi
+if awk '/^# Deployment: emptydir-fixture$/,/^---$/' "${gaps_render}" | grep -q 'instrumentation.opentelemetry.io/inject-java'; then
+  echo "a service with no telemetry.injectJava override must not render the inject-java annotation" >&2
+  exit 1
+fi
+
+# Gap 8: podDisruptionBudget per-service override renders a real
+# PodDisruptionBudget with the requested minAvailable; a sibling service
+# with no override (chart-level default is enabled: false) renders none.
+if ! awk '/^# PodDisruptionBudget: pdb-minavailable-fixture$/,/^---$/' "${gaps_render}" | grep -q '^  minAvailable: 2$'; then
+  echo "podDisruptionBudget.enabled with minAvailable: 2 must render minAvailable: 2" >&2
+  exit 1
+fi
+if grep -q '^# PodDisruptionBudget: emptydir-fixture$' "${gaps_render}"; then
+  echo "a service with no podDisruptionBudget override must not render a PodDisruptionBudget" >&2
+  exit 1
+fi
+# Gap 8: enabled with neither minAvailable nor maxUnavailable set defaults
+# to maxUnavailable: 1.
+if ! awk '/^# PodDisruptionBudget: pdb-default-fixture$/,/^---$/' "${gaps_render}" | grep -q '^  maxUnavailable: 1$'; then
+  echo "podDisruptionBudget.enabled with neither field set must default to maxUnavailable: 1" >&2
+  exit 1
+fi
+
+# Gap 9: podAntiAffinity per-service override renders a soft
+# podAntiAffinity rule scoped to this service's own selector labels; a
+# sibling service with no override renders no affinity block at all.
+if ! awk '/^# Deployment: antiaffinity-fixture$/,/^---$/' "${gaps_render}" | grep -q 'podAntiAffinity:'; then
+  echo "podAntiAffinity.enabled: true must render a podAntiAffinity block" >&2
+  exit 1
+fi
+if ! awk '/^# Deployment: antiaffinity-fixture$/,/^---$/' "${gaps_render}" | grep -q 'app.kubernetes.io/component: antiaffinity-fixture'; then
+  echo "podAntiAffinity block must scope its labelSelector to this service's own component label" >&2
+  exit 1
+fi
+if awk '/^# Deployment: emptydir-fixture$/,/^---$/' "${gaps_render}" | grep -q 'podAntiAffinity:'; then
+  echo "a service with no podAntiAffinity override must not render an affinity block" >&2
+  exit 1
+fi
+
 echo "java-microservice chart tests passed"

@@ -151,3 +151,80 @@ services:
       limits:
         cpu: 500m
         memory: 512Mi
+
+  # Gap 7 — telemetry.injectJava per-service override of the chart-level
+  # default (left unset at the top of this fixture file, so it's still
+  # false - every OTHER service in this file is the negative case: no
+  # override means no OTel annotation at all).
+  telemetry-injectjava-fixture:
+    enabled: true
+    deploymentMode: deployment
+    telemetry:
+      injectJava: true
+    image:
+      repository: example/telemetry-injectjava-fixture
+      tag: test
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 8 — podDisruptionBudget per-service override, minAvailable variant.
+  # A sibling service with no override (chart-level default is enabled:
+  # false) must render no PodDisruptionBudget at all.
+  pdb-minavailable-fixture:
+    enabled: true
+    deploymentMode: deployment
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 2
+    image:
+      repository: example/pdb-minavailable-fixture
+      tag: test
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 8 — podDisruptionBudget enabled with neither minAvailable nor
+  # maxUnavailable set must default to maxUnavailable: 1.
+  pdb-default-fixture:
+    enabled: true
+    deploymentMode: deployment
+    podDisruptionBudget:
+      enabled: true
+    image:
+      repository: example/pdb-default-fixture
+      tag: test
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Gap 9 — podAntiAffinity per-service override. A sibling service with no
+  # override (chart-level default is enabled: false) must render no
+  # affinity block at all.
+  antiaffinity-fixture:
+    enabled: true
+    deploymentMode: deployment
+    podAntiAffinity:
+      enabled: true
+    image:
+      repository: example/antiaffinity-fixture
+      tag: test
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
