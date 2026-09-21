@@ -382,6 +382,16 @@ kafka:
 #       containerPort: 8558
 #       servicePort: 8558
 #
+# Container lifecycle hooks — direct pass-through of Kubernetes' own container.lifecycle shape
+# (preStop/postStart, each exec/httpGet/tcpSocket/sleep), unset by default (no lifecycle block
+# rendered, identical to today). Typical use: a preStop grace-period delay before SIGTERM, so
+# in-flight requests can drain and the Service's endpoint list can update before the pod stops -
+# matters most for a request-serving pod behind a Service/gateway, e.g. a browser-facing UI.
+#   lifecycle:
+#     preStop:
+#       exec:
+#         command: ["/bin/sh", "-c", "sleep 5"]
+#
 # Headless Service — the ClusterIP Service that deploymentMode: deployment/job
 # render (service.yaml) is a normal, address-assigned ClusterIP Service by
 # default (unset, identical to today). Set service.clusterIP: "None" to render

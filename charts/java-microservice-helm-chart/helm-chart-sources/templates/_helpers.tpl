@@ -780,6 +780,14 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
 - name: {{ $svc.name }}
   image: {{ include "java-microservice.imageRef" (dict "image" $svc.image "framework" $framework "root" $root) }}
   imagePullPolicy: {{ $svc.image.pullPolicy | default "IfNotPresent" }}
+  {{- with $svc.lifecycle }}
+  # Direct pass-through of Kubernetes' own container lifecycle shape (preStop/postStart,
+  # exec/httpGet/tcpSocket/sleep) - unset by default, identical to today. Typical use: a
+  # `preStop: {exec: {command: [...]}}` grace-period delay before SIGTERM, letting in-flight
+  # requests drain and the Service's endpoint list update before the pod actually stops.
+  lifecycle:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   ports:
     - name: http1
       containerPort: {{ $svc.port | default 8080 }}
