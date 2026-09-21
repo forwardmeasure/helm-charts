@@ -392,6 +392,14 @@ kafka:
 #       exec:
 #         command: ["/bin/sh", "-c", "sleep 5"]
 #
+# Container command/args — direct pass-through of Kubernetes' own container.command/container.args,
+# unset by default (the image's own ENTRYPOINT/CMD applies, identical to today). Needed to reuse a
+# generic image (e.g. alpine) as a script runner instead of running its own default process -
+# openworkflow-k2-security worked around this gap's absence via a no-op main container + a custom
+# initContainers[].script instead; new releases should use command/args directly now.
+#   command: ["/bin/sh", "-c"]
+#   args: ["/bootstrap/bootstrap.sh"]
+#
 # Headless Service — the ClusterIP Service that deploymentMode: deployment/job
 # render (service.yaml) is a normal, address-assigned ClusterIP Service by
 # default (unset, identical to today). Set service.clusterIP: "None" to render

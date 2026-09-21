@@ -780,6 +780,21 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
 - name: {{ $svc.name }}
   image: {{ include "java-microservice.imageRef" (dict "image" $svc.image "framework" $framework "root" $root) }}
   imagePullPolicy: {{ $svc.image.pullPolicy | default "IfNotPresent" }}
+  {{- with $svc.command }}
+  # Direct pass-through of Kubernetes' own container.command - unset by default (the image's own
+  # ENTRYPOINT/CMD applies, identical to today). Needed for a release that reuses a generic image
+  # (e.g. alpine) as a script runner rather than running that image's own default process - see
+  # openworkflow-k2-security's real use case, which worked around this gap's absence (before this
+  # field existed) via a no-op main container + a custom initContainers[].script instead.
+  command:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $svc.args }}
+  # Direct pass-through of Kubernetes' own container.args - unset by default. Only meaningful
+  # alongside `command` above, or when the image's own ENTRYPOINT accepts extra arguments.
+  args:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- with $svc.lifecycle }}
   # Direct pass-through of Kubernetes' own container lifecycle shape (preStop/postStart,
   # exec/httpGet/tcpSocket/sleep) - unset by default, identical to today. Typical use: a
