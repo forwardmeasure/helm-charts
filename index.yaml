@@ -37,7 +37,37 @@ entries:
   decision-engine:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-09-20T15:35:48.749255695-04:00"
+    created: "2026-09-29T09:14:58.59445055-04:00"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 18.11.0
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://charts.bitnami.com/bitnami
+      version: 6.2.19
+    description: Standalone Drools-based rule evaluation server exposed over gRPC.
+      The fact-window connection is supplied as a resolved host, port, and credentials
+      secret; embedded-versus-external Valkey orchestration belongs to the consuming
+      Helmfile.
+    digest: a2bd53502be3c57d75658e2427ebcc3800a6d98e8ac46aa9883a168ceb1f1656
+    keywords:
+    - decision-engine
+    - drools
+    - rules
+    - grpc
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: decision-engine
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/decision-engine-helm-chart/decision-engine-0.1.6.tgz
+    version: 0.1.6
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2026-09-29T09:14:58.586831371-04:00"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -67,7 +97,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-09-20T15:35:48.743181645-04:00"
+    created: "2026-09-29T09:14:58.579419145-04:00"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -97,7 +127,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-09-20T15:35:48.735046268-04:00"
+    created: "2026-09-29T09:14:58.572669399-04:00"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -3917,4 +3947,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-09-21T09:38:51.669550115-04:00"
+generated: "2026-09-29T09:14:58.564896875-04:00"
