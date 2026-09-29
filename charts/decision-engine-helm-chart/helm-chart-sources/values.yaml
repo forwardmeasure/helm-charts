@@ -18,8 +18,8 @@
 # values.yaml — Decision Engine Helm chart defaults
 #
 # One chart, parameterized by which framework binding's image it runs. PostgreSQL and Valkey are
-# optional Bitnami dependencies; when PostgreSQL is managed here, the application pod runs the
-# migration image as an init container before the gRPC server starts.
+# optional Bitnami dependencies; when PostgreSQL is managed here (or migration.enabled is set), the
+# application pod runs the migration image as an init container before the gRPC server starts.
 # ---------------------------------------------------------------------------
 
 nameOverride: ""
@@ -75,6 +75,39 @@ database:
   credentialsSecret: decision-engine-database-credentials
   adminCredentialsSecret: ""
   runtimeUsername: decision_engine_runtime
+
+# ---------------------------------------------------------------------------
+# Cloud SQL Auth Proxy - same values contract as java-microservice-helm-chart's cloudSqlProxy
+# (secretName/existingSecretName/instanceKey/port/privateIp/resources), so every product in the
+# cluster configures it the same way. Listens on localhost:<port>; point database.url at
+# jdbc:postgresql://localhost:<port>/<db>. Rendered as a native sidecar so it is up before the
+# optional database-migration init container and the server start. Authenticates via Workload
+# Identity - the pod's ServiceAccount (serviceAccount.annotations) must map to a GSA holding
+# roles/cloudsql.client.
+#
+# The instance connection name is deliberately Secret-key-only, matching java-microservice-helm-
+# chart: existingSecretName names a Secret verbatim; otherwise secretName resolves to
+# <release>-<secretName>. image.repository includes the registry, matching image: above.
+# ---------------------------------------------------------------------------
+cloudSqlProxy:
+  enabled: false
+  existingSecretName: ""
+  secretName: cloudsql
+  instanceKey: db-cloud-sql-instance
+  image:
+    repository: gcr.io/cloud-sql-connectors/cloud-sql-proxy
+    tag: "2.25.3"
+    digest: "sha256:821e5050a77697269399cadcaf5fa55322411dd1922020ea9729fd4ad174810a"
+    pullPolicy: IfNotPresent
+  port: 5432
+  privateIp: true
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
 
 # ---------------------------------------------------------------------------
 # Fact-window store (Valkey) - decision-engine-fact-window, Section 7.4. See Section 9.1/9.2 for
