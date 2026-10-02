@@ -2879,6 +2879,31 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-cluster-0.1.1.tgz
     version: 0.1.1
+  openworkflow-workflow-bundle:
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2026-10-02T14:20:54.355001146-04:00"
+    description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
+      (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
+      workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
+      hook Job that runs the publisher with them mounted. Workflows are named <domain>-<document.name>;
+      rerunning with unchanged documents publishes nothing. Products add one release
+      of this chart to their own helmfile - no code, image or Keycloak clients of
+      their own (forwardmeasure-openworkflow docs/workflow-lookup-and-publishing-handoff-2026-10-01.md
+      §5.3).  Install it in the namespace holding fowf''s publisher identity Secret
+      (identity.secretName). '
+    digest: 1fc78dae16d09ebf41a3c4a546aec7f426b0091a0c0006924468580a634c209f
+    keywords:
+    - openworkflow
+    - workflow
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: openworkflow-workflow-bundle
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/openworkflow-workflow-bundle-helm-chart/openworkflow-workflow-bundle-0.1.1.tgz
+    version: 0.1.1
   platform-routing:
   - apiVersion: v2
     appVersion: 1.0.0
@@ -3977,4 +4002,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-09-29T15:31:14.660957074-04:00"
+generated: "2026-10-02T14:20:54.354689743-04:00"

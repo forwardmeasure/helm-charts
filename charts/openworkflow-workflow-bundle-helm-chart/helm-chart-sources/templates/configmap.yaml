@@ -1,0 +1,12 @@
+{{- include "openworkflow-workflow-bundle.validate" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openworkflow-workflow-bundle.name" . }}
+  labels:
+    {{- include "openworkflow-workflow-bundle.labels" . | nindent 4 }}
+data:
+  {{- range $file, $document := .Values.definitions }}
+  {{ $file }}: |
+    {{- $document | nindent 4 }}
+  {{- end }}

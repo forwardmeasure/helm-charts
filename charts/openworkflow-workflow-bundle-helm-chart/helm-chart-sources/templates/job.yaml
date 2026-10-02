@@ -1,0 +1,61 @@
+{{- include "openworkflow-workflow-bundle.validate" . }}
+# Runs after every install/upgrade: publishes the ConfigMap's documents into every tenant. A rerun
+# with unchanged documents publishes nothing; a failure in one (tenant, workflow) doesn't stop the
+# others, but fails the Job.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "openworkflow-workflow-bundle.name" . }}
+  labels:
+    {{- include "openworkflow-workflow-bundle.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "openworkflow-workflow-bundle.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.serviceAccount.name }}
+      serviceAccountName: {{ .Values.serviceAccount.name | quote }}
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: publish
+          image: {{ printf "%s%s" .Values.image.repository (ternary (printf "@%s" .Values.image.digest) (printf ":%s" .Values.image.tag) (not (empty .Values.image.digest))) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - {name: OPENWORKFLOW_PUBLISHER_DOMAIN, value: {{ .Values.domain | quote }}}
+            - {name: OPENWORKFLOW_PUBLISHER_DEFINITIONS_DIR, value: /definitions}
+            - {name: OPENWORKFLOW_PUBLISHER_TENANTS, value: {{ join "," .Values.tenants | quote }}}
+            - name: OPENWORKFLOW_PUBLISHER_DEFINITION_BASE_URL
+              value: {{ required "fowf.definitionBaseUrl is required" .Values.fowf.definitionBaseUrl | quote }}
+            - name: OPENWORKFLOW_PUBLISHER_KEYCLOAK_TOKEN_URL
+              value: {{ required "fowf.keycloakTokenUrl is required" .Values.fowf.keycloakTokenUrl | quote }}
+            {{- $secret := required "identity.secretName is required" .Values.identity.secretName }}
+            - {name: OPENWORKFLOW_PUBLISHER_AUTHOR_CLIENT_ID, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.authorClientIdKey | quote }}}}}
+            - {name: OPENWORKFLOW_PUBLISHER_AUTHOR_CLIENT_SECRET, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.authorClientSecretKey | quote }}}}}
+            - {name: OPENWORKFLOW_PUBLISHER_REVIEWER_CLIENT_ID, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.reviewerClientIdKey | quote }}}}}
+            - {name: OPENWORKFLOW_PUBLISHER_REVIEWER_CLIENT_SECRET, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.reviewerClientSecretKey | quote }}}}}
+          volumeMounts:
+            - {name: definitions, mountPath: /definitions, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: definitions
+          configMap: {name: {{ include "openworkflow-workflow-bundle.name" . }}}
+        # The JVM writes its performance data here; the root filesystem is read-only.
+        - {name: tmp, emptyDir: {}}
