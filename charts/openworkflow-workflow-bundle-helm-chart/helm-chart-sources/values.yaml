@@ -1,0 +1,64 @@
+# The product's moniker, e.g. fei. Workflows are named <domain>-<document.name>.
+domain: ""
+
+# File name -> workflow document (YAML text), e.g. filled with .Files or readFile in the helmfile:
+#   definitions:
+#     population-screening.yaml: |
+#       document: {dsl: '1.0.3', namespace: ..., name: population-screening, version: '1.0.0'}
+#       ...
+definitions: {}
+
+# Aliases of the tenants entitled to this domain; every one is published to.
+tenants: []
+
+fowf:
+  # definition-management, e.g. http://openworkflow-definition-management.<namespace>.svc
+  definitionBaseUrl: ""
+  # The realm's token endpoint, e.g. <issuer>/protocol/openid-connect/token
+  keycloakTokenUrl: ""
+
+# fowf's one publisher identity pair (openworkflow-platform-clients writes it). The author creates,
+# validates and submits; the reviewer publishes - fowf rejects a publish by the creator.
+identity:
+  secretName: openworkflow-bootstrap
+  authorClientIdKey: OPENWORKFLOW_WORKFLOW_AUTHOR_CLIENT_ID
+  authorClientSecretKey: OPENWORKFLOW_WORKFLOW_AUTHOR_CLIENT_SECRET
+  reviewerClientIdKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_ID
+  reviewerClientSecretKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_SECRET
+
+# forwardmeasure-openworkflow's publisher image. Pull it by digest (the platform's
+# imageVersions.openworkflowWorkflowPublisher); the tag is used only while digest is empty.
+image:
+  repository: docker.io/forwardmeasure/openworkflow-workflow-publisher
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+# Our images are in a private Docker Hub org; same default as java-microservice-helm-chart (the
+# platform's shared imagePull Secret, present in fowf's namespace).
+imagePullSecrets:
+  - name: docker-io-credentials
+
+backoffLimit: 6
+activeDeadlineSeconds: 600
+ttlSecondsAfterFinished: 86400
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile: {type: RuntimeDefault}
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}
+
+resources:
+  requests: {cpu: 50m, memory: 192Mi}
+  limits: {cpu: "1", memory: 384Mi}
+
+serviceAccount:
+  name: ""
+  automount: false
