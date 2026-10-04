@@ -40,6 +40,13 @@ spec:
             - {name: OPENWORKFLOW_PUBLISHER_DOMAIN, value: {{ .Values.domain | quote }}}
             - {name: OPENWORKFLOW_PUBLISHER_DEFINITIONS_DIR, value: /definitions}
             - {name: OPENWORKFLOW_PUBLISHER_TENANTS, value: {{ join "," .Values.tenants | quote }}}
+            {{- with .Values.didMethod }}
+            - {name: FORWARDMEASURE_DID_METHOD, value: {{ . | quote }}}
+            {{- end }}
+            {{- if .Values.apiDocuments }}
+            - {name: OPENWORKFLOW_PUBLISHER_RESOURCES_DIR, value: /api-documents}
+            - {name: OPENWORKFLOW_PUBLISHER_REGISTRY_URL, value: {{ .Values.registry.apiUrl | quote }}}
+            {{- end }}
             - name: OPENWORKFLOW_PUBLISHER_DEFINITION_BASE_URL
               value: {{ required "fowf.definitionBaseUrl is required" .Values.fowf.definitionBaseUrl | quote }}
             - name: OPENWORKFLOW_PUBLISHER_KEYCLOAK_TOKEN_URL
@@ -51,11 +58,18 @@ spec:
             - {name: OPENWORKFLOW_PUBLISHER_REVIEWER_CLIENT_SECRET, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.reviewerClientSecretKey | quote }}}}}
           volumeMounts:
             - {name: definitions, mountPath: /definitions, readOnly: true}
+            {{- if .Values.apiDocuments }}
+            - {name: api-documents, mountPath: /api-documents, readOnly: true}
+            {{- end }}
             - {name: tmp, mountPath: /tmp}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
         - name: definitions
           configMap: {name: {{ include "openworkflow-workflow-bundle.name" . }}}
+        {{- if .Values.apiDocuments }}
+        - name: api-documents
+          configMap: {name: {{ include "openworkflow-workflow-bundle.name" . }}-api-documents}
+        {{- end }}
         # The JVM writes its performance data here; the root filesystem is read-only.
         - {name: tmp, emptyDir: {}}

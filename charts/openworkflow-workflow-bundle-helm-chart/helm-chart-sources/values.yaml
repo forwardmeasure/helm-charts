@@ -8,6 +8,22 @@ domain: ""
 #       ...
 definitions: {}
 
+# File name -> API document (AsyncAPI, OpenAPI or JSON Schema; YAML or JSON) the workflows
+# reference. Uploaded to the platform's registry under group <domain> before any workflow is
+# published. A workflow names one by DID URL, never by registry URL (the registry host differs per
+# environment):
+#   endpoint: "@BUNDLE_DID@/<file name>"
+# The publisher renders @BUNDLE_DID@ to this bundle's DID, did:<didMethod>:bundle:<domain>, so the
+# definition stores did:<didMethod>:bundle:<domain>/<file name>; definition-management resolves that
+# from the registry with its own credentials. A document's relative references ($ref:
+# 'messages.yaml#/...') resolve to the bundle's other documents the same way. The map is flat: a
+# DID URL names a document by its file name alone.
+apiDocuments: {}
+
+# The platform's DID method (shared platform.identity.didMethod), set on the publisher as
+# FORWARDMEASURE_DID_METHOD. Required when any definition contains @BUNDLE_DID@; no default.
+didMethod: ""
+
 # Aliases of the tenants entitled to this domain; every one is published to.
 tenants: []
 
@@ -16,6 +32,10 @@ fowf:
   definitionBaseUrl: ""
   # The realm's token endpoint, e.g. <issuer>/protocol/openid-connect/token
   keycloakTokenUrl: ""
+
+registry:
+  # The platform's Apicurio Registry API (shared endpoints.registry.apiUrl); required with apiDocuments.
+  apiUrl: ""
 
 # fowf's one publisher identity pair (openworkflow-platform-clients writes it). The author creates,
 # validates and submits; the reviewer publishes - fowf rejects a publish by the creator.

@@ -10,3 +10,20 @@ data:
   {{ $file }}: |
     {{- $document | nindent 4 }}
   {{- end }}
+{{- if .Values.apiDocuments }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openworkflow-workflow-bundle.name" . }}-api-documents
+  # Not the workflow-bundle label: tenant administration reads labelled ConfigMaps as workflows.
+  labels:
+    app.kubernetes.io/name: openworkflow-workflow-bundle
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  {{- range $file, $document := .Values.apiDocuments }}
+  {{ $file }}: |
+    {{- $document | nindent 4 }}
+  {{- end }}
+{{- end }}
