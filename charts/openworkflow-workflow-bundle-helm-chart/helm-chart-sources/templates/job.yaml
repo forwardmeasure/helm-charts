@@ -52,10 +52,8 @@ spec:
             - name: OPENWORKFLOW_PUBLISHER_KEYCLOAK_TOKEN_URL
               value: {{ required "fowf.keycloakTokenUrl is required" .Values.fowf.keycloakTokenUrl | quote }}
             {{- $secret := required "identity.secretName is required" .Values.identity.secretName }}
-            - {name: OPENWORKFLOW_PUBLISHER_AUTHOR_CLIENT_ID, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.authorClientIdKey | quote }}}}}
-            - {name: OPENWORKFLOW_PUBLISHER_AUTHOR_CLIENT_SECRET, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.authorClientSecretKey | quote }}}}}
-            - {name: OPENWORKFLOW_PUBLISHER_REVIEWER_CLIENT_ID, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.reviewerClientIdKey | quote }}}}}
-            - {name: OPENWORKFLOW_PUBLISHER_REVIEWER_CLIENT_SECRET, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ .Values.identity.reviewerClientSecretKey | quote }}}}}
+            - {name: OPENWORKFLOW_PUBLISHER_CLIENT_ID, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ required "identity.clientIdKey is required" .Values.identity.clientIdKey | quote }}}}}
+            - {name: OPENWORKFLOW_PUBLISHER_CLIENT_SECRET, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ required "identity.clientSecretKey is required" .Values.identity.clientSecretKey | quote }}}}}
           volumeMounts:
             - {name: definitions, mountPath: /definitions, readOnly: true}
             {{- if .Values.apiDocuments }}
