@@ -160,18 +160,9 @@ realm:
   #     tenant_did: did:web:tenant.example.com
   #     actor_did: did:web:tenant.example.com:actors:oks-operation-adapter
   #     actor_type: SERVICE
-  #   # Optional, both default to "". Set organizationAlias when this client's own
-  #   # service-account user needs real Keycloak Organization membership - e.g. it
-  #   # calls a Keycloak-Organizations-authorized API (KeycloakOrganizationClaims.extract
-  #   # is fail-closed: it requires a real "organization" claim on every token, and a
-  #   # plain client-credentials token has none unless the service account is actually
-  #   # an Organization member). The named Organization (by alias) must already exist -
-  #   # this does not create one. organizationRole, if set, also adds the service
-  #   # account to that Organization's same-named role group (mapping
-  #   # adminPublicClient's own client role onto it) - leave empty for membership
-  #   # only, no role-group.
-  #   organizationAlias: ""
-  #   organizationRole: ""
+  #   # Enables the Organization claim scope. Tenant memberships and role groups are
+  #   # declared in capability packs, reconciled after clients exist.
+  #   organizationClaim: true
 
 # ---------------------------------------------------------------------------
 # Bootstrap admin user
@@ -192,15 +183,6 @@ bootstrapAdminUser:
   actorType: "HUMAN"
   passwordSecret: keycloak-bootstrap-admin-user-credentials
   tenantGroupRoles: "dossier-control,investigation-control,evidence-control,audit-control"
-  # Adds the bootstrap admin user as a member of one existing Keycloak
-  # Organization (alias) and one of its role groups - see
-  # configure_tenant_organization_membership() in bootstrap-admin.sh. Empty
-  # by default: most deployments have no tenant Organization for this user
-  # to join at all, and TenantOrganizationReconciler (which creates the
-  # Organization itself) never assigns membership on its own.
-  tenantOrganizationAlias: ""
-  tenantOrganizationRole: ""
-
   # -----------------------------------------------------------------------
   # ForwardMeasure platform roles (realm roles)
   #    1. platform-viewer
