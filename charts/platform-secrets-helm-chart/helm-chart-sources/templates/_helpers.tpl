@@ -15,6 +15,9 @@ metadata:
   namespace: {{ . }}
   labels:
     app.kubernetes.io/managed-by: platform-secrets
+    {{- if $secret.identityClientCredentials }}
+    platform.forwardmeasure.com/identity-client-credentials: "true"
+    {{- end }}
 spec:
   refreshInterval: {{ $root.Values.refreshInterval }}
   secretStoreRef:
