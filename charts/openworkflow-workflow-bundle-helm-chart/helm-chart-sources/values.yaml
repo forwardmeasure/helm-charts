@@ -40,7 +40,7 @@ registry:
 # fowf's one publisher identity (openworkflow-platform-clients writes it). It creates, validates
 # and publishes each definition itself.
 identity:
-  secretName: openworkflow-bootstrap
+  secretName: openworkflow-platform-clients
   clientIdKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_ID
   clientSecretKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_SECRET
 
