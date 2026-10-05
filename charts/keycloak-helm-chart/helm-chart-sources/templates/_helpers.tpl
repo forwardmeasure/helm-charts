@@ -54,6 +54,16 @@ app.kubernetes.io/name: {{ include "keycloak.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{/* Hook pods must not match server Services, StatefulSet selectors or server anti-affinity. */}}
+{{- define "keycloak.bootstrapLabels" -}}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+app.kubernetes.io/name: {{ include "keycloak.name" . }}
+app.kubernetes.io/instance: {{ printf "%s-bootstrap" .Release.Name | quote }}
+app.kubernetes.io/component: bootstrap
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
 {{/* Resolve an immutable image when a digest is configured. */}}
 {{- define "keycloak.image" -}}
 {{- if .Values.image.digest -}}
