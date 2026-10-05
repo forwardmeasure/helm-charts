@@ -1015,7 +1015,26 @@ entries:
   keycloak:
   - apiVersion: v2
     appVersion: 26.7.4-authz
-    created: "2026-10-05T18:03:19.920551416-04:00"
+    created: "2026-10-05T19:45:09.023501765-04:00"
+    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+      database support.
+    digest: d9d91a35906ade60244f49a3f81d6cffb02e3e975fe0a14757eea7d4bb719243
+    keywords:
+    - keycloak
+    - iam
+    - authentication
+    - authorization
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: keycloak
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.30.tgz
+    version: 0.0.30
+  - apiVersion: v2
+    appVersion: 26.7.4-authz
+    created: "2026-10-05T19:45:09.022832288-04:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 19496b3aa87658fd798dc80cecbe219681928db66f992a25bd31be9306017ff7
@@ -1034,7 +1053,7 @@ entries:
     version: 0.0.29
   - apiVersion: v2
     appVersion: 26.7.4-authz
-    created: "2026-10-05T18:03:19.919852261-04:00"
+    created: "2026-10-05T19:45:09.022146801-04:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 6ce559850d2fe23977995d2e2065d9dddbff873017a9a430853e56a0da9cc84b
@@ -1053,7 +1072,7 @@ entries:
     version: 0.0.27
   - apiVersion: v2
     appVersion: 26.7.2
-    created: "2026-10-05T18:03:19.919045247-04:00"
+    created: "2026-10-05T19:45:09.021409944-04:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 20ce4a3c48b7345b36f1cc0dc8df7d9153a768cdd60fa68483af15195a3a7d8c
@@ -4115,4 +4134,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-10-05T18:05:14.705478055-04:00"
+generated: "2026-10-05T19:45:09.020570799-04:00"
