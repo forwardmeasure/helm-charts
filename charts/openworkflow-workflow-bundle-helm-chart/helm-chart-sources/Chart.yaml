@@ -13,7 +13,7 @@ description: |
 
   Install it in the namespace holding fowf's publisher identity Secret (identity.secretName).
 type: application
-version: "0.1.2"
+version: "0.1.3"
 appVersion: "1.1.0"
 keywords:
   - openworkflow

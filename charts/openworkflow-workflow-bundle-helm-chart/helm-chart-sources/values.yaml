@@ -37,14 +37,12 @@ registry:
   # The platform's Apicurio Registry API (shared endpoints.registry.apiUrl); required with apiDocuments.
   apiUrl: ""
 
-# fowf's one publisher identity pair (openworkflow-platform-clients writes it). The author creates,
-# validates and submits; the reviewer publishes - fowf rejects a publish by the creator.
+# fowf's one publisher identity (openworkflow-platform-clients writes it). It creates, validates
+# and publishes each definition itself.
 identity:
   secretName: openworkflow-bootstrap
-  authorClientIdKey: OPENWORKFLOW_WORKFLOW_AUTHOR_CLIENT_ID
-  authorClientSecretKey: OPENWORKFLOW_WORKFLOW_AUTHOR_CLIENT_SECRET
-  reviewerClientIdKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_ID
-  reviewerClientSecretKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_SECRET
+  clientIdKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_ID
+  clientSecretKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_SECRET
 
 # forwardmeasure-openworkflow's publisher image. Pull it by digest (the platform's
 # imageVersions.openworkflowWorkflowPublisher); the tag is used only while digest is empty.
