@@ -142,8 +142,6 @@ print_config_banner() {
   log "FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON   = ${FORWARDMEASURE_ADMIN_PUBLIC_ADDITIONAL_WEB_ORIGINS_JSON}"
   log "KEYCLOAK_REALM_MGMT_ROLES               = ${KEYCLOAK_REALM_MGMT_ROLES}"
   log "FORWARDMEASURE_TENANT_GROUP_ROLES           = ${FORWARDMEASURE_TENANT_GROUP_ROLES:-<empty>}"
-  log "FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS    = ${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS:-<empty>}"
-  log "FORWARDMEASURE_TENANT_ORGANIZATION_ROLE     = ${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE:-<empty>}"
   log "KEYCLOAK_READY_SLEEP_SECONDS            = ${KEYCLOAK_READY_SLEEP_SECONDS}"
   log "KEYCLOAK_READY_MAX_ATTEMPTS             = ${KEYCLOAK_READY_MAX_ATTEMPTS}"
   log_section "Starting bootstrap"
@@ -296,6 +294,7 @@ EOF
   kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/roles" "$body"
   log "Created realm role: ${role_name}"
 }
+
 
 get_realm_role_json() {
   role_name="$1"
@@ -1208,7 +1207,8 @@ configure_service_clients() {
     # of its own (e.g. openworkflow's TenantOrganizationReconciler). Without this, Keycloak's
     # /authz/resource-server/* endpoints 404 for the client - there is no resource server to
     # query - which is indistinguishable from a real 404 to the caller.
-    authz_enabled="$(printf '%s' "$client" | jq -er '(.authorizationServicesEnabled // false) | if type == "boolean" then . else error("must be a boolean") end')" \
+    # A valid false is data, not an error: jq -e would reject clients without authz.
+    authz_enabled="$(printf '%s' "$client" | jq -r '(.authorizationServicesEnabled // false) | if type == "boolean" then . else error("must be a boolean") end')" \
       || fail "serviceClients[$index].authorizationServicesEnabled is invalid"
     body="$(jq -n --arg id "$client_id" --arg name "$client_name" --arg secret "$client_secret" --argjson authzEnabled "$authz_enabled" '{
       clientId: $id,
@@ -1293,22 +1293,18 @@ configure_service_clients() {
       claim_value="$(printf '%s' "$claim" | jq -r '.value')"
       ensure_client_hardcoded_claim "$client_uuid" "$claim_name" "$claim_value"
     done
-    # Optional: real Keycloak Organization membership for this client's own
-    # service-account user - see ensure_organization_membership's own
-    # comment for why this is needed at all (KeycloakOrganizationClaims.extract
-    # is fail-closed for every OpenWorkflow-API-shaped caller, including a
-    # plain client-credentials service account, and until this was added
-    # nothing anywhere ever provisioned it for one). Off by default (empty
-    # organizationAlias) - most service clients call APIs with no Organization
-    # claim requirement at all; only opt in when the client is a real caller
-    # of an Organization-authorized API (e.g. a workflow-launching client
-    # calling fowf's execution-management/definition-management endpoints).
-    org_alias="$(printf '%s' "$client" | jq -er '(.organizationAlias // "") | if type == "string" then . else error("must be a string") end')" \
-      || fail "serviceClients[$index].organizationAlias is invalid"
-    org_role="$(printf '%s' "$client" | jq -er '(.organizationRole // "") | if type == "string" then . else error("must be a string") end')" \
-      || fail "serviceClients[$index].organizationRole is invalid"
-    if [ -n "$org_alias" ]; then
-      ensure_organization_membership "$org_alias" "$org_role" "$service_user" "service client '${client_id}'"
+    # Membership belongs to tenant provisioning. This hook only enables the claim mapper.
+    organization_claim="$(printf '%s' "$client" | jq -r '(.organizationClaim // false) | if type == "boolean" then . else error("must be a boolean") end')" \
+      || fail "serviceClients[$index].organizationClaim is invalid"
+    organization_scope="$(get_scope_id_by_name organization)"
+    [ -n "$organization_scope" ] || fail "Organization client scope is missing"
+    if [ "$organization_claim" = true ]; then
+      assign_default_scope_to_client_if_missing "$client_uuid" "organization" "$organization_scope"
+    else
+      default_scopes="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/default-client-scopes")"
+      if printf '%s' "$default_scopes" | jq -e --arg id "$organization_scope" 'any(.[]; .id == $id)' >/dev/null; then
+        kc_delete_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${client_uuid}/default-client-scopes/${organization_scope}"
+      fi
     fi
     log "Service client reconciled: ${client_id}"
     unset client_secret
@@ -1417,143 +1413,6 @@ configure_organization_claim() {
   log "Organization claim configured for client: ${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}"
 }
 
-# TenantOrganizationReconciler (openworkflow-tenant-provisioning) creates the
-# Organization itself plus its role groups, but deliberately never assigns
-# any member - "Idempotently reconciles shared roles and tenant
-# Organizations without assigning member roles" per its own class doc. This
-# is the missing other half - generalized 2026-09-14 (real, confirmed gap:
-# neither this function's own original, bootstrap-user-only form, nor
-# configure_service_clients below, ever provisioned Organization membership
-# for a service client's own service-account user - every machine caller
-# authenticating via a plain OAuth2 client-credentials grant against a real
-# OpenWorkflow-API-shaped endpoint fails closed with "organization claim is
-# required" the moment KeycloakOrganizationClaims.extract runs, regardless
-# of any realmRoles/audiences/claims already configured for it - those are
-# a genuinely separate claim shape, confirmed by direct read of both sides).
-# Reusable for any (organization, role, member) triple - the bootstrap admin
-# user's own membership (below) and a service client's own service-account
-# user (configure_service_clients) both call this now, rather than
-# duplicating the same real Admin REST sequence a second time.
-#
-# $1 = Organization alias, $2 = Organization role (may be empty - membership
-# only, no role-group), $3 = Keycloak user id to add, $4 = a human-readable
-# label for this user in log output only.
-ensure_organization_membership() {
-  org_alias="$1"
-  org_role="$2"
-  member_user_id="$3"
-  member_label="$4"
-  if [ -z "$org_alias" ]; then
-    log "No organization alias given for ${member_label} — skipping organization membership"
-    return 0
-  fi
-  encoded_query="$(printf 'alias:%s' "$org_alias" | jq -sRr @uri)"
-  org_id="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations?q=${encoded_query}&briefRepresentation=false" \
-    | jq -r --arg alias "$org_alias" '.[] | select(.alias==$alias) | .id' | head -n1)"
-  [ -n "$org_id" ] || fail "No Organization with alias '${org_alias}' — has tenant provisioning run for it yet?"
-
-  log "Ensuring ${member_label} is a member of Organization '${org_alias}' (id=${org_id})"
-  existing_members="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/members" | jq -r '.[].id')"
-  if printf '%s\n' "$existing_members" | grep -qx "${member_user_id}"; then
-    log "${member_label} is already a member of Organization '${org_alias}'"
-  else
-    # Not text/plain: confirmed live, that gets HTTP 415 "content-type
-    # header value did not match @Consumes" - this endpoint wants the user
-    # id as a bare JSON string.
-    code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-      -X POST \
-      -H "Authorization: Bearer ${TOKEN}" \
-      -H "Content-Type: application/json" \
-      "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/members" \
-      --data "$(json_escape "${member_user_id}")")"
-    case "$code" in
-      201 | 204 | 409) ;;
-      *)
-        cat /tmp/kc.out >&2 || true
-        fail "POST organization member failed with HTTP ${code}"
-        ;;
-    esac
-    log "${member_label} added as a member of Organization '${org_alias}'"
-  fi
-
-  if [ -z "$org_role" ]; then
-    log "No organization role given for ${member_label} — skipping role-group membership"
-    return 0
-  fi
-  # Genuine Keycloak Organization Groups (26.6+), NOT a top-level realm
-  # Group merely named after the tenant alias. That was this function's
-  # first version, written against HttpKeycloakOrganizationAdmin.java's own
-  # comment that organizations/{id}/groups 404s - true on the Keycloak
-  # version that comment was written against, confirmed NOT true on 26.7.2
-  # (GET returns 200 []). Organization Groups have their own dedicated API
-  # surface: the standard /groups/{id}/role-mappings/... and
-  # /users/{id}/groups/{id} endpoints both reject them outright with
-  # "Cannot manage/access organization related group via non Organization
-  # API" (confirmed live, HTTP 400) - role-mappings and membership must go
-  # through organizations/{orgId}/groups/{groupId}/... instead. This is also
-  # why oidc-organization-group-membership-mapper's addGroupRoleMappings
-  # finds nothing when a user is only in an unrelated same-named realm
-  # group: it isn't reading realm groups, it's reading organization-scoped
-  # ones.
-  org_group_id="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups" \
-    | jq -r --arg n "$org_role" '.[] | select(.name==$n) | .id' | head -n1)"
-  if [ -z "$org_group_id" ]; then
-    log "Creating organization group '${org_role}' under Organization '${org_alias}'"
-    kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups" \
-      "$(jq -n --arg name "$org_role" '{name: $name}')"
-    org_group_id="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups" \
-      | jq -r --arg n "$org_role" '.[] | select(.name==$n) | .id' | head -n1)"
-  fi
-  [ -n "$org_group_id" ] || fail "Could not create/resolve organization group '${org_role}' under '${org_alias}'"
-
-  # The role-group's client role is always mapped onto
-  # FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID, never the caller's own client id
-  # - confirmed load-bearing, not a simplification: every
-  # ActiveOrganizationProvider implementation (Quarkus/Spring/Micronaut,
-  # confirmed by direct read of all three) reads
-  # resource_access.{openworkflow.authorization.organization-client-id}.roles,
-  # and that config property is set to FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID
-  # in every real deployment (confirmed live - "forwardmeasure-public", the
-  # same public client every interactive login uses) - it is a single,
-  # shared, product-wide "which client's roles carry the org-scoped
-  # permission set" convention, not per-caller. A service client's OWN
-  # client id plays no role in this lookup at all; only its service-account
-  # user id (added to the org/group below) and which role name it needs
-  # matter.
-  admin_pub_uuid="$(get_client_uuid_by_client_id "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}")"
-  [ -n "$admin_pub_uuid" ] || fail "Could not resolve UUID for client '${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}'"
-  org_group="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups/${org_group_id}")"
-  has_role="$(printf '%s' "$org_group" | jq -r --arg client "${FORWARDMEASURE_ADMIN_PUBLIC_CLIENT_ID}" --arg role "$org_role" \
-    '(.clientRoles[$client] // []) | index($role) != null')"
-  if [ "$has_role" = "true" ]; then
-    log "Organization group '${org_role}' already has client role mapped"
-  else
-    role_json="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${admin_pub_uuid}/roles/${org_role}")"
-    kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups/${org_group_id}/role-mappings/clients/${admin_pub_uuid}" \
-      "[$role_json]"
-    log "Mapped client role '${org_role}' onto organization group"
-  fi
-
-  existing_group_members="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups/${org_group_id}/members" | jq -r '.[].id')"
-  if printf '%s\n' "$existing_group_members" | grep -qx "${member_user_id}"; then
-    log "${member_label} already in organization group '${org_role}'"
-  else
-    kc_put_no_body "${KEYCLOAK_URL}/admin/realms/${REALM}/organizations/${org_id}/groups/${org_group_id}/members/${member_user_id}"
-    log "${member_label} added to organization group '${org_role}' under '${org_alias}'"
-  fi
-}
-
-# Skips silently (not a failure) when the tenant alias env var is unset,
-# since most environments have no tenant Organization to join at all.
-configure_tenant_organization_membership() {
-  log_section "Phase 3b: tenant organization membership for bootstrap user"
-  ensure_organization_membership \
-    "${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS}" \
-    "${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE}" \
-    "${BOOTSTRAP_USER_ID}" \
-    "${ADMIN_USERNAME}"
-}
-
 configure_admin_confidential_service_account() {
   log_section "Phase 3: admin confidential client service account"
   log "Resolving client uuid for: ${FORWARDMEASURE_ADMIN_CONFIDENTIAL_CLIENT_ID}"
@@ -1625,8 +1484,6 @@ main() {
 
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
   : "${KEYCLOAK_READY_MAX_ATTEMPTS:=60}"
-  : "${FORWARDMEASURE_TENANT_ORGANIZATION_ALIAS:=}"
-  : "${FORWARDMEASURE_TENANT_ORGANIZATION_ROLE:=}"
 
   print_config_banner
   wait_for_keycloak
@@ -1638,7 +1495,6 @@ main() {
   configure_services_roles
   configure_bootstrap_user
   configure_organization_claim
-  configure_tenant_organization_membership
   configure_admin_confidential_service_account
   configure_client_scopes
   configure_service_clients
