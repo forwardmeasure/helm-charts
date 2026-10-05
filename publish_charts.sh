@@ -261,8 +261,8 @@ if $DRY_RUN; then
   echo "   - Root index.yaml would be regenerated using each chart package directory"
   echo "   - Only files pertaining to the named charts would be staged:"
   printf '     - %s\n' "${STAGED_PATHS[@]}"
-  echo "   - git commit: '${COMMIT_MSG:-Release charts: ${CHART_NAMES[*]}}'"
   if $DO_BRANCH; then echo "   - git checkout -b release/charts/$(date +%Y%m%d%H%M%S)"; fi
+  echo "   - git commit: '${COMMIT_MSG:-Release charts: ${CHART_NAMES[*]}}'"
   if $DO_TAG; then
     for tag in "${RELEASE_TAGS[@]}"; do
       echo "   - git tag ${tag}"
@@ -289,13 +289,14 @@ if git diff --cached --quiet; then
   exit 1
 fi
 
-echo "📝 Creating commit..."
-git commit -m "$COMMIT_MSG"
-
 if $DO_BRANCH; then
+  # Create the branch before committing so the release commit does not also advance develop.
   echo "🌿 Creating release branch: ${RELEASE_BRANCH}"
   git checkout -b "$RELEASE_BRANCH"
 fi
+
+echo "📝 Creating commit..."
+git commit -m "$COMMIT_MSG"
 
 if $DO_TAG; then
   for tag in "${RELEASE_TAGS[@]}"; do
