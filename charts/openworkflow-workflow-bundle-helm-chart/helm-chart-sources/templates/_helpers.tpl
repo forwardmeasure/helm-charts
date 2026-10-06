@@ -37,8 +37,8 @@ openworkflow.forwardmeasure.com/domain: {{ .Values.domain | quote }}
 {{- end -}}
 {{- end -}}
 {{- range $file, $_ := .Values.apiDocuments -}}
-{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._-]*\\.(ya?ml|json)$" $file) -}}
-{{- fail (printf "apiDocuments key %s must be a *.yaml, *.yml or *.json file name" $file) -}}
+{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._-]*\\.(ya?ml|json|proto)$" $file) -}}
+{{- fail (printf "apiDocuments key %s must be a *.yaml, *.yml, *.json or *.proto file name" $file) -}}
 {{- end -}}
 {{- end -}}
 {{- if and .Values.apiDocuments (not .Values.registry.apiUrl) -}}

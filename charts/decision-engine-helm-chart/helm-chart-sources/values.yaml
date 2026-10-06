@@ -49,6 +49,7 @@ serviceAccount:
 
 podSecurityContext:
   runAsNonRoot: true
+  fsGroup: 10001
   seccompProfile:
     type: RuntimeDefault
 
@@ -146,9 +147,12 @@ migration:
   # Automatically active when postgresql.enabled=true. Set true explicitly for an external
   # database when adminCredentialsSecret and database.url are supplied.
   enabled: false
+  # Required if this chart runs the migration init container (alias:display-name CSV).
+  tenants: ""
   image:
     repository: docker.io/forwardmeasure/decision-engine-database-migration-service
     tag: "0.1.0"
+    digest: ""
     pullPolicy: IfNotPresent
   runtimeDatabasePasswordKey: password
   administratorUsername: postgres
