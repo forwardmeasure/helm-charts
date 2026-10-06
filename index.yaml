@@ -36,8 +36,38 @@ entries:
     version: 0.1.1
   decision-engine:
   - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2026-10-06T09:37:16.842968549-04:00"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 18.11.0
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://charts.bitnami.com/bitnami
+      version: 6.2.19
+    description: Standalone Drools-based rule evaluation server exposed over gRPC.
+      The fact-window connection is supplied as a resolved host, port, and credentials
+      secret; embedded-versus-external Valkey orchestration belongs to the consuming
+      Helmfile.
+    digest: 89d8e2ed498cd27fecefaff18d89dd3ff02f004c339e90275e7ca643f57a4bb2
+    keywords:
+    - decision-engine
+    - drools
+    - rules
+    - grpc
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: decision-engine
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/decision-engine-helm-chart/decision-engine-0.1.10.tgz
+    version: 0.1.10
+  - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-09-29T15:31:14.699922348-04:00"
+    created: "2026-10-06T09:37:16.868332421-04:00"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -67,7 +97,7 @@ entries:
     version: 0.1.8
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-09-29T15:31:14.69384618-04:00"
+    created: "2026-10-06T09:37:16.862101502-04:00"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -97,7 +127,7 @@ entries:
     version: 0.1.6
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-09-29T15:31:14.686932255-04:00"
+    created: "2026-10-06T09:37:16.85583264-04:00"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -127,7 +157,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-09-29T15:31:14.679559073-04:00"
+    created: "2026-10-06T09:37:16.849717841-04:00"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -157,7 +187,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-09-29T15:31:14.671808445-04:00"
+    created: "2026-10-06T09:37:16.835249332-04:00"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -4134,4 +4164,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-10-05T19:45:09.020570799-04:00"
+generated: "2026-10-06T09:37:16.827900742-04:00"

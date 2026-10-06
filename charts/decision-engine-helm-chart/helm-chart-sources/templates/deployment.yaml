@@ -40,11 +40,13 @@ spec:
         {{- end }}
         {{- if or .Values.migration.enabled .Values.postgresql.enabled }}
         - name: database-migration
-          image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"
+          image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}{{- if .Values.migration.image.digest }}@{{ .Values.migration.image.digest }}{{- end }}"
           imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           env:
+            - name: DECISION_ENGINE_TENANTS
+              value: {{ required "migration.tenants must contain alias:display-name entries for the provisioned tenants" .Values.migration.tenants | quote }}
             - name: DECISION_ENGINE_CONTROL_PLANE_DATABASE_URL
               value: {{ if .Values.postgresql.enabled }}{{ printf "jdbc:postgresql://%s-postgresql:5432/%s" .Release.Name .Values.postgresql.auth.database | quote }}{{ else }}{{ .Values.database.url | quote }}{{ end }}
             {{- if .Values.postgresql.enabled }}
@@ -94,6 +96,8 @@ spec:
               containerPort: {{ .Values.service.grpcPort }}
               protocol: TCP
           env:
+            - name: DECISION_ENGINE_GRPC_PORT
+              value: {{ .Values.service.grpcPort | quote }}
             - name: DECISION_ENGINE_CONTROL_PLANE_DATABASE_URL
               value: {{ if .Values.postgresql.enabled }}{{ printf "jdbc:postgresql://%s-postgresql:5432/%s" .Release.Name .Values.postgresql.auth.database | quote }}{{ else }}{{ .Values.database.url | quote }}{{ end }}
             # forwardmeasure.jpa.tenant-database.host/port (the per-tenant Postgres routing config
@@ -142,23 +146,38 @@ spec:
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          startupProbe:
+            grpc:
+              port: {{ .Values.service.grpcPort }}
+              service: liveness
+            timeoutSeconds: 3
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             grpc:
-              port: grpc
+              port: {{ .Values.service.grpcPort }}
+              service: readiness
+            timeoutSeconds: 8
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             grpc:
-              port: grpc
+              port: {{ .Values.service.grpcPort }}
+              service: liveness
+            timeoutSeconds: 3
             initialDelaySeconds: 15
             periodSeconds: 20
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            - name: decision-engine-tmp
+              mountPath: /tmp
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
+        - name: decision-engine-tmp
+          emptyDir: {}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
