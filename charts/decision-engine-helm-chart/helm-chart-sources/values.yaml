@@ -29,7 +29,7 @@ replicaCount: 1
 
 image:
   repository: docker.io/forwardmeasure/decision-engine-quarkus
-  tag: "0.1.0"
+  tag: "1.1.0"
   digest: ""
   pullPolicy: IfNotPresent
 
@@ -49,6 +49,8 @@ serviceAccount:
 
 podSecurityContext:
   runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
   fsGroup: 10001
   seccompProfile:
     type: RuntimeDefault
@@ -144,14 +146,14 @@ valkey:
     password: ""
 
 migration:
+  # Existing platform tenant aliases; never create a second independent tenant registry.
+  tenants: ""
   # Automatically active when postgresql.enabled=true. Set true explicitly for an external
   # database when adminCredentialsSecret and database.url are supplied.
   enabled: false
-  # Required if this chart runs the migration init container (alias:display-name CSV).
-  tenants: ""
   image:
     repository: docker.io/forwardmeasure/decision-engine-database-migration-service
-    tag: "0.1.0"
+    tag: "1.1.0"
     digest: ""
     pullPolicy: IfNotPresent
   runtimeDatabasePasswordKey: password

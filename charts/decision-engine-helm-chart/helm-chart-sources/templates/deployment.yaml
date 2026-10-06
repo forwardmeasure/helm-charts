@@ -46,7 +46,7 @@ spec:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           env:
             - name: DECISION_ENGINE_TENANTS
-              value: {{ required "migration.tenants is required when the migration init container is enabled" .Values.migration.tenants | quote }}
+              value: {{ required "migration.tenants must contain alias:display-name entries for the provisioned tenants" .Values.migration.tenants | quote }}
             - name: DECISION_ENGINE_CONTROL_PLANE_DATABASE_URL
               value: {{ if .Values.postgresql.enabled }}{{ printf "jdbc:postgresql://%s-postgresql:5432/%s" .Release.Name .Values.postgresql.auth.database | quote }}{{ else }}{{ .Values.database.url | quote }}{{ end }}
             {{- if .Values.postgresql.enabled }}
@@ -84,7 +84,7 @@ spec:
                   key: password
             {{- end }}
           volumeMounts:
-            - name: temporary-files
+            - name: decision-engine-tmp
               mountPath: /tmp
         {{- end }}
       {{- end }}
@@ -153,33 +153,33 @@ spec:
             grpc:
               port: {{ .Values.service.grpcPort }}
               service: liveness
-            periodSeconds: 5
             timeoutSeconds: 3
+            periodSeconds: 5
             failureThreshold: 60
           readinessProbe:
             grpc:
               port: {{ .Values.service.grpcPort }}
               service: readiness
+            timeoutSeconds: 8
             initialDelaySeconds: 5
             periodSeconds: 10
-            timeoutSeconds: 5
           livenessProbe:
             grpc:
               port: {{ .Values.service.grpcPort }}
               service: liveness
+            timeoutSeconds: 3
             initialDelaySeconds: 15
             periodSeconds: 20
-            timeoutSeconds: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: temporary-files
+            - name: decision-engine-tmp
               mountPath: /tmp
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
-        - name: temporary-files
+        - name: decision-engine-tmp
           emptyDir: {}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
