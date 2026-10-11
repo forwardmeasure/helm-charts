@@ -25,3 +25,13 @@ clusterSecretStore:
   enabled: false
   name: fake-secret-store
   provider: {}
+
+# Kubernetes-provider ClusterSecretStores for Secrets that already live in the cluster (for example a
+# cert-manager CA) rather than in the cloud secret backend. Each entry:
+#   name: store name (also names its reader ServiceAccount/Role)
+#   sourceNamespace: where the Secrets live
+#   secretNames: the only Secrets the store may read
+#   consumerNamespaces: the only namespaces whose ExternalSecrets may use the store
+# A secrets: entry uses one with secretStoreRef: {name: <store>, kind: ClusterSecretStore} and
+# remoteRefs whose remoteKey is the source Secret's name and property is the key inside it.
+kubernetesSecretStores: []
