@@ -2854,7 +2854,26 @@ entries:
   opensearch-cluster:
   - apiVersion: v2
     appVersion: 3.8.0
-    created: "2026-08-24T09:46:04.856621941-04:00"
+    created: "2026-10-10T20:57:44.333739647-04:00"
+    dependencies:
+    - name: opensearch
+      repository: https://opensearch-project.github.io/helm-charts/
+      version: 3.8.0
+    - name: opensearch-dashboards
+      repository: https://opensearch-project.github.io/helm-charts/
+      version: 3.8.0
+    description: 'Wrapper chart for the opensearch-project/opensearch and opensearch-project/opensearch-dashboards
+      Helm charts. Adds cert-manager Certificate CRs, External Secrets Operator integration,
+      Istio PeerAuthentication, and OpenSearch security plugin configuration. '
+    digest: 4e571b1889eb6b5d9ea1e2fb8415aae68e8178feac8fe187c8259e07f8c3908e
+    name: opensearch-cluster
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-cluster-0.1.6.tgz
+    version: 0.1.6
+  - apiVersion: v2
+    appVersion: 3.8.0
+    created: "2026-10-10T20:57:44.330919093-04:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -2873,7 +2892,7 @@ entries:
     version: 0.1.5
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-08-24T09:46:04.854940694-04:00"
+    created: "2026-10-10T20:57:44.328230829-04:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -2892,7 +2911,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-08-24T09:46:04.851838708-04:00"
+    created: "2026-10-10T20:57:44.326455522-04:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -2911,7 +2930,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-08-24T09:46:04.84955397-04:00"
+    created: "2026-10-10T20:57:44.323955349-04:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -2930,7 +2949,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-08-24T09:46:04.847201404-04:00"
+    created: "2026-10-10T20:57:44.322159493-04:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -3161,7 +3180,20 @@ entries:
   platform-secrets:
   - apiVersion: v2
     appVersion: 0.1.9
-    created: "2026-10-10T20:32:52.324906168-04:00"
+    created: "2026-10-10T20:52:04.572820754-04:00"
+    description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
+      (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
+      AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
+      chain. '
+    digest: 00f7d8bc1df598b26d3aa1cba503cd334c3fbe2134eb0a01c9af8df7751c1972
+    name: platform-secrets
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.12.tgz
+    version: 0.1.12
+  - apiVersion: v2
+    appVersion: 0.1.9
+    created: "2026-10-10T20:52:04.572643915-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -3174,7 +3206,7 @@ entries:
     version: 0.1.10
   - apiVersion: v2
     appVersion: 0.1.7
-    created: "2026-10-10T20:32:52.325879294-04:00"
+    created: "2026-10-10T20:52:04.573832031-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -3187,7 +3219,7 @@ entries:
     version: 0.1.8
   - apiVersion: v2
     appVersion: 0.1.6
-    created: "2026-10-10T20:32:52.325789958-04:00"
+    created: "2026-10-10T20:52:04.573730147-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -3199,7 +3231,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.6.tgz
     version: 0.1.6
   - apiVersion: v2
-    created: "2026-10-10T20:32:52.325701434-04:00"
+    created: "2026-10-10T20:52:04.573619391-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -3211,7 +3243,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.5.tgz
     version: 0.1.5
   - apiVersion: v2
-    created: "2026-10-10T20:32:52.325348803-04:00"
+    created: "2026-10-10T20:52:04.57328304-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -3223,7 +3255,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.4.tgz
     version: 0.1.4
   - apiVersion: v2
-    created: "2026-10-10T20:32:52.325182228-04:00"
+    created: "2026-10-10T20:52:04.573129379-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -3235,7 +3267,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.3.tgz
     version: 0.1.3
   - apiVersion: v2
-    created: "2026-10-10T20:32:52.325055689-04:00"
+    created: "2026-10-10T20:52:04.572964213-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -3247,7 +3279,7 @@ entries:
     - https://forwardmeasure.github.io/helm-charts/charts/platform-secrets-helm-chart/platform-secrets-0.1.2.tgz
     version: 0.1.2
   - apiVersion: v2
-    created: "2026-10-10T20:32:52.324706978-04:00"
+    created: "2026-10-10T20:52:04.572424038-04:00"
     description: 'ESO ExternalSecret resources for platform-wide secrets. Common secrets
       (TLS, Docker Hub) are defined in base values. Cloud-specific secrets (GCP SA,
       AWS IAM, Azure Managed Identity) are enabled per-cloud via the values layer
@@ -4177,4 +4209,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-10-10T20:32:52.32447412-04:00"
+generated: "2026-10-10T20:57:44.320182103-04:00"
