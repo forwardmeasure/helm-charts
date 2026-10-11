@@ -71,6 +71,13 @@ externalSecret:
     cookie:
       remoteKey: /opensearch/admin/cookie
       property: cookie
+  # Publishes the cluster's root CA certificate (opensearch-root-ca's ca.crt) to this same store,
+  # so clients verify the https endpoint against it. Empty = not published.
+  caCertificate:
+    remoteKey: ""
+    cookie:
+      remoteKey: /opensearch/admin/cookie
+      property: cookie
 
 # The bcrypt value is intentionally separate from the clear-text client
 # password. Generate it with OpenSearch's hash.sh and store it in the external
