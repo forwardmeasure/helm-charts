@@ -149,7 +149,8 @@ print_config_banner() {
 
 configure_realm_theme() {
   log_section "Realm theme configuration"
-  body="$(jq -n --arg login_theme "${REALM_LOGIN_THEME}" '{loginTheme: $login_theme}')"
+  body="$(jq -n --arg login_theme "${REALM_LOGIN_THEME}" --arg display_name "${REALM_DISPLAY_NAME:-${REALM}}" \
+    '{loginTheme: $login_theme, displayName: $display_name, displayNameHtml: null}')"
   kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}" "$body"
   log "Realm login theme reconciled: ${REALM_LOGIN_THEME}"
 }
