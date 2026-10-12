@@ -29,6 +29,13 @@ config:
 # ---------------------------------------------------------------------------
 # Controllers (KRaft)
 # ---------------------------------------------------------------------------
+# Cruise Control (Strimzi-managed). Enable it wherever KafkaTopics must be able to change an existing
+# topic's replica count; Strimzi then restarts the brokers once to add its metrics reporter.
+# config is passed through as the Kafka resource's spec.cruiseControl.
+cruiseControl:
+  enabled: false
+  config: {}
+
 controllers:
   nodePoolName: kafka-controllers
   replicas: 3
