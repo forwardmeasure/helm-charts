@@ -36,3 +36,8 @@ spec:
   entityOperator:
     topicOperator: {}
     userOperator: {}
+  {{- if .Values.cruiseControl.enabled }}
+  # Cruise Control moves partition replicas between brokers. With it, Strimzi's topic operator can
+  # apply a KafkaTopic's replica count to an existing topic; without it, that is NotSupported.
+  cruiseControl: {{ toJson (.Values.cruiseControl.config | default dict) }}
+  {{- end }}
