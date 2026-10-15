@@ -1,12 +1,7 @@
-{{- $mode := .Values.mode -}}
-{{- $pipeline := .Values.pipeline -}}
-
-{{- if and (eq $mode "cpu") (eq $pipeline "vlm-large") -}}
-{{- fail "Invalid configuration: cpu mode does not support vlm-large pipeline" -}}
-{{- end }}
-
-{{- $isGpu := eq $mode "gpu" -}}
-
+{{- include "docling-serve.validate" . -}}
+{{- $gpu := eq .Values.mode "gpu" -}}
+{{- $pvc := eq (include "docling-serve.modelSource" .) "pvc" -}}
+{{- $res := index .Values.resources .Values.mode .Values.pipeline -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,273 +9,207 @@ metadata:
   labels:
     {{- include "docling-serve.labels" . | nindent 4 }}
   annotations:
-    docling-serve/mode: {{ $mode | quote }}
-    docling-serve/pipeline: {{ $pipeline | quote }}
-
+    docling-serve/mode: {{ .Values.mode | quote }}
+    docling-serve/pipeline: {{ .Values.pipeline | quote }}
 spec:
   replicas: {{ .Values.replicaCount }}
-
+  strategy:
+    {{- toYaml .Values.strategy | nindent 4 }}
   selector:
     matchLabels:
       {{- include "docling-serve.selectorLabels" . | nindent 6 }}
-
   template:
     metadata:
       labels:
         {{- include "docling-serve.selectorLabels" . | nindent 8 }}
-        docling-serve/mode: {{ $mode | quote }}
-        docling-serve/pipeline: {{ $pipeline | quote }}
+        app.kubernetes.io/component: server
+        docling-serve/mode: {{ .Values.mode | quote }}
+        docling-serve/pipeline: {{ .Values.pipeline | quote }}
       annotations:
-        {{- with .Values.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-
+        {{- $annotations := deepCopy .Values.podAnnotations -}}
+        {{- $_ := set $annotations "checksum/configuration" (toJson .Values | sha256sum) -}}
+        {{- if $pvc -}}
+        {{- $_ := set $annotations "checksum/model-preparation" (include (print .Template.BasePath "/model-download-lib-configmap.yaml") . | sha256sum) -}}
+        {{- end -}}
+        {{- toYaml $annotations | nindent 8 }}
     spec:
-      serviceAccountName: {{ .Values.serviceAccount.name }}
-
+      serviceAccountName: {{ include "docling-serve.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-
-      {{- if $isGpu }}
-      nodeSelector:
-        {{- toYaml .Values.gpu.nodeSelector | nindent 8 }}
-      tolerations:
-        {{- toYaml .Values.gpu.tolerations | nindent 8 }}
+      {{- $selector := deepCopy .Values.nodeSelector -}}
+      {{- $tolerations := .Values.tolerations -}}
+      {{- if $gpu -}}
+      {{- $selector = mergeOverwrite $selector .Values.gpu.nodeSelector -}}
+      {{- $tolerations = concat $tolerations .Values.gpu.tolerations -}}
       {{- end }}
-
+      {{- with $selector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
+        - name: runtime-cache
+          emptyDir: {sizeLimit: {{ .Values.runtimeStorage.cacheSizeLimit | quote }}}
+        - name: scratch
+          emptyDir: {sizeLimit: {{ .Values.runtimeStorage.scratchSizeLimit | quote }}}
+        - name: temporary
+          emptyDir: {sizeLimit: {{ .Values.runtimeStorage.temporarySizeLimit | quote }}}
+        {{- if $pvc }}
         - name: model-cache
           persistentVolumeClaim:
-            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-cache" (include "docling-serve.fullname" .)) }}
-
-        {{- if .Values.modelDownload.enabled }}
+            claimName: {{ include "docling-serve.claimName" . }}
         - name: model-download-lib
           configMap:
-            name: model-download-lib
-            defaultMode: 0755
-        # Local staging area for HuggingFace and docling-tools downloads.
-        # GCS FUSE does not support chmod on in-flight .incomplete files and
-        # returns EPERM, causing downloaders to stall. Staging to a local
-        # emptyDir avoids this — completed model files are copied to the GCS
-        # FUSE mount only after each download succeeds.
+            name: {{ include "docling-serve.libraryName" . }}
+            defaultMode: 0444
+        {{- if and .Values.modelDownload.enabled (eq .Values.modelDownload.preparation "init") }}
         - name: hf-download-staging
-          emptyDir: {}
+          emptyDir: {sizeLimit: {{ .Values.modelDownload.stagingSizeLimit | quote }}}
         {{- end }}
-
-      # ---------------------------------------------------------------------
-      # Init containers
-      # ---------------------------------------------------------------------
+        {{- end }}
+      {{- if $pvc }}
       initContainers:
-
         {{- if .Values.initContainer.enabled }}
         - name: fix-permissions
-          image: {{ .Values.initContainer.image }}
-          command: ["sh", "-c"]
+          image: {{ .Values.initContainer.image | quote }}
+          command: [sh, -ec]
           args:
-            - |
-              mkdir -p {{ .Values.paths.models }}
-              chmod -R 0777 {{ .Values.paths.models }}
-          volumeMounts:
-            - name: model-cache
-              mountPath: {{ .Values.paths.models }}
+            - 'mkdir -p "$1" && chown "$2:$3" "$1" && chmod 0770 "$1"'
+            - fix-permissions
+            - {{ .Values.paths.models | quote }}
+            - {{ .Values.podSecurityContext.runAsUser | quote }}
+            - {{ .Values.podSecurityContext.fsGroup | quote }}
           securityContext:
+            runAsNonRoot: false
             runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL], add: [CHOWN, FOWNER, DAC_OVERRIDE]}
+          volumeMounts:
+            - {name: model-cache, mountPath: {{ .Values.paths.models | quote }}}
           resources:
             {{- toYaml .Values.initContainer.resources | nindent 12 }}
         {{- end }}
-
-        {{- if .Values.modelDownload.enabled }}
-        - name: download-models
-          image: {{ if $isGpu }}{{ .Values.modelDownload.image.gpu.repository }}:{{ .Values.modelDownload.image.gpu.tag }}{{ else }}{{ .Values.modelDownload.image.cpu.repository }}:{{ .Values.modelDownload.image.cpu.tag }}{{ end }}
-          imagePullPolicy: {{ if $isGpu }}{{ .Values.modelDownload.image.gpu.pullPolicy }}{{ else }}{{ .Values.modelDownload.image.cpu.pullPolicy }}{{ end }}
-          resources:
-            {{- if $isGpu }}
-            {{- toYaml .Values.modelDownload.resources.gpu | nindent 12 }}
-            {{- else }}
-            {{- toYaml .Values.modelDownload.resources.cpu | nindent 12 }}
-            {{- end }}
-          env:
-            # Redirect HuggingFace internal cache to local staging so that
-            # .incomplete files and lock files never touch GCS FUSE.
-            - name: HF_HOME
-              value: /tmp/hf-staging/hf-home
-            - name: HF_HUB_CACHE
-              value: /tmp/hf-staging/hf-home
-            - name: HF_HUB_DISABLE_SYMLINKS_WARNING
-              value: "1"
-            - name: HF_STAGING_ROOT
-              value: /tmp/hf-staging
-            # HuggingFace API token — required for higher rate limits and
-            # authenticated access to gated models. Without this, downloads
-            # of large model files are throttled and stall mid-stream.
-            {{- if .Values.hfToken.secretName }}
-            - name: HF_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.hfToken.secretName }}
-                  key: {{ .Values.hfToken.secretKey }}
-            - name: HUGGING_FACE_HUB_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.hfToken.secretName }}
-                  key: {{ .Values.hfToken.secretKey }}
-            {{- end }}
-          command: ["sh", "-c"]
+        {{- if and .Values.modelDownload.enabled (eq .Values.modelDownload.preparation "init") }}
+        - name: prepare-models
+          {{- include "docling-serve.preparationContainer" . | nindent 10 }}
+        {{- else }}
+        - name: verify-models
+          image: {{ include "docling-serve.preparationImage" . | quote }}
+          imagePullPolicy: {{ (index .Values.modelDownload.image (ternary "cpu" .Values.mode .Values.modelDownload.useCpuImage)).pullPolicy }}
+          command: [python, -B, /scripts/model-preparation.py]
           args:
-            - |
-              set -e
-              . /scripts/model-download-lib.sh
-
-              CACHE="{{ .Values.paths.models }}"
-              WORKLOAD="docling-serve"
-
-              echo "🚀 Starting model download for ${WORKLOAD}"
-              echo "   GCS FUSE cache: ${CACHE}"
-              echo "   Local staging:  ${HF_STAGING_ROOT}"
-
-              # Always ensure ensemble models
-              model_download_named "{{ join " " .Values.modelDownload.ensembleModels }}" "$CACHE" "$WORKLOAD"
-
-              # VLM models (conditional on pipeline)
-              if [ "{{ $pipeline }}" = "vlm-small" ]; then
-                model_download_hf_repo "{{ index .Values.modelDownload.hfRepos "vlm-small" }}" "$CACHE" "$WORKLOAD"
-              fi
-
-              if [ "{{ $pipeline }}" = "vlm-large" ]; then
-                model_download_hf_repo "{{ index .Values.modelDownload.hfRepos "vlm-large" }}" "$CACHE" "$WORKLOAD"
-              fi
-
-              # Write manifest
-              model_write_manifest "$CACHE" "$WORKLOAD" \
-                $(find "$CACHE" -mindepth 1 -maxdepth 1 -type d -exec basename {} \;)
-
-              echo "✅ Model preparation complete"
+            - verify
+            - --config
+            - /scripts/models.json
+            - --cache
+            - {{ .Values.paths.models | quote }}
+            {{- if .Values.modelDownload.enabled }}
+            - --wait-timeout
+            - {{ .Values.modelDownload.job.activeDeadlineSeconds | quote }}
+            {{- else }}
+            - --legacy
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml (index .Values.modelDownload.resources (ternary "cpu" .Values.mode .Values.modelDownload.useCpuImage)) | nindent 12 }}
           volumeMounts:
-            - name: model-cache
-              mountPath: {{ .Values.paths.models }}
-            - name: model-download-lib
-              mountPath: /scripts
-            - name: hf-download-staging
-              mountPath: /tmp/hf-staging
+            - {name: model-cache, mountPath: {{ .Values.paths.models | quote }}, readOnly: true}
+            - {name: model-download-lib, mountPath: /scripts, readOnly: true}
+            - {name: temporary, mountPath: /tmp}
         {{- end }}
-
+      {{- end }}
       containers:
         - name: docling-serve
-
-          # ---------------------------------------------------------------
-          # Image
-          # ---------------------------------------------------------------
-          image: "{{ if $isGpu }}{{ .Values.image.gpu.repository }}:{{ .Values.image.gpu.tag }}{{ else }}{{ .Values.image.cpu.repository }}:{{ .Values.image.cpu.tag }}{{ end }}"
-          imagePullPolicy: {{ if $isGpu }}{{ .Values.image.gpu.pullPolicy }}{{ else }}{{ .Values.image.cpu.pullPolicy }}{{ end }}
-
+          image: {{ include "docling-serve.image" . | quote }}
+          imagePullPolicy: {{ (index .Values.image .Values.mode).pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           ports:
-            - containerPort: {{ .Values.containerPort }}
-              name: http
-
-          # ---------------------------------------------------------------
-          # Environment
-          # ---------------------------------------------------------------
+            - {containerPort: {{ .Values.containerPort }}, name: http}
           env:
-            # DOCLING_PROFILE was never a real docling-serve setting - no
-            # env var controls which pipeline (standard vs VLM) a request
-            # runs; that's chosen exclusively per-request via the caller's
-            # own options.pipeline field, with a hardcoded class-level
-            # default of STANDARD that nothing server-side can override
-            # (confirmed directly against docling's ConvertDocumentsOptions
-            # source). There's no server-side replacement for this to set -
-            # a caller that doesn't explicitly send
-            # options.pipeline="vlm" + options.vlm_pipeline_preset will
-            # always get the standard pipeline from this pod regardless of
-            # which mode/pipeline it was deployed with.
-
-            - name: DOCLING_SERVE_ARTIFACTS_PATH
-              value: {{ .Values.paths.models | quote }}
-
-            {{- if and (eq $mode "cpu") (eq $pipeline "vlm-small") }}
-            - name: DOCLING_WARNING
-              value: "Running vlm-small on CPU. Expect high latency."
+            - {name: DOCLING_SERVE_ARTIFACTS_PATH, value: {{ include "docling-serve.artifactsPath" . | quote }}}
+            - {name: HF_HOME, value: {{ printf "%s/huggingface" .Values.paths.cache | quote }}}
+            - {name: HF_HUB_CACHE, value: {{ printf "%s/huggingface/hub" .Values.paths.cache | quote }}}
+            - {name: DOCLING_SERVE_SCRATCH_PATH, value: {{ .Values.paths.scratch | quote }}}
+            - {name: DOCLING_SERVE_ENG_KIND, value: {{ .Values.engine.kind | quote }}}
+            - {name: DOCLING_SERVE_MAX_FILE_SIZE, value: {{ printf "%d" (int64 .Values.limits.maxFileSize) | quote }}}
+            - {name: DOCLING_SERVE_MAX_NUM_PAGES, value: {{ printf "%d" (int64 .Values.limits.maxNumPages) | quote }}}
+            - {name: DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT, value: {{ .Values.limits.maxDocumentTimeout | quote }}}
+            - {name: DOCLING_SERVE_MAX_SOURCES_PER_REQUEST, value: {{ printf "%d" (int64 .Values.limits.maxSourcesPerRequest) | quote }}}
+            - {name: DOCLING_SERVE_MAX_IMAGES_SCALE, value: {{ .Values.limits.maxImagesScale | quote }}}
+            {{- if .Values.auth.enabled }}
+            - name: DOCLING_SERVE_API_KEY
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.auth.existingSecret | quote }}, key: {{ .Values.auth.secretKey | quote }}}
             {{- end }}
-
-            {{- /*
-            DOCLING_VLM_MODEL_ID was also never real - it matched no field
-            docling-serve reads at all (confirmed against its actual
-            settings.py: env_prefix is DOCLING_SERVE_, and VLM model
-            selection is by named preset, not a raw repo_id). The real
-            mechanism: DOCLING_SERVE_DEFAULT_VLM_PRESET sets what a
-            pipeline=vlm request gets when it doesn't name a preset itself,
-            and DOCLING_SERVE_ALLOWED_VLM_PRESETS locks this pod to only
-            ever serving the one model it was deployed for. Preset names
-            (not repo_ids) - see values.yaml's pipelines.*.vlmPreset,
-            matching docling's own VlmModelType enum ("granite_docling",
-            "granite_vision", etc).
-            */}}
-            {{- if eq $pipeline "vlm-small" }}
-            - name: DOCLING_SERVE_DEFAULT_VLM_PRESET
-              value: {{ (index .Values.pipelines "vlm-small").vlmPreset | quote }}
-            - name: DOCLING_SERVE_ALLOWED_VLM_PRESETS
-              value: {{ (index .Values.pipelines "vlm-small").vlmPreset | quote }}
+            {{- if ne .Values.engine.kind "local" }}
+            - name: {{ ternary "DOCLING_SERVE_ENG_RQ_REDIS_URL" "DOCLING_SERVE_ENG_RAY_REDIS_URL" (eq .Values.engine.kind "rq") }}
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.engine.redisSecret.name | quote }}, key: {{ .Values.engine.redisSecret.key | quote }}}
             {{- end }}
-
-            {{- if eq $pipeline "vlm-large" }}
-            - name: DOCLING_SERVE_DEFAULT_VLM_PRESET
-              value: {{ (index .Values.pipelines "vlm-large").vlmPreset | quote }}
-            - name: DOCLING_SERVE_ALLOWED_VLM_PRESETS
-              value: {{ (index .Values.pipelines "vlm-large").vlmPreset | quote }}
+            {{- if ne .Values.pipeline "standard" }}
+            - {name: DOCLING_SERVE_DEFAULT_VLM_PRESET, value: {{ (index .Values.pipelines .Values.pipeline).vlmPreset | quote }}}
+            - {name: DOCLING_SERVE_ALLOWED_VLM_PRESETS, value: {{ (index .Values.pipelines .Values.pipeline).vlmPreset | quote }}}
             {{- end }}
-
-            {{- range $k, $v := .Values.env }}
-            - name: {{ $k }}
-              value: {{ $v | quote }}
+            {{- $env := deepCopy .Values.env -}}
+            {{- if $gpu -}}
+            {{- $env = mergeOverwrite $env .Values.gpuEnv -}}
             {{- end }}
-
-            {{- if $isGpu }}
-            {{- range $k, $v := .Values.gpuEnv }}
-            - name: {{ $k }}
-              value: {{ $v | quote }}
+            {{- range $name, $value := $env }}
+            - {name: {{ $name }}, value: {{ $value | quote }}}
             {{- end }}
+            {{- range $name, $ref := .Values.envSecretRefs }}
+            - name: {{ $name }}
+              valueFrom:
+                secretKeyRef:
+                  {{- toYaml $ref | nindent 18 }}
             {{- end }}
-
           volumeMounts:
-            - name: model-cache
-              mountPath: {{ .Values.paths.models }}
-
-          # ---------------------------------------------------------------
-          # Resources
-          # ---------------------------------------------------------------
+            - {name: runtime-cache, mountPath: {{ .Values.paths.cache | quote }}}
+            - {name: scratch, mountPath: {{ .Values.paths.scratch | quote }}}
+            - {name: temporary, mountPath: /tmp}
+            {{- if $pvc }}
+            - {name: model-cache, mountPath: {{ .Values.paths.models | quote }}, readOnly: true}
+            {{- end }}
           resources:
-            {{- $res := (index .Values.resources $mode $pipeline) }}
+            {{- $requests := deepCopy $res.requests -}}
+            {{- $limits := deepCopy $res.limits -}}
+            {{- if $gpu -}}
+            {{- $_ := set $requests "nvidia.com/gpu" .Values.gpu.count -}}
+            {{- $_ := set $limits "nvidia.com/gpu" .Values.gpu.count -}}
+            {{- end }}
             requests:
-              {{- toYaml $res.requests | nindent 14 }}
+              {{- toYaml $requests | nindent 14 }}
             limits:
-              {{- toYaml $res.limits | nindent 14 }}
-              {{- if $isGpu }}
-              nvidia.com/gpu: {{ .Values.gpu.count }}
-              {{- end }}
-
-          # ---------------------------------------------------------------
-          # Probes
-          # ---------------------------------------------------------------
+              {{- toYaml $limits | nindent 14 }}
           startupProbe:
-            httpGet:
-              path: {{ .Values.probes.liveness.path }}
-              port: http
-            periodSeconds: 30
-            failureThreshold: {{ (index .Values.resources $mode $pipeline).startupProbeFailureThreshold }}
-
+            httpGet: {path: {{ .Values.probes.startup.path | quote }}, port: http}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ default $res.startupProbeFailureThreshold .Values.probes.startup.failureThreshold }}
           livenessProbe:
-            httpGet:
-              path: {{ .Values.probes.liveness.path }}
-              port: http
-            initialDelaySeconds: {{ (index .Values.resources $mode $pipeline).livenessInitialDelaySeconds }}
+            httpGet: {path: {{ .Values.probes.liveness.path | quote }}, port: http}
+            initialDelaySeconds: {{ $res.livenessInitialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
-
           readinessProbe:
-            httpGet:
-              path: {{ .Values.probes.readiness.path }}
-              port: http
-            initialDelaySeconds: {{ (index .Values.resources $mode $pipeline).readinessInitialDelaySeconds }}
+            httpGet: {path: {{ .Values.probes.readiness.path | quote }}, port: http}
+            initialDelaySeconds: {{ $res.readinessInitialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}

@@ -1,41 +1,27 @@
-{{- /*
-PersistentVolume for docling-serve model store.
-
-Only rendered when:
-- persistence.existingClaim is NOT set, and
-- persistence.create is true
-
-When persistence.existingClaim is set, the PV is assumed to already exist
-externally and this template is skipped.
-
-Note:
-- Only rendered when persistence.bindToPv is also true - matching
-  persistent-volume-claim.yaml's own documented behavior ("Bind to static
-  PV only if explicitly desired"). Without this same guard, this template
-  rendered a PV without a volume source (nothing patches one in - no
-  overlay in this repo ever did) whenever persistence.create was true,
-  which every consumer sets just to get the (perfectly fine, dynamically
-  provisioned) PVC below - confirmed the hard way: "PersistentVolume ...
-  is invalid: spec: Required value: must specify a volume type".
-*/ -}}
 {{- if and (not .Values.persistence.existingClaim) .Values.persistence.create .Values.persistence.bindToPv }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ printf "%s-model-cache-pv" .Release.Namespace }}
+  name: {{ include "docling-serve.pvName" . }}
+  {{- if .Values.persistence.retain }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
   labels:
     {{- include "docling-serve.labels" . | nindent 4 }}
     purpose: model-cache
 spec:
-  capacity:
-    storage: {{ .Values.persistence.size }}
+  capacity: {storage: {{ .Values.persistence.size | quote }}}
   volumeMode: Filesystem
-  accessModes:
-    - {{ .Values.persistence.accessMode }}
+  accessModes: [{{ .Values.persistence.accessMode }}]
   persistentVolumeReclaimPolicy: Retain
   storageClassName: {{ .Values.persistence.storageClass | quote }}
   claimRef:
     namespace: {{ .Release.Namespace }}
-    name: {{ printf "%s-cache" (include "docling-serve.fullname" .) }}
-  # CSI/source-specific block is patched in by the cloud-specific overlay.
+    name: {{ include "docling-serve.claimName" . }}
+  {{- with .Values.persistence.nodeAffinity }}
+  nodeAffinity:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- toYaml .Values.persistence.volumeSource | nindent 2 }}
 {{- end }}

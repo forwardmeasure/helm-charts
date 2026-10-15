@@ -97,11 +97,12 @@ securityInit:
   retries: 20
   retryIntervalSeconds: 15
   image:
-    # Stock opensearchproject/opensearch, matching the actual cluster nodes
-    # below (opensearch.image.repository) - docker.io/forwardmeasure/opensearch
-    # was never built or pushed anywhere (confirmed via `docker manifest
-    # inspect`: not found), same class of never-built placeholder image as
-    # forwardmeasure/forwardmeasure-keycloak was.
+    # Stock opensearchproject/opensearch: this Job only runs securityadmin and
+    # needs no plugins. The cluster nodes themselves run docker.io/forwardmeasure/opensearch
+    # (stock plus analysis-phonetic, analysis-icu and mapper-size; built from
+    # data-fabric-devops-utils/docker-images/opensearch), set by the platform's
+    # opensearch-cluster release (imageVersions.openSearch) - the reference-population
+    # index settings fail on the stock image ("Unknown filter type [phonetic]").
     repository: opensearchproject/opensearch
     # Kept in sync with Chart.yaml's appVersion/dependencies by hand -
     # unlike opensearch.image.tag below (which the opensearch subchart

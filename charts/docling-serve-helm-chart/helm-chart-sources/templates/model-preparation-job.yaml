@@ -1,0 +1,63 @@
+{{- if and .Values.modelDownload.enabled (eq .Values.modelDownload.preparation "job") }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-prepare-%s" (include "docling-serve.fullname" . | trunc 37 | trimSuffix "-") (include "docling-serve.preparationJobId" . | trunc 16) }}
+  labels:
+    {{- include "docling-serve.labels" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.modelDownload.job.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.modelDownload.job.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ .Values.modelDownload.job.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ printf "%s-preparation" (include "docling-serve.name" . | trunc 51 | trimSuffix "-") }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: model-preparation
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "docling-serve.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.modelDownload.job.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- $affinity := deepCopy .Values.modelDownload.job.affinity -}}
+      {{- if ne .Values.persistence.accessMode "ReadWriteMany" -}}
+      {{- $rule := dict "labelSelector" (dict "matchLabels" (dict "app.kubernetes.io/name" (include "docling-serve.name" .) "app.kubernetes.io/instance" .Release.Name)) "topologyKey" "kubernetes.io/hostname" -}}
+      {{- $podAffinity := default dict $affinity.podAffinity -}}
+      {{- $_ := set $podAffinity "requiredDuringSchedulingIgnoredDuringExecution" (append (default list $podAffinity.requiredDuringSchedulingIgnoredDuringExecution) $rule) -}}
+      {{- $_ := set $affinity "podAffinity" $podAffinity -}}
+      {{- end }}
+      {{- with $affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- $tolerations := .Values.modelDownload.job.tolerations -}}
+      {{- if eq .Values.mode "gpu" -}}
+      {{- $tolerations = concat $tolerations .Values.gpu.tolerations -}}
+      {{- end }}
+      {{- with $tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim: {claimName: {{ include "docling-serve.claimName" . }}}
+        - name: model-download-lib
+          configMap: {name: {{ include "docling-serve.libraryName" . }}, defaultMode: 0444}
+        - name: hf-download-staging
+          emptyDir: {sizeLimit: {{ .Values.modelDownload.stagingSizeLimit | quote }}}
+        - name: temporary
+          emptyDir: {sizeLimit: {{ .Values.runtimeStorage.temporarySizeLimit | quote }}}
+      containers:
+        - name: prepare-models
+          {{- include "docling-serve.preparationContainer" . | nindent 10 }}
+{{- end }}

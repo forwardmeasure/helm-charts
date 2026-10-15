@@ -1,98 +1,59 @@
+# See README.md for upgrade, model preparation, authentication and storage contracts.
+# The release script reads image.tag for appVersion; Chart.yaml versions are left to it.
+# auto uses PVC when modelDownload.enabled=true, otherwise image-bundled standard models.
+# persistence.create stays true to preserve legacy Helm-owned PVCs during upgrades.
 replicaCount: 1
-nameOverride: ""
-fullnameOverride: ""
-
+nameOverride: ''
+fullnameOverride: ''
 podAnnotations: {}
-
-# ---------------------------------------------------------------------------
-# Runtime mode and pipeline selection
-#
-# Supported combinations:
-#
-#   mode=cpu, pipeline=standard    ✅
-#   mode=cpu, pipeline=vlm-small   ✅
-#   mode=cpu, pipeline=vlm-large   ❌
-#
-#   mode=gpu, pipeline=standard    ✅
-#   mode=gpu, pipeline=vlm-small   ✅
-#   mode=gpu, pipeline=vlm-large   ✅
-#
-# Notes:
-# - vlm-small on CPU is supported but expected to be slow.
-# - vlm-large is GPU-only by design.
-# ---------------------------------------------------------------------------
 mode: cpu
 pipeline: standard
-
 image:
   cpu:
     repository: quay.io/docling-project/docling-serve-cpu
-    tag: v1.31.0
+    tag: ''
     pullPolicy: IfNotPresent
+    digest: sha256:6eda9c524992147c1b0b06a1a9be4894bd68b1f43c86d92c32f996c4c60d18a3
   gpu:
     repository: quay.io/docling-project/docling-serve-cu128
-    tag: v1.31.0
+    tag: ''
     pullPolicy: IfNotPresent
-
+    digest: sha256:2aa6fc687c9211911b51ad2a60c33028358973fd053be9dd1cc4646017dfc76d
+  tag: v1.37.0
 containerPort: 5001
-
 env:
-  HF_HOME: /opt/docling-serve/cache/huggingface
-  HF_HUB_CACHE: /opt/docling-serve/cache/huggingface
-  # Not DOCLING_SERVE_ARTIFACTS_PATH - deployment.yaml already sets it
-  # explicitly from paths.models (same value). Having it here too meant
-  # the range over this map emitted a second "env[].name ==
-  # DOCLING_SERVE_ARTIFACTS_PATH" entry, which Kubernetes rejects outright
-  # ("duplicate entries for key") - confirmed the hard way.
-  HF_HUB_ENABLE_HF_TRANSFER: "1"
-  DOCLING_REPO_TYPE: model
-  DOCLING_SERVE_ENABLE_UI: "1"
-  DOCLING_SERVE_LOAD_MODELS_AT_BOOT: "1"
-  DOCLING_SERVE_ENG_LOC_NUM_WORKERS: "1"
-  DOCLING_SERVE_ENG_LOC_SHARE_MODELS: "true"
-
-# ---------------------------------------------------------------------------
-# Mounted model store and optional cache
-# ---------------------------------------------------------------------------
+  DOCLING_SERVE_ENABLE_UI: '0'
+  DOCLING_SERVE_LOAD_MODELS_AT_BOOT: '1'
+  DOCLING_SERVE_ENG_LOC_NUM_WORKERS: '1'
+  DOCLING_SERVE_ENG_LOC_SHARE_MODELS: 'true'
+  DOCLING_SERVE_DEFAULT_CODE_FORMULA_PRESET: codeformulav2
+  DOCLING_SERVE_DEFAULT_LAYOUT_PRESET: docling_layout_default
+  DOCLING_SERVE_DEFAULT_TABLE_STRUCTURE_PRESET: tableformer_v1_accurate
+  DOCLING_SERVE_DEFAULT_PICTURE_CLASSIFICATION_PRESET: document_figure_classifier_v2
+  DOCLING_SERVE_LOG_FORMAT: json
 paths:
   models: /opt/docling-serve/models
   cache: /opt/docling-serve/cache
-
-# ---------------------------------------------------------------------------
-# Persistence
-#
-# Two valid configurations:
-#
-# 1. existingClaim is set — use a pre-existing PVC.
-# 2. existingClaim is empty and create: true — this chart creates its own PV/PVC.
-#
-# existingClaim takes precedence over create.
-# ---------------------------------------------------------------------------
+  imageModels: /opt/app-root/src/.cache/docling/models
+  scratch: /opt/docling-serve/scratch
 persistence:
-  existingClaim: ""
+  existingClaim: ''
   create: true
   accessMode: ReadWriteOnce
   size: 64Gi
-  storageClass: ""
-  # false: create gets you a dynamically provisioned PVC only (via
-  # storageClass) - the normal path. true: also renders the static
-  # PersistentVolume template, which requires a cloud-specific overlay to
-  # patch in a real volume source (nothing in this repo does).
+  storageClass: ''
   bindToPv: false
-
-# ---------------------------------------------------------------------------
-# ServiceAccount
-# ---------------------------------------------------------------------------
+  retain: true
+  volumeName: ''
+  volumeSource: {}
+  nodeAffinity: {}
 serviceAccount:
   create: true
-  name: model-cache-sa
+  name: ''
   annotations: {}
-
-# ---------------------------------------------------------------------------
-# Optional init container used for permission fixups
-# ---------------------------------------------------------------------------
+  automountServiceAccountToken: false
 initContainer:
-  enabled: true
+  enabled: false
   image: alpine:3.20
   resources:
     requests:
@@ -101,199 +62,282 @@ initContainer:
     limits:
       cpu: 100m
       memory: 64Mi
-
-# ---------------------------------------------------------------------------
-# Optional model download job inside the pod.
-#
-# Preferred production approach:
-#   enabled: false
-# and mount a PVC that already contains the model weights.
-#
-# Set enabled: true only if you want this chart to populate the PVC.
-# ---------------------------------------------------------------------------
 modelDownload:
   enabled: false
   image:
     cpu:
-      repository: quay.io/docling-project/docling-serve-cpu
-      tag: v1.31.0
+      repository: ''
+      tag: ''
+      digest: ''
       pullPolicy: IfNotPresent
     gpu:
-      repository: quay.io/docling-project/docling-serve-cu128
-      tag: v1.31.0
+      repository: ''
+      tag: ''
+      digest: ''
       pullPolicy: IfNotPresent
   resources:
     cpu:
       requests:
         cpu: 500m
         memory: 1Gi
+        ephemeral-storage: 2Gi
       limits:
         cpu: 2000m
         memory: 4Gi
+        ephemeral-storage: 16Gi
     gpu:
       requests:
         cpu: 500m
         memory: 2Gi
+        ephemeral-storage: 2Gi
       limits:
         cpu: 2000m
         memory: 6Gi
-
-  # Named docling-tools model tokens to download for the ensemble pipeline.
+        ephemeral-storage: 16Gi
   ensembleModels:
-    - layout
-    - tableformer
-    - code_formula
-    - picture_classifier
-    - easyocr
-    - rapidocr
-
-  # Hugging Face repos to download for VLM pipelines.
+  - layout
+  - tableformer
+  - code_formula
+  - picture_classifier
+  - easyocr
+  - rapidocr
   hfRepos:
-    vlm-small: "ibm-granite/granite-docling-258M"
-    vlm-large: "ibm-granite/granite-vision-3.2-2b"
-
-# ---------------------------------------------------------------------------
-# GPU configuration
-#
-# Only active when mode=gpu.
-# ---------------------------------------------------------------------------
+    vlm-small: ibm-granite/granite-docling-258M
+    vlm-large: ibm-granite/granite-vision-3.2-2b
+  preparation: init
+  useCpuImage: true
+  stagingSizeLimit: 16Gi
+  lockTimeoutSeconds: 600
+  revisions:
+    vlm-small: 982fe3b40f2fa73c365bdb1bcacf6c81b7184bfe
+    vlm-large: ec894191f2e9e9be3d90eab9ac6949583c46f03b
+  job:
+    backoffLimit: 2
+    activeDeadlineSeconds: 3600
+    ttlSecondsAfterFinished: 86400
+    nodeSelector: {}
+    affinity: {}
+    tolerations: []
+  namedModels:
+    layout:
+    - repo: docling-project/docling-layout-heron
+      revision: 8f39ad3c0b4c58e9c2d2c84a38465abf757272d8
+      requiredFiles:
+      - config.json
+      - model.safetensors
+      sha256:
+        model.safetensors: 00333a43451945aaf89db8ca9c0a17e75d1537c17db60fdb91aa95f4c7929e0c
+    - repo: docling-project/docling-layout-heron-onnx
+      revision: 40bde044036bb181c130ddf6c51792187268748f
+      requiredFiles:
+      - config.json
+      - model.onnx
+      sha256:
+        model.onnx: 59c81a3a2923042d85034ffc487f8f47e4854117e879aef89b2b9f728fb4922a
+    tableformer:
+    - repo: docling-project/docling-models
+      revision: 2199320848bb9a8a519d22e4b528185a4f9a6f64
+      requiredFiles:
+      - model_artifacts/tableformer/accurate/tableformer_accurate.safetensors
+      - model_artifacts/tableformer/fast/tableformer_fast.safetensors
+      sha256:
+        model_artifacts/tableformer/accurate/tableformer_accurate.safetensors: 2a7d6c924b3cd12fb99a09280ca9c33a89c5d60b93253617d2e088c1a40374d9
+        model_artifacts/tableformer/fast/tableformer_fast.safetensors: 3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718
+      allowPatterns:
+      - config.json
+      - model_artifacts/tableformer/**
+    code_formula:
+    - repo: docling-project/CodeFormulaV2
+      revision: ecedbe111d15c2dc60bfd4a823cbe80127b58af4
+      requiredFiles:
+      - config.json
+      - model.safetensors
+      - processor_config.json
+      sha256:
+        model.safetensors: 4b04e77af34c4e682a7ab1617628340d658f3c3dcd12456dd2a7fff805cf79d2
+    picture_classifier:
+    - repo: docling-project/DocumentFigureClassifier-v2.5
+      revision: f859dfbff5c9916cd996942d4b0db7fa25808220
+      requiredFiles:
+      - config.json
+      - model.safetensors
+      - model.onnx
+      sha256:
+        model.safetensors: 6bf1e44d6bce316dcade6eb9929d8f8d23b6e8d9d29062b3b4011cff87c7c3cd
+        model.onnx: 27ffc48c27ae4e12c99b6f6de0dd730005245e47b70dd0c1339e62cbac3ec4c0
+    easyocr:
+    - directory: EasyOcr
+      requiredFiles:
+      - craft_mlt_25k.pth
+      - english_g2.pth
+      - latin_g2.pth
+    rapidocr:
+    - directory: RapidOcr
+      requiredFiles:
+      - PP-OCRv6_det_small.onnx
+      - PP-OCRv6_rec_small.onnx
+      - ch_ppocr_mobile_v2.0_cls_mobile.onnx
+      - PP-OCRv6_det_small.pth
+      - PP-OCRv6_rec_small.pth
+      - ch_ptocr_mobile_v2.0_cls_mobile.pth
 gpu:
   count: 1
   nodeSelector:
     cloud.google.com/gke-accelerator: nvidia-l4
   tolerations:
-    - key: nvidia.com/gpu
-      operator: Exists
-      effect: NoSchedule
-
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
 gpuEnv:
-  LD_LIBRARY_PATH: "/usr/local/nvidia/lib64:/opt/app-root/lib/python3.12/site-packages/nvidia/cuda_runtime/lib"
-  DOCLING_DEVICE: "cuda:0"
-  NVIDIA_VISIBLE_DEVICES: "all"
-  ORT_DISABLE_AZURE: "1"
-  RAPIDOCR_ORT_PROVIDERS: "CUDAExecutionProvider,TensorrtExecutionProvider,CPUExecutionProvider"
-  DOCLING_SERVE_LAYOUT_BATCH_SIZE: "64"
-  DOCLING_SERVE_TABLE_BATCH_SIZE: "8"
-  DOCLING_SERVE_OCR_BATCH_SIZE: "16"
-
-# ---------------------------------------------------------------------------
-# Per-mode and per-pipeline resources / startup behavior
-# ---------------------------------------------------------------------------
+  DOCLING_DEVICE: cuda:0
+  DOCLING_SERVE_LAYOUT_BATCH_SIZE: '64'
+  DOCLING_SERVE_TABLE_BATCH_SIZE: '8'
+  DOCLING_SERVE_OCR_BATCH_SIZE: '16'
 resources:
   cpu:
     standard:
       requests:
         cpu: 500m
         memory: 2Gi
+        ephemeral-storage: 1Gi
       limits:
         cpu: 2000m
         memory: 6Gi
-      startupProbeFailureThreshold: 10
-      livenessInitialDelaySeconds: 60
-      readinessInitialDelaySeconds: 30
-
+        ephemeral-storage: 20Gi
+      startupProbeFailureThreshold: 40
+      livenessInitialDelaySeconds: 0
+      readinessInitialDelaySeconds: 0
     vlm-small:
       requests:
         cpu: 1000m
         memory: 4Gi
+        ephemeral-storage: 1Gi
       limits:
         cpu: 4000m
         memory: 12Gi
-      startupProbeFailureThreshold: 20
-      livenessInitialDelaySeconds: 180
-      readinessInitialDelaySeconds: 120
-
+        ephemeral-storage: 20Gi
+      startupProbeFailureThreshold: 60
+      livenessInitialDelaySeconds: 0
+      readinessInitialDelaySeconds: 0
   gpu:
     standard:
       requests:
         cpu: 500m
         memory: 4Gi
+        ephemeral-storage: 1Gi
       limits:
         cpu: 4000m
         memory: 12Gi
-      startupProbeFailureThreshold: 10
-      livenessInitialDelaySeconds: 60
-      readinessInitialDelaySeconds: 30
-
+        ephemeral-storage: 20Gi
+      startupProbeFailureThreshold: 40
+      livenessInitialDelaySeconds: 0
+      readinessInitialDelaySeconds: 0
     vlm-small:
       requests:
         cpu: 1000m
         memory: 8Gi
+        ephemeral-storage: 1Gi
       limits:
         cpu: 4000m
         memory: 16Gi
-      startupProbeFailureThreshold: 8
-      livenessInitialDelaySeconds: 60
-      readinessInitialDelaySeconds: 30
-
+        ephemeral-storage: 20Gi
+      startupProbeFailureThreshold: 40
+      livenessInitialDelaySeconds: 0
+      readinessInitialDelaySeconds: 0
     vlm-large:
       requests:
         cpu: 2000m
         memory: 16Gi
+        ephemeral-storage: 1Gi
       limits:
         cpu: 8000m
         memory: 32Gi
-      startupProbeFailureThreshold: 10
-      livenessInitialDelaySeconds: 120
-      readinessInitialDelaySeconds: 60
-
-# ---------------------------------------------------------------------------
-# Pipeline-to-model mapping
-#
-# vlmModelId: the Hugging Face repo to download (modelDownload.hfRepos below
-# mirrors this) - not read by docling-serve itself.
-# vlmPreset: the docling-serve VLM preset NAME (DOCLING_SERVE_DEFAULT_VLM_PRESET
-# / DOCLING_SERVE_ALLOWED_VLM_PRESETS) that actually selects this model at
-# inference time - one of docling's built-in VlmModelType values
-# ("granite_docling", "granite_vision", etc), confirmed against its source.
-# These are deliberately two different values, not the same field reused -
-# a preset name and a repo_id are different strings that happen to both
-# exist per model.
-#
-# vlm-large was ibm-granite/granite-4.0-3b-vision - not one of docling's
-# supported VLM-pipeline document-conversion models (confirmed against
-# docling's own docs and vlm_model_specs.py registry): it's a task-specific
-# extraction model (chart/table/key-value, via task tags like <chart2csv>),
-# not a whole-page-to-DocTags converter. Switched to granite-vision-3.2-2b,
-# which is one of docling's built-in supported presets.
+        ephemeral-storage: 20Gi
+      startupProbeFailureThreshold: 40
+      livenessInitialDelaySeconds: 0
+      readinessInitialDelaySeconds: 0
 pipelines:
   standard:
     type: ensemble
-    vlmModelId: ""
-    vlmPreset: ""
+    vlmModelId: ''
+    vlmPreset: ''
   vlm-small:
     type: vlm
-    vlmModelId: "ibm-granite/granite-docling-258M"
-    vlmPreset: "granite_docling"
+    vlmModelId: ibm-granite/granite-docling-258M
+    vlmPreset: granite_docling
   vlm-large:
     type: vlm
-    vlmModelId: "ibm-granite/granite-vision-3.2-2b"
-    vlmPreset: "granite_vision"
-
+    vlmModelId: ibm-granite/granite-vision-3.2-2b
+    vlmPreset: granite_vision
 probes:
-  liveness:
-    path: /health
+  startup:
+    path: /ready
     periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 0
+  liveness:
+    path: /livez
+    periodSeconds: 30
+    timeoutSeconds: 5
     failureThreshold: 3
   readiness:
-    path: /health
+    path: /ready
     periodSeconds: 10
+    timeoutSeconds: 5
     failureThreshold: 3
-
 service:
   type: ClusterIP
   port: 5001
   name: http
-
-# ---------------------------------------------------------------------------
-# HuggingFace token
-#
-# When secretName is set the chart injects HF_TOKEN and
-# HUGGING_FACE_HUB_TOKEN into the download-models init container.
-# Required for authenticated downloads and gated models.
-# The secret is owned by platform-secrets and created via ESO.
-# Leave secretName empty to disable token injection.
-# ---------------------------------------------------------------------------
 hfToken:
-  secretName: ""
+  secretName: ''
   secretKey: token
+modelSource: auto
+imagePullSecrets: []
+strategy:
+  type: Recreate
+terminationGracePeriodSeconds: 60
+envSecretRefs: {}
+engine:
+  kind: local
+  redisSecret:
+    name: ''
+    key: url
+auth:
+  enabled: false
+  existingSecret: ''
+  secretKey: api-key
+limits:
+  maxFileSize: 104857600
+  maxNumPages: 1000
+  maxDocumentTimeout: 3600
+  maxSourcesPerRequest: 3
+  maxImagesScale: 2
+runtimeStorage:
+  cacheSizeLimit: 8Gi
+  scratchSizeLimit: 8Gi
+  temporarySizeLimit: 1Gi
+nodeSelector: {}
+affinity: {}
+tolerations: []
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: null
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 1
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 0
+  fsGroup: 1001
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false

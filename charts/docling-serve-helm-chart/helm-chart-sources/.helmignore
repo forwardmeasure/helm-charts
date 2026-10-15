@@ -1,0 +1,4 @@
+tests/
+test-chart.sh
+__pycache__/
+*.pyc
