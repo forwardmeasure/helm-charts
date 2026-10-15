@@ -217,8 +217,27 @@ entries:
     version: 0.1.1
   docling-serve:
   - apiVersion: v2
+    appVersion: v1.37.0
+    created: "2026-10-15T11:47:43.309336418-04:00"
+    description: Helm chart for deploying Docling Serve with PVC-backed cache and
+      configurable backend models.
+    digest: 90f7af67624083626c5e5e68681e04764bd71f3cf16beabd587320235df39be4
+    keywords:
+    - docling
+    - NLP
+    - model-serving
+    - PVC
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: docling-serve
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.10.tgz
+    version: 0.0.10
+  - apiVersion: v2
     appVersion: latest
-    created: "2026-08-24T10:53:28.003855747-04:00"
+    created: "2026-10-15T11:47:43.31483158-04:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 18a22db9b91e95095fa3c1a6aa037d8717eb2b9393bc50251ef79d6478ee4362
@@ -237,7 +256,7 @@ entries:
     version: 0.0.9
   - apiVersion: v2
     appVersion: latest
-    created: "2026-08-24T10:53:28.003136106-04:00"
+    created: "2026-10-15T11:47:43.3137009-04:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: b5f9b2b79e324b755ae753b86f85655b6197a54b94e2cd98b35b29b2d906d882
@@ -256,7 +275,7 @@ entries:
     version: 0.0.8
   - apiVersion: v2
     appVersion: latest
-    created: "2026-08-24T10:53:28.002449891-04:00"
+    created: "2026-10-15T11:47:43.312268237-04:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: dde070a934f88d9954ef2de7cd0915c55e71442f136e61564f72bd3315cc2762
@@ -275,7 +294,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: latest
-    created: "2026-08-24T10:53:28.001700941-04:00"
+    created: "2026-10-15T11:47:43.310663976-04:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 5a6bd64e1515a7a18e2a662ec2f04f09ecb2f219cac0bcc9bb2094632881c1e4
@@ -4222,4 +4241,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-10-12T13:26:44.970967271-04:00"
+generated: "2026-10-15T11:47:43.306373587-04:00"
