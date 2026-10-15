@@ -8,7 +8,7 @@ The full investigation and proposed platform work are preserved in [the referenc
 
 ## Release and qualification status
 
-Chart sources have been changed and verified locally. No chart has been published, no platform chart pin has been changed, and no Kubernetes workload has been upgraded by this work.
+Chart sources have been changed and verified locally. On October 15, 2026, the platform chart pin was advanced to **0.0.10**, pending publication. The published repository still ends at **0.0.9**, which contains Serve **1.31.0**. The new chart has not been published and no Kubernetes workload has been upgraded by this work.
 
 `Chart.yaml` is deliberately unchanged, including its version and appVersion. The repository's `publish_charts.sh` performs version changes during publication. The new top-level `image.tag: v1.37.0` provides the publisher with appVersion metadata; deployment image identity comes from the nested CPU/GPU digest.
 
@@ -243,6 +243,18 @@ bash publish_charts.sh --chart-name docling-serve-helm-chart --dry-run
 
 Run actual publication only as the separately authorized release step. Existing packages and index.yaml remain unchanged by this implementation. Tests and their runner are excluded from the Helm package; the runtime preparation script is included.
 
-The current publisher has an existing EXIT-trap issue: after printing a complete dry run it returns status 1 when its temporary index path is empty under `set -e`. The dry run still confirms image metadata and the proposed version; its process exit status is not a successful release check. This defect is documented in the handover, and the publisher remains unchanged.
+The publisher's EXIT cleanup now uses an `if` statement so a successful dry run returns zero when no temporary index needs removing. `python3 -B tests/test_publish_charts.py`, run from the repository root, checks successful/failed exit status and preserves the chart files, index and Git staging area.
+
+### Making the platform installer select this chart
+
+Editing or committing `helm-chart-sources` does not update a chart already published in the repository. The platform installer consumes the exact package version in `forwardmeasure-platform/deploy/helmfile/environments/chart-versions.yaml`.
+
+1. Publish with `bash publish_charts.sh --chart-name docling-serve-helm-chart`. Starting from source version 0.0.9, the publisher creates chart **0.0.10** with appVersion **v1.37.0**; it updates `Chart.yaml` itself.
+2. Review and merge the publisher's release branch into `develop`, which serves the chart repository. Wait for that package to become available, then run `helm repo update forwardmeasure` and `helm show chart forwardmeasure/docling-serve --version 0.0.10`.
+3. Deploy the named release through the normal installer: `FORWARDMEASURE_ENABLE_FDE=true /home/pn/Documents/code/forwardmeasure/forwardmeasure-platform/deploy/install-platform.sh gcp-openworkflow-prod docling`.
+
+The previous platform pin was 0.0.8. Published 0.0.9 also contains the old Serve 1.31.0 defaults, so changing the pin only to 0.0.9 does not deliver this implementation. A forced pod restart would likewise reuse the old deployment image.
+
+The production values were rendered against a temporary 0.0.10 package and accepted by Kubernetes server dry-run on October 15. The existing 64Gi claim and ServiceAccount are retained. The default `Recreate` strategy stops the old pod before the replacement prepares its model bundle, so conversion service is unavailable during preparation and startup.
 
 The Java client, artifact/provenance library, DocLang validation, framework bindings and Postman assets are implemented in the sibling `forwardmeasure-document-intelligence` repository. See [client documentation](../../../../forwardmeasure-document-intelligence/README.md).

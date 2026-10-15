@@ -2,6 +2,8 @@
 
 Date: October 13, 2026. This records the implementation following the [complete reference plan](docling-serve-analysis-and-remediation-plan-2026-10-13.md). The historical plan is preserved in full; this handover records what has actually changed and what remains to be qualified.
 
+**Deployment follow-up, October 15, 2026:** the earlier observations below remain historical. The platform installer was still pinned to chart 0.0.8; even published 0.0.9 contains Serve 1.31.0. The platform pin is now prepared for 0.0.10, which must be published and merged into `develop` before installation. The publisher's EXIT-trap defect described below is fixed with two regression tests. A temporary 0.0.10 package rendered with the actual production Helmfile values passed Kubernetes server dry-run, and all 26 chart tests passed. `Chart.yaml` remains untouched for the publisher. No release has been pushed or applied to the cluster. See the [release procedure](../README.md#making-the-platform-installer-select-this-chart).
+
 ## Delivered scope
 
 The changes and reference documents are in `charts/docling-serve-helm-chart/helm-chart-sources`. Keeping the documents with the chart sources ensures the existing publisher stages them with the chart. The [chart README](../README.md) documents configuration and migration.
