@@ -20,6 +20,7 @@ import hashlib
 import importlib.util
 import json
 import multiprocessing
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -75,6 +76,32 @@ def resource(docs, kind):
 
 
 class ChartContracts(unittest.TestCase):
+    @unittest.skipUnless(os.environ.get("DOCLING_TEST_IMAGE_MODELS") == "1",
+                         "Set DOCLING_TEST_IMAGE_MODELS=1 to qualify the cached preparation image")
+    def test_pinned_image_provides_required_ocr_assets(self):
+        docs = render({"modelDownload": {"enabled": True}})
+        config = json.loads(resource(docs, "ConfigMap")["data"]["models.json"])
+        # OCR has no repository-download fallback: qualify real assets, offline.
+        code = """
+import json, runpy, sys
+from pathlib import Path
+preparer = runpy.run_path('/qualification/model-preparation.py')
+config = json.load(sys.stdin)
+models = [item for item in config['repositories'] if 'directory' in item]
+assert models, 'No bundled OCR inventories selected'
+for model in models:
+    preparer['validate_model'](
+        Path('/opt/app-root/src/.cache/docling/models') / model['directory'], model)
+    print('Validated pinned image OCR assets: ' + model['directory'])
+"""
+        result = subprocess.run(
+            ["docker", "run", "--rm", "-i", "--network", "none", "--pull", "never",
+             "--entrypoint", "python", "--mount",
+             f"type=bind,src={CHART / 'files/model-preparation.py'},dst=/qualification/model-preparation.py,readonly",
+             config["image"], "-c", code],
+            input=json.dumps(config), text=True, capture_output=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_all_five_supported_profiles(self):
         for mode, pipeline in [
                 ("cpu", "standard"), ("cpu", "vlm-small"), ("gpu", "standard"),

@@ -8,9 +8,13 @@ The full investigation and proposed platform work are preserved in [the referenc
 
 ## Release and qualification status
 
-Chart sources have been changed and verified locally. On October 15, 2026, the platform chart pin was advanced to **0.0.10**, pending publication. The published repository still ends at **0.0.9**, which contains Serve **1.31.0**. The new chart has not been published and no Kubernetes workload has been upgraded by this work.
+Chart **0.0.10** has been published with Serve **v1.37.0**, and the platform pin selects that version. The first production upgrade encountered a Helm 4 server-side apply strategy-transition error. On October 15, the live deployment's strategy alone was migrated to `Recreate`, and the subsequent retry started the new 1.37.0 pod. A temporary migration script and pre-sync hook were removed: this is a one-time deployment transition, not permanent release behavior.
 
-`Chart.yaml` is deliberately unchanged, including its version and appVersion. The repository's `publish_charts.sh` performs version changes during publication. The new top-level `image.tag: v1.37.0` provides the publisher with appVersion metadata; deployment image identity comes from the nested CPU/GPU digest.
+That retry exposed a RapidOCR inventory typo in 0.0.10: the required PyTorch classifier is `ch_ppocr_mobile_v2.0_cls_mobile.pth`, not `ch_ptocr_mobile_v2.0_cls_mobile.pth`. The inventory now also requires `ppocrv6_dict.txt`. The corrected inventory was checked against the actual digest-pinned CPU image without network access. Platform release values override this inventory so the already-published 0.0.10 package can deploy correctly before the next chart publication.
+
+Production recovery completed on **October 15, 2026**: Helm revision **22** is deployed using chart **0.0.10** and Serve **1.37.0**. The pod became **1/1 Ready with zero restarts**, and a one-page raster PDF converted successfully with forced RapidOCR to JSON, Markdown and DocLang in approximately 12 seconds, retaining the fixture text and amount. The complete model bundle is `db27690dfdb4986ccdc2344001f178216b19991f86a293ee032a6f83d5ff3553`. All **27** chart tests passed with the actual-image OCR check enabled. These checks establish this CPU startup and smoke conversion, not the broader qualification programme below.
+
+`Chart.yaml` versions are managed by the repository's `publish_charts.sh`, rather than edited manually. The top-level `image.tag: v1.37.0` provides the publisher with appVersion metadata; deployment image identity comes from the nested CPU/GPU digest.
 
 Helm rendering and synthetic model-publication tests do not establish conversion quality, GPU compatibility, DocLang fidelity or production capacity. Run the deployment qualification programme in the reference plan before production rollout.
 
@@ -235,6 +239,14 @@ Tests exercise all five profiles, invalid configuration rejection, stable identi
 
 The model tests include checksum damage, partial/interrupted download, incomplete quarantine, missing shards, unexpected files, source symlinks, path traversal, two concurrent preparers and death of a lock owner. Their tiny fixture weights do not test a real model.
 
+With Docker available and the pinned CPU preparation image already pulled, also qualify every required image-only OCR asset against the actual image:
+
+```bash
+DOCLING_TEST_IMAGE_MODELS=1 ./test-chart.sh
+```
+
+This adds an offline check using the chart's own validator and rendered inventory. It fails on missing files, including mismatched OCR filenames; it does not run inference or qualify the GPU image.
+
 From the repository root, the publisher can be inspected without mutation:
 
 ```bash
@@ -249,12 +261,25 @@ The publisher's EXIT cleanup now uses an `if` statement so a successful dry run 
 
 Editing or committing `helm-chart-sources` does not update a chart already published in the repository. The platform installer consumes the exact package version in `forwardmeasure-platform/deploy/helmfile/environments/chart-versions.yaml`.
 
-1. Publish with `bash publish_charts.sh --chart-name docling-serve-helm-chart`. Starting from source version 0.0.9, the publisher creates chart **0.0.10** with appVersion **v1.37.0**; it updates `Chart.yaml` itself.
+1. For future chart changes, publish with `bash publish_charts.sh --chart-name docling-serve-helm-chart`. The publisher creates the next patch version and updates `Chart.yaml` itself; advance the platform pin to that published version. The first publication of this implementation advanced 0.0.9 to **0.0.10** with appVersion **v1.37.0**.
 2. Review and merge the publisher's release branch into `develop`, which serves the chart repository. Wait for that package to become available, then run `helm repo update forwardmeasure` and `helm show chart forwardmeasure/docling-serve --version 0.0.10`.
 3. Deploy the named release through the normal installer: `FORWARDMEASURE_ENABLE_FDE=true /home/pn/Documents/code/forwardmeasure/forwardmeasure-platform/deploy/install-platform.sh gcp-openworkflow-prod docling`.
 
 The previous platform pin was 0.0.8. Published 0.0.9 also contains the old Serve 1.31.0 defaults, so changing the pin only to 0.0.9 does not deliver this implementation. A forced pod restart would likewise reuse the old deployment image.
 
 The production values were rendered against a temporary 0.0.10 package and accepted by Kubernetes server dry-run on October 15. The existing 64Gi claim and ServiceAccount are retained. The default `Recreate` strategy stops the old pod before the replacement prepares its model bundle, so conversion service is unavailable during preparation and startup.
+
+### Recovering a Helm 4 strategy-transition failure
+
+An existing deployment can contain API-defaulted `spec.strategy.rollingUpdate` settings. On the observed deployment, server-side apply retained that map when applying `type: Recreate`, even with `rollingUpdate: null`, and Kubernetes rejected the incompatible combination. The earlier client-side `kubectl apply --dry-run=server` check did not exercise Helm's server-side apply behavior.
+
+For an initial migration with accepted downtime, replace the Deployment once and let Helm recreate it from the current chart. Retain the model PVC, Service, Secret and Helm release. Do this only when no install or upgrade is already running:
+
+```bash
+kubectl -n docling-serve delete deployment docling-docling-serve --wait=true
+FORWARDMEASURE_ENABLE_FDE=true /home/pn/Documents/code/forwardmeasure/forwardmeasure-platform/deploy/install-platform.sh gcp-openworkflow-prod docling
+```
+
+This clears the old Deployment specification and managed fields without deleting model storage. Subsequent upgrades use the chart's normal `Recreate` strategy. No permanent upgrade script or migration hook is needed. The existing published **0.0.10** release can be used; no chart publication is required for the one-time recovery. On October 15 the running upgrade had already passed preparation of the strategy, so it was allowed to finish rather than deleting its active Deployment again.
 
 The Java client, artifact/provenance library, DocLang validation, framework bindings and Postman assets are implemented in the sibling `forwardmeasure-document-intelligence` repository. See [client documentation](../../../../forwardmeasure-document-intelligence/README.md).
