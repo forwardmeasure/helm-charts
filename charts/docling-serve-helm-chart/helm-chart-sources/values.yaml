@@ -179,7 +179,8 @@ modelDownload:
       - ch_ppocr_mobile_v2.0_cls_mobile.onnx
       - PP-OCRv6_det_small.pth
       - PP-OCRv6_rec_small.pth
-      - ch_ptocr_mobile_v2.0_cls_mobile.pth
+      - ch_ppocr_mobile_v2.0_cls_mobile.pth
+      - ppocrv6_dict.txt
 gpu:
   count: 1
   nodeSelector:
