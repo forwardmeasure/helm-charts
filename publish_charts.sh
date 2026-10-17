@@ -94,7 +94,9 @@ STAGED_PATHS=()
 TMP_INDEX=""
 
 cleanup() {
-  [[ -n "$TMP_INDEX" && -f "$TMP_INDEX" ]] && rm -f "$TMP_INDEX"
+  if [[ -n "$TMP_INDEX" && -f "$TMP_INDEX" ]]; then
+    rm -f "$TMP_INDEX"
+  fi
 }
 trap cleanup EXIT
 
