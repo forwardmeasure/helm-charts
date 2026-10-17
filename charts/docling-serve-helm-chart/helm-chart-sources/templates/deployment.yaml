@@ -161,9 +161,17 @@ spec:
               valueFrom:
                 secretKeyRef: {name: {{ .Values.engine.redisSecret.name | quote }}, key: {{ .Values.engine.redisSecret.key | quote }}}
             {{- end }}
+            {{- $allowedVlm := list -}}
             {{- if ne .Values.pipeline "standard" }}
             - {name: DOCLING_SERVE_DEFAULT_VLM_PRESET, value: {{ (index .Values.pipelines .Values.pipeline).vlmPreset | quote }}}
-            - {name: DOCLING_SERVE_ALLOWED_VLM_PRESETS, value: {{ (index .Values.pipelines .Values.pipeline).vlmPreset | quote }}}
+            {{- $allowedVlm = append $allowedVlm (index .Values.pipelines .Values.pipeline).vlmPreset -}}
+            {{- end }}
+            {{- range $k := .Values.modelDownload.includeVlm -}}
+            {{- $p := (index $.Values.pipelines $k).vlmPreset -}}
+            {{- if not (has $p $allowedVlm) -}}{{- $allowedVlm = append $allowedVlm $p -}}{{- end -}}
+            {{- end -}}
+            {{- if $allowedVlm }}
+            - {name: DOCLING_SERVE_ALLOWED_VLM_PRESETS, value: {{ join "," $allowedVlm | quote }}}
             {{- end }}
             {{- $env := deepCopy .Values.env -}}
             {{- if $gpu -}}

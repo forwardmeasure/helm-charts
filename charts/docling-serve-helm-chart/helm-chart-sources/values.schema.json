@@ -626,6 +626,16 @@
         "useCpuImage": {
           "type": "boolean"
         },
+        "includeVlm": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "vlm-small",
+              "vlm-large"
+            ]
+          }
+        },
         "image": {
           "type": "object",
           "required": [

@@ -77,17 +77,30 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- $repositories = append $repositories $model -}}
 {{- end -}}
 {{- end -}}
+{{- /* VLM models to provision: the boot pipeline (when it is a VLM) plus every
+       modelDownload.includeVlm entry, deduplicated. includeVlm decouples VLM
+       provisioning from the boot pipeline so pipeline=standard can still serve
+       on-request VLM from the bundle. */ -}}
+{{- $vlmKeys := list -}}
 {{- if ne .Values.pipeline "standard" -}}
-{{- if ne (index .Values.modelDownload.hfRepos .Values.pipeline) (index .Values.pipelines .Values.pipeline).vlmModelId -}}
-{{- fail "The VLM download repository must match pipelines.<pipeline>.vlmModelId" -}}
+{{- $vlmKeys = append $vlmKeys .Values.pipeline -}}
+{{- end -}}
+{{- range $k := .Values.modelDownload.includeVlm -}}
+{{- if not (has $k $vlmKeys) -}}
+{{- $vlmKeys = append $vlmKeys $k -}}
+{{- end -}}
+{{- end -}}
+{{- range $k := $vlmKeys -}}
+{{- if ne (index $.Values.modelDownload.hfRepos $k) (index $.Values.pipelines $k).vlmModelId -}}
+{{- fail (printf "The VLM download repository for %s must match pipelines.%s.vlmModelId" $k $k) -}}
 {{- end -}}
 {{- $required := list "config.json" -}}
-{{- if eq .Values.pipeline "vlm-small" -}}
+{{- if eq $k "vlm-small" -}}
 {{- $required = append $required "model.safetensors" -}}
 {{- else -}}
 {{- $required = append $required "model.safetensors.index.json" -}}
 {{- end -}}
-{{- $repositories = append $repositories (dict "repo" (index .Values.modelDownload.hfRepos .Values.pipeline) "revision" (index .Values.modelDownload.revisions .Values.pipeline) "requiredFiles" $required) -}}
+{{- $repositories = append $repositories (dict "repo" (index $.Values.modelDownload.hfRepos $k) "revision" (index $.Values.modelDownload.revisions $k) "requiredFiles" $required) -}}
 {{- end -}}
 {{- if not $repositories -}}
 {{- fail "The model inventory must select at least one model" -}}
@@ -120,6 +133,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 {{- if and (eq $source "image") (ne .Values.pipeline "standard") -}}
 {{- fail "VLM profiles require modelSource=pvc with prepared models or modelDownload.enabled=true" -}}
+{{- end -}}
+{{- range $k := .Values.modelDownload.includeVlm -}}
+{{- if not (hasKey $.Values.modelDownload.hfRepos $k) -}}
+{{- fail (printf "modelDownload.includeVlm entry %s is not a known VLM key (expected vlm-small or vlm-large)" $k) -}}
+{{- end -}}
+{{- if and (eq $.Values.mode "cpu") (eq $k "vlm-large") -}}
+{{- fail "modelDownload.includeVlm cannot contain vlm-large in cpu mode; it requires GPU" -}}
+{{- end -}}
+{{- end -}}
+{{- if and .Values.modelDownload.includeVlm (eq $source "image") -}}
+{{- fail "modelDownload.includeVlm requires a prepared bundle; modelSource=image has no VLM assets" -}}
 {{- end -}}
 {{- if and (eq $source "pvc") (not .Values.persistence.create) (not .Values.persistence.existingClaim) -}}
 {{- fail "PVC model storage requires persistence.create=true or persistence.existingClaim" -}}
@@ -163,7 +187,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- fail "RollingUpdate with a single-node model PVC can stall attachment; use Recreate or ReadWriteMany" -}}
 {{- end -}}
 {{- $reserved := list "DOCLING_SERVE_ARTIFACTS_PATH" "HF_HOME" "HF_HUB_CACHE" "DOCLING_SERVE_SCRATCH_PATH" "DOCLING_SERVE_ENG_KIND" "DOCLING_SERVE_API_KEY" "DOCLING_SERVE_ENG_RQ_REDIS_URL" "DOCLING_SERVE_ENG_RAY_REDIS_URL" "DOCLING_SERVE_MAX_FILE_SIZE" "DOCLING_SERVE_MAX_NUM_PAGES" "DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT" "DOCLING_SERVE_MAX_SOURCES_PER_REQUEST" "DOCLING_SERVE_MAX_IMAGES_SCALE" -}}
-{{- if ne .Values.pipeline "standard" -}}
+{{- if or (ne .Values.pipeline "standard") .Values.modelDownload.includeVlm -}}
 {{- $reserved = concat $reserved (list "DOCLING_SERVE_DEFAULT_VLM_PRESET" "DOCLING_SERVE_ALLOWED_VLM_PRESETS") -}}
 {{- end -}}
 {{- range $name, $_ := .Values.env -}}

@@ -104,6 +104,13 @@ modelDownload:
   hfRepos:
     vlm-small: ibm-granite/granite-docling-258M
     vlm-large: ibm-granite/granite-vision-3.2-2b
+  # VLM models to ALWAYS provision in the prepared bundle and allow per request,
+  # independent of the boot `pipeline`. This lets pipeline=standard own boot and
+  # sizing while a `pipeline: vlm` request is served deterministically from the
+  # bundle rather than an unreliable on-demand download. Entries: vlm-small,
+  # vlm-large (vlm-large is GPU-only and rejected on cpu mode). Empty list means
+  # no VLM is provisioned unless `pipeline` itself selects one.
+  includeVlm: []
   preparation: init
   useCpuImage: true
   stagingSizeLimit: 16Gi

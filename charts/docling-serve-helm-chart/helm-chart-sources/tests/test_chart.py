@@ -131,6 +131,36 @@ for model in models:
                     self.assertEqual(values["DOCLING_SERVE_ALLOWED_VLM_PRESETS"],
                                      "granite_docling" if pipeline == "vlm-small" else "granite_vision")
 
+    def test_include_vlm_decouples_vlm_from_boot_pipeline(self):
+        # pipeline stays "standard" (boot/sizing) but granite is bundled and allowed.
+        docs = render({"pipeline": "standard",
+                       "modelDownload": {"enabled": True, "includeVlm": ["vlm-small"]}})
+        main = resource(docs, "Deployment")["spec"]["template"]["spec"]["containers"][0]
+        values = {e["name"]: e.get("value") for e in main["env"]}
+        self.assertEqual(values["DOCLING_SERVE_ALLOWED_VLM_PRESETS"], "granite_docling")
+        # standard boot: no default VLM forced.
+        self.assertNotIn("DOCLING_SERVE_DEFAULT_VLM_PRESET", values)
+        inventory = json.loads(resource(docs, "ConfigMap")["data"]["models.json"])
+        self.assertIn("ibm-granite/granite-docling-258M",
+                      [r.get("repo") for r in inventory["repositories"]])
+
+    def test_include_vlm_default_is_absent_and_requires_a_prepared_bundle(self):
+        # Default: no includeVlm -> no VLM env, unchanged behaviour.
+        docs = render({"pipeline": "standard", "modelDownload": {"enabled": True}})
+        values = {e["name"]: e.get("value")
+                  for e in resource(docs, "Deployment")["spec"]["template"]["spec"]
+                  ["containers"][0]["env"]}
+        self.assertNotIn("DOCLING_SERVE_ALLOWED_VLM_PRESETS", values)
+        # image source has no VLM assets: includeVlm must be rejected.
+        error = render({"persistence": {"create": False},
+                        "modelDownload": {"includeVlm": ["vlm-small"]}}, success=False)
+        self.assertIn("includeVlm requires a prepared bundle", error)
+        # vlm-large is GPU-only.
+        error = render({"mode": "cpu",
+                        "modelDownload": {"enabled": True, "includeVlm": ["vlm-large"]}},
+                       success=False)
+        self.assertIn("cannot contain vlm-large in cpu mode", error)
+
     def test_image_models_do_not_download_or_reference_a_pvc(self):
         docs = render({"persistence": {"create": False}})
         pod = resource(docs, "Deployment")["spec"]["template"]["spec"]
