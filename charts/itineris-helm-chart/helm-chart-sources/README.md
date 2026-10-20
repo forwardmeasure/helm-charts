@@ -67,4 +67,3 @@ for upgrades.
 
 The templates pass Helm lint and rendering checks for local and distributed settings. No chart
 was installed, no image was started and no tests were executed for these changes.
-

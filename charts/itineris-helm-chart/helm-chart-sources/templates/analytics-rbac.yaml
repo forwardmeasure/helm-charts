@@ -75,4 +75,3 @@ subjects:
     name: {{ include "itineris.analyticsServiceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}
-

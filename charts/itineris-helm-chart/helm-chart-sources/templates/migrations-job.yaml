@@ -71,4 +71,3 @@ spec:
         - name: tmp
           emptyDir: {}
 {{- end }}
-
