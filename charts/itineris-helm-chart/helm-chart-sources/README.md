@@ -53,9 +53,11 @@ long-running deployment rather than deleting cancellation fences blindly.
 `cql.hosts` supports host[:port], with `cql.port` as the fallback provisioning port. Supply
 replication strategy and datacenter replication appropriate to the actual Cassandra cluster.
 `opensearch.endpoints` contains full URLs for admin operations; `opensearch.hosts` configures
-graph reads/writes. Both must identify the same backend. Certificate trust and client-certificate
-mounts must cover admin clients as well as the graph engine and workers. The legacy graph
-self-signed-certificate switches alone do not configure the new admin client's trust.
+graph reads/writes. Both must identify the same backend. Configure certificate Secret names,
+store filenames and password keys under `cql.ssl` and `opensearch.ssl`. The server, admin clients,
+worker drivers and Spark executors now receive the same certificate policy and read-only files.
+Client authentication requires TLS enabled and a Secret; its store and private-key password keys
+may differ. Set `keyPasswordKey` equal to `keystorePasswordKey` when the passwords are identical.
 
 The optional `analyticsJob.enabled` manifest is an operator-supplied direct run. Its inputs include
 physical storage identity and it does not create a durable API run record. Prefer the authenticated

@@ -126,6 +126,17 @@ cql:
   port: 9042
   replicationStrategy: NetworkTopologyStrategy
   datacenterReplication: datacenter1:3
+  ssl:
+    enabled: false
+    hostnameValidation: true
+    clientAuthentication: false
+    secretName: ""
+    mountPath: /etc/itineris/cassandra-tls
+    truststoreKey: truststore.jks
+    truststorePasswordKey: truststore-password
+    keystoreKey: keystore.jks
+    keystorePasswordKey: keystore-password
+    keyPasswordKey: key-password
   # -- Replication factor
   replicationFactor: 1
   credentialsSecret:
@@ -147,6 +158,14 @@ opensearch:
     enabled: true
     disableHostnameVerification: true
     allowSelfSignedCertificates: true
+    clientAuthentication: false
+    secretName: ""
+    mountPath: /etc/itineris/opensearch-tls
+    truststoreKey: truststore.jks
+    truststorePasswordKey: truststore-password
+    keystoreKey: keystore.jks
+    keystorePasswordKey: keystore-password
+    keyPasswordKey: key-password
 
 # -- Extra environment variables
 extraEnv: []

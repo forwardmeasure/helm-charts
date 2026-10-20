@@ -81,9 +81,11 @@ spec:
             - name: ITINERIS_JOB_PARAMETERS
               value: {{ .Values.analyticsJob.parametersProperties | quote }}
             - name: ITINERIS_SPARK_CONFIGURATION
-              value: {{ .Values.analyticsJob.sparkConfigurationProperties | quote }}
+              value: {{ include "itineris.directSparkConfiguration" . | quote }}
             - name: SPARK_MASTER
               value: {{ .Values.analyticsJob.master | quote }}
+            {{- include "itineris.backendTlsEnv" (dict "backend" "CASSANDRA" "tls" .Values.cql.ssl "analytics" false) | nindent 12 }}
+            {{- include "itineris.backendTlsEnv" (dict "backend" "OPENSEARCH" "tls" .Values.opensearch.ssl "analytics" false) | nindent 12 }}
             - name: ITINERIS_CASSANDRA_HOSTS
               value: {{ .Values.cql.hosts | quote }}
             - name: ITINERIS_CASSANDRA_LOCAL_DATACENTER
@@ -129,9 +131,11 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- include "itineris.tlsMounts" . | nindent 12 }}
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- include "itineris.tlsVolumes" . | nindent 8 }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

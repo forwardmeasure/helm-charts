@@ -105,6 +105,8 @@ spec:
                   key: {{ .Values.itineris.clientSecret.secretKey }}
             - name: JDK_JAVA_OPTIONS
               value: {{ .Values.itineris.javaOptions | quote }}
+            {{- include "itineris.backendTlsEnv" (dict "backend" "CASSANDRA" "tls" .Values.cql.ssl "analytics" true) | nindent 12 }}
+            {{- include "itineris.backendTlsEnv" (dict "backend" "OPENSEARCH" "tls" .Values.opensearch.ssl "analytics" true) | nindent 12 }}
             - name: ITINERIS_CASSANDRA_HOSTS
               value: {{ .Values.cql.hosts | quote }}
             - name: ITINERIS_CASSANDRA_LOCAL_DATACENTER
@@ -187,12 +189,14 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- include "itineris.tlsMounts" . | nindent 12 }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- include "itineris.tlsVolumes" . | nindent 8 }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
