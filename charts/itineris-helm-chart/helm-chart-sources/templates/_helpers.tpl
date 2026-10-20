@@ -87,3 +87,16 @@ Usage: {{ include "itineris.image" . }}
 {{- printf "%s/%s:%s" $registry $repository $tag }}
 {{- end }}
 {{- end }}
+
+{{- define "itineris.analyticsServiceAccountName" -}}
+{{- default (printf "%s-analytics" (include "itineris.fullname" .) | trunc 63 | trimSuffix "-") .Values.analytics.serviceAccount.name -}}
+{{- end }}
+
+{{- define "itineris.migrationsImage" -}}
+{{- $image := .Values.controlPlane.migrations.image -}}
+{{- if $image.digest -}}
+{{- printf "%s/%s@%s" .Values.image.registry $image.repository $image.digest -}}
+{{- else -}}
+{{- printf "%s/%s:%s" .Values.image.registry $image.repository ($image.tag | default .Chart.AppVersion) -}}
+{{- end -}}
+{{- end }}

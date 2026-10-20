@@ -33,12 +33,12 @@ spec:
         app.kubernetes.io/component: analytics-runner
     spec:
       restartPolicy: Never
-      automountServiceAccountToken: false
+      automountServiceAccountToken: {{ hasPrefix "k8s://" .Values.analyticsJob.master }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "itineris.serviceAccountName" . }}
+      serviceAccountName: {{ include "itineris.analyticsServiceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -48,6 +48,22 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           env:
+            - name: SPARK_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SPARK_DRIVER_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SPARK_DRIVER_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SPARK_SERVICE_ACCOUNT
+              value: {{ include "itineris.analyticsServiceAccountName" . | quote }}
+            - name: SPARK_EXECUTOR_IMAGE
+              value: {{ include "itineris.analyticsImage" . | quote }}
             - name: ITINERIS_RUN_ID
               value: {{ required "analyticsJob.runId is required when enabled" .Values.analyticsJob.runId | quote }}
             - name: ITINERIS_JOB_NAME
@@ -74,12 +90,12 @@ spec:
               value: {{ .Values.cql.localDatacenter | quote }}
             - name: ITINERIS_CASSANDRA_REPLICATION_FACTOR
               value: {{ .Values.cql.replicationFactor | quote }}
-            - name: itineris.graph-defaults.storage.username
+            - name: ITINERIS_CASSANDRA_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.cql.credentialsSecret.name }}
                   key: {{ .Values.cql.credentialsSecret.usernameKey }}
-            - name: itineris.graph-defaults.storage.password
+            - name: ITINERIS_CASSANDRA_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.cql.credentialsSecret.name }}
@@ -92,12 +108,12 @@ spec:
               value: REST_CLIENT
             - name: itineris.graph-defaults.index.search.opensearch.http.auth.type
               value: basic
-            - name: itineris.graph-defaults.index.search.opensearch.http.auth.basic.username
+            - name: ITINERIS_OPENSEARCH_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.opensearch.credentialsSecret.name }}
                   key: {{ .Values.opensearch.credentialsSecret.usernameKey }}
-            - name: itineris.graph-defaults.index.search.opensearch.http.auth.basic.password
+            - name: ITINERIS_OPENSEARCH_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.opensearch.credentialsSecret.name }}
@@ -110,6 +126,12 @@ spec:
               value: {{ .Values.opensearch.ssl.allowSelfSignedCertificates | quote }}
           resources:
             {{- toYaml .Values.analyticsJob.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

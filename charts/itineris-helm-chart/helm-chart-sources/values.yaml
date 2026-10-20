@@ -102,6 +102,8 @@ probes:
 
 # -- Itineris 2.0 server configuration
 itineris:
+  tenantDomain: kriyagentic.com
+  tokenAudience: itineris
   keycloakIssuer: http://keycloak:8080/realms/forwardmeasure
   clientId: itineris
   organizationClientId: forwardmeasure-public
@@ -121,6 +123,9 @@ cql:
   hosts: cassandra:9042
   # -- Cassandra local datacenter
   localDatacenter: datacenter1
+  port: 9042
+  replicationStrategy: NetworkTopologyStrategy
+  datacenterReplication: datacenter1:3
   # -- Replication factor
   replicationFactor: 1
   credentialsSecret:
@@ -130,6 +135,7 @@ cql:
 
 # -- OpenSearch defaults shared by tenant graphs
 opensearch:
+  endpoints: https://opensearch:9200
   # -- Comma-separated OpenSearch endpoints; each may include its port
   hosts: opensearch:9200
   port: 9200
@@ -151,6 +157,46 @@ extraVolumes: []
 # -- Extra volume mounts
 extraVolumeMounts: []
 
+# PostgreSQL roles and Secrets are provisioned outside this chart. The runtime role must exist;
+# only the migration Job receives schema-owner credentials. No application-side auto-migration.
+controlPlane:
+  database:
+    url: jdbc:postgresql://postgresql:5432/itineris
+    runtimeSecret:
+      name: itineris-control-plane-db
+      usernameKey: username
+      passwordKey: password
+  migrations:
+    enabled: true
+    image:
+      repository: forwardmeasure/itineris-migrations
+      tag: "2.0.0-SNAPSHOT"
+      digest: ""
+      pullPolicy: Always
+    ownerSecret:
+      name: itineris-migrations-db
+      usernameKey: username
+      passwordKey: password
+    activeDeadlineSeconds: 300
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: 1000m, memory: 1Gi}
+
+# Policy for API-submitted Jobs. Completed and suspended Jobs are retained for reconciliation.
+# The controller and Spark driver have separate namespace-scoped permissions.
+analytics:
+  serviceAccount:
+    create: true
+    name: ""
+  rbac:
+    create: true
+  master: local[2]
+  deadline: 2H
+  sparkConfigurationProperties: ""
+  resources:
+    requests: {cpu: 1000m, memory: 2Gi}
+    limits: {cpu: 4000m, memory: 8Gi}
+
 # -- Optional one-shot analytics run; the default uses Spark local mode in this Job pod
 analyticsJob:
   enabled: false
@@ -166,7 +212,7 @@ analyticsJob:
   graphName: ""
   keyspace: ""
   indexPrefix: ""
-  master: local[*]
+  master: local[2]
   parametersProperties: ""
   sparkConfigurationProperties: ""
   graphConfigurationProperties: ""

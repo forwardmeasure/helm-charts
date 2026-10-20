@@ -1,0 +1,74 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements. See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{{- if .Values.controlPlane.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-migrations" (include "itineris.fullname" .) | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "itineris.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ .Values.controlPlane.migrations.activeDeadlineSeconds }}
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrations
+          image: {{ include "itineris.migrationsImage" . | quote }}
+          imagePullPolicy: {{ .Values.controlPlane.migrations.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: ITINERIS_CONTROL_PLANE_DB_URL
+              value: {{ .Values.controlPlane.database.url | quote }}
+            - name: ITINERIS_MIGRATIONS_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.controlPlane.migrations.ownerSecret.name }}
+                  key: {{ .Values.controlPlane.migrations.ownerSecret.usernameKey }}
+            - name: ITINERIS_MIGRATIONS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.controlPlane.migrations.ownerSecret.name }}
+                  key: {{ .Values.controlPlane.migrations.ownerSecret.passwordKey }}
+            - name: ITINERIS_CONTROL_PLANE_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.controlPlane.database.runtimeSecret.name }}
+                  key: {{ .Values.controlPlane.database.runtimeSecret.usernameKey }}
+          resources:
+            {{- toYaml .Values.controlPlane.migrations.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
+

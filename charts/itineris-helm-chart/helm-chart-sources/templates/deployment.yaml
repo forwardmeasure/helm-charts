@@ -14,6 +14,7 @@ spec:
     metadata:
       labels:
         {{- include "itineris.labels" . | nindent 8 }}
+        app.kubernetes.io/component: server
       annotations:
         {{- if .Values.opensearch.ssl.enabled }}
         traffic.sidecar.istio.io/excludeOutboundPorts: {{ .Values.opensearch.port | quote }}
@@ -41,6 +42,56 @@ spec:
               containerPort: 8182
               protocol: TCP
           env:
+            - name: ITINERIS_CONTROL_PLANE_DB_URL
+              value: {{ .Values.controlPlane.database.url | quote }}
+            - name: ITINERIS_CONTROL_PLANE_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.controlPlane.database.runtimeSecret.name }}
+                  key: {{ .Values.controlPlane.database.runtimeSecret.usernameKey }}
+            - name: ITINERIS_CONTROL_PLANE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.controlPlane.database.runtimeSecret.name }}
+                  key: {{ .Values.controlPlane.database.runtimeSecret.passwordKey }}
+            - name: ITINERIS_TENANT_DOMAIN
+              value: {{ .Values.itineris.tenantDomain | quote }}
+            - name: ITINERIS_TOKEN_AUDIENCE
+              value: {{ .Values.itineris.tokenAudience | quote }}
+            - name: ITINERIS_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ITINERIS_ANALYTICS_IMAGE
+              value: {{ include "itineris.analyticsImage" . | quote }}
+            - name: ITINERIS_ANALYTICS_SERVICE_ACCOUNT
+              value: {{ include "itineris.analyticsServiceAccountName" . | quote }}
+            - name: ITINERIS_ANALYTICS_DEADLINE
+              value: {{ .Values.analytics.deadline | quote }}
+            - name: ITINERIS_SPARK_MASTER
+              value: {{ .Values.analytics.master | quote }}
+            - name: ITINERIS_SPARK_CONFIGURATION
+              value: {{ .Values.analytics.sparkConfigurationProperties | quote }}
+            - name: ITINERIS_ANALYTICS_CASSANDRA_PASSWORD_REF
+              value: {{ printf "%s/%s" .Values.cql.credentialsSecret.name .Values.cql.credentialsSecret.passwordKey | quote }}
+            - name: ITINERIS_ANALYTICS_OPENSEARCH_PASSWORD_REF
+              value: {{ printf "%s/%s" .Values.opensearch.credentialsSecret.name .Values.opensearch.credentialsSecret.passwordKey | quote }}
+            {{- range $name, $value := .Values.analytics.resources.requests }}
+            - name: {{ printf "itineris.analytics.requests.%s" $name | quote }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range $name, $value := .Values.analytics.resources.limits }}
+            - name: {{ printf "itineris.analytics.limits.%s" $name | quote }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.imagePullSecrets }}
+            - name: itineris.analytics.kubernetes.image-pull-secrets
+              {{- $pullSecrets := list }}
+              {{- range .Values.imagePullSecrets }}
+              {{- $pullSecrets = append $pullSecrets .name }}
+              {{- end }}
+              value: {{ join "," $pullSecrets | quote }}
+            {{- end }}
             - name: ITINERIS_KEYCLOAK_ISSUER
               value: {{ .Values.itineris.keycloakIssuer | quote }}
             - name: ITINERIS_CLIENT_ID
@@ -58,28 +109,36 @@ spec:
               value: {{ .Values.cql.hosts | quote }}
             - name: ITINERIS_CASSANDRA_LOCAL_DATACENTER
               value: {{ .Values.cql.localDatacenter | quote }}
+            - name: ITINERIS_CASSANDRA_PORT
+              value: {{ .Values.cql.port | quote }}
+            - name: ITINERIS_CASSANDRA_REPLICATION_STRATEGY
+              value: {{ .Values.cql.replicationStrategy | quote }}
+            - name: ITINERIS_CASSANDRA_DATACENTER_REPLICATION
+              value: {{ .Values.cql.datacenterReplication | quote }}
             - name: ITINERIS_CASSANDRA_REPLICATION_FACTOR
               value: {{ .Values.cql.replicationFactor | quote }}
-            - name: itineris.graph-defaults.storage.username
+            - name: ITINERIS_CASSANDRA_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.cql.credentialsSecret.name }}
                   key: {{ .Values.cql.credentialsSecret.usernameKey }}
-            - name: itineris.graph-defaults.storage.password
+            - name: ITINERIS_CASSANDRA_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.cql.credentialsSecret.name }}
                   key: {{ .Values.cql.credentialsSecret.passwordKey }}
             - name: ITINERIS_OPENSEARCH_HOSTS
               value: {{ .Values.opensearch.hosts | quote }}
-            - name: itineris.graph-defaults.index.search.opensearch.http.auth.type
+            - name: ITINERIS_OPENSEARCH_ENDPOINTS
+              value: {{ .Values.opensearch.endpoints | quote }}
+            - name: ITINERIS_OPENSEARCH_AUTH_TYPE
               value: "basic"
-            - name: itineris.graph-defaults.index.search.opensearch.http.auth.basic.username
+            - name: ITINERIS_OPENSEARCH_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.opensearch.credentialsSecret.name }}
                   key: {{ .Values.opensearch.credentialsSecret.usernameKey }}
-            - name: itineris.graph-defaults.index.search.opensearch.http.auth.basic.password
+            - name: ITINERIS_OPENSEARCH_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.opensearch.credentialsSecret.name }}
@@ -125,18 +184,18 @@ spec:
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.extraVolumeMounts }}
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- end }}
-      {{- if .Values.extraVolumes }}
       volumes:
+        - name: tmp
+          emptyDir: {}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
