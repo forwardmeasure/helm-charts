@@ -46,9 +46,9 @@ import org.keycloak.organization.OrganizationProvider;
  * serialization step to get wrong.
  *
  * <p>Deliberately requires the caller (the real, trusted resource-server client - see {@link
- * com.forwardmeasure.authzen.client.AuthzenAuthorizationService} in forwardmeasure-authzen, the only
- * real caller of this policy) to declare which Organization the request is scoped to, via the AuthZEN
- * evaluation request's {@code context.active_organization_id} - already sent on every real
+ * com.forwardmeasure.authzen.client.AuthzenAuthorizationService} in forwardmeasure-authzen, the
+ * only real caller of this policy) to declare which Organization the request is scoped to, via the
+ * AuthZEN evaluation request's {@code context.active_organization_id} - already sent on every real
  * evaluation call today. This mirrors {@code PROJECT_MANIFESTO.md}'s own anti-merge principle
  * exactly: a role is only honored for the one Organization the caller explicitly asserts as active
  * for this request, never merged across every Organization the identity happens to belong to. The
@@ -58,13 +58,13 @@ import org.keycloak.organization.OrganizationProvider;
  *
  * <p>No mock-based unit test exists for this class (Mockito is banned org-wide) - real verification
  * lives in forwardmeasure-authzen's {@code AuthzenAuthorizationServiceKeycloakIntegrationTest} and
- * forwardmeasure-data-streaming's {@code DirectIngestionLauncherKeycloakIntegrationTest}, both real,
- * live, no-mocks end-to-end tests against a real Keycloak container running this exact provider (a
- * real PERMIT with a full decision trace, and two real negative controls - wrong organization
- * asserted, no organization asserted - both correctly denied). A self-contained real Testcontainers
- * test for this module specifically (build a fresh image from {@code target/*.jar} via
- * `ImageFromDockerfile`, provision real Organizations/policies, issue a real evaluation call) is a
- * reasonable follow-up, not built yet - flagged, not silently skipped.
+ * forwardmeasure-data-streaming's {@code DirectIngestionLauncherKeycloakIntegrationTest}, both
+ * real, live, no-mocks end-to-end tests against a real Keycloak container running this exact
+ * provider (a real PERMIT with a full decision trace, and two real negative controls - wrong
+ * organization asserted, no organization asserted - both correctly denied). A self-contained real
+ * Testcontainers test for this module specifically (build a fresh image from {@code target/*.jar}
+ * via `ImageFromDockerfile`, provision real Organizations/policies, issue a real evaluation call)
+ * is a reasonable follow-up, not built yet - flagged, not silently skipped.
  */
 public class OrganizationRolePolicyProvider implements PolicyProvider {
 
@@ -101,9 +101,10 @@ public class OrganizationRolePolicyProvider implements PolicyProvider {
 
     OrganizationProvider organizations = session.getProvider(OrganizationProvider.class);
     OrganizationModel organization = organizations.getById(activeOrganizationId);
+    // Disabled organizations must deny existing tokens as well as future authentication.
     // Cross-checked against real membership, not just trusted from the caller's own assertion -
     // see this class's own javadoc for why this matters.
-    if (organization == null || !organization.isMember(user)) {
+    if (organization == null || !organization.isEnabled() || !organization.isMember(user)) {
       return;
     }
 
@@ -118,10 +119,16 @@ public class OrganizationRolePolicyProvider implements PolicyProvider {
     }
 
     boolean hasOrganizationRole =
-        organizations.getOrganizationGroupsByMember(organization, user).anyMatch(group -> group.hasRole(role));
+        organizations
+            .getOrganizationGroupsByMember(organization, user)
+            .anyMatch(group -> group.hasRole(role));
     LOG.debugf(
         "Policy %s: user=%s organization=%s role=%s -> %s",
-        policy.getName(), userId, activeOrganizationId, roleName, hasOrganizationRole ? "GRANT" : "DENY");
+        policy.getName(),
+        userId,
+        activeOrganizationId,
+        roleName,
+        hasOrganizationRole ? "GRANT" : "DENY");
     if (hasOrganizationRole) {
       evaluation.grant();
     }
