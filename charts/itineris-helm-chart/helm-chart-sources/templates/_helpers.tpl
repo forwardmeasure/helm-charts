@@ -48,6 +48,19 @@ app.kubernetes.io/name: {{ include "itineris.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{/* Preserve the distinguishing Job suffix when a long release name fills the name budget. */}}
+{{- define "itineris.suffixedName" -}}
+{{- $suffix := required "Job suffix must not be empty" .suffix -}}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $suffix) -}}
+{{- fail "Job suffix must be a lowercase DNS label" -}}
+{{- end -}}
+{{- if gt (len $suffix) 40 -}}
+{{- $suffix = printf "%s-%s" ($suffix | trunc 31 | trimSuffix "-") (sha256sum $suffix | trunc 8) -}}
+{{- end -}}
+{{- $budget := int (sub 62 (len $suffix)) -}}
+{{- printf "%s-%s" (include "itineris.fullname" .root | trunc $budget | trimSuffix "-") $suffix -}}
+{{- end }}
+
 {{/*
 Service account name.
 */}}
@@ -172,6 +185,14 @@ Usage: {{ include "itineris.image" . }}
 {{/* Spark receives only Secret references and paths here, never password values. */}}
 {{- define "itineris.directSparkConfiguration" -}}
 {{ .Values.analyticsJob.sparkConfigurationProperties }}
+{{ printf "\nspark.kubernetes.container.image.pullPolicy=%s" .Values.analyticsJob.image.pullPolicy }}
+{{- if .Values.imagePullSecrets }}
+{{- $pullSecrets := list }}
+{{- range .Values.imagePullSecrets }}
+{{- $pullSecrets = append $pullSecrets .name }}
+{{- end }}
+{{ printf "\nspark.kubernetes.container.image.pullSecrets=%s" (join "," $pullSecrets) }}
+{{- end }}
 {{- range $backend, $tls := dict "cassandra" .Values.cql.ssl "opensearch" .Values.opensearch.ssl }}
 {{- if and $tls.enabled $tls.secretName }}
 {{ printf "\nspark.kubernetes.executor.volumes.secret.%s-tls.options.secretName=%s" $backend $tls.secretName }}

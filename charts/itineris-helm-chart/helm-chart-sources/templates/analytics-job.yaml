@@ -15,10 +15,13 @@
 # limitations under the License.
 #
 {{- if .Values.analyticsJob.enabled }}
+{{- if and .Values.controlPlane.migrations.enabled (eq .Values.analyticsJob.name "migrations") }}
+{{- fail "analyticsJob.name must differ from the reserved migrations Job suffix" }}
+{{- end }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ printf "%s-%s" (include "itineris.fullname" .) .Values.analyticsJob.name | trunc 63 | trimSuffix "-" }}
+  name: {{ include "itineris.suffixedName" (dict "root" . "suffix" .Values.analyticsJob.name) }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "itineris.labels" . | nindent 4 }}
@@ -86,6 +89,8 @@ spec:
               value: {{ .Values.analyticsJob.master | quote }}
             {{- include "itineris.backendTlsEnv" (dict "backend" "CASSANDRA" "tls" .Values.cql.ssl "analytics" false) | nindent 12 }}
             {{- include "itineris.backendTlsEnv" (dict "backend" "OPENSEARCH" "tls" .Values.opensearch.ssl "analytics" false) | nindent 12 }}
+            - name: ITINERIS_CASSANDRA_PORT
+              value: {{ .Values.cql.port | quote }}
             - name: ITINERIS_CASSANDRA_HOSTS
               value: {{ .Values.cql.hosts | quote }}
             - name: ITINERIS_CASSANDRA_LOCAL_DATACENTER
@@ -102,6 +107,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.cql.credentialsSecret.name }}
                   key: {{ .Values.cql.credentialsSecret.passwordKey }}
+            - name: ITINERIS_OPENSEARCH_PORT
+              value: {{ .Values.opensearch.port | quote }}
             - name: ITINERIS_OPENSEARCH_HOSTS
               value: {{ .Values.opensearch.hosts | quote }}
             - name: itineris.graph-defaults.index.search.backend

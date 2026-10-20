@@ -120,7 +120,7 @@ itineris:
 # -- Cassandra defaults shared by tenant graphs; tenant keyspaces come from the catalog
 cql:
   # -- Comma-separated Cassandra endpoints; each may include its port
-  hosts: cassandra:9042
+  hosts: cassandra
   # -- Cassandra local datacenter
   localDatacenter: datacenter1
   port: 9042
@@ -148,7 +148,7 @@ cql:
 opensearch:
   endpoints: https://opensearch:9200
   # -- Comma-separated OpenSearch endpoints; each may include its port
-  hosts: opensearch:9200
+  hosts: opensearch
   port: 9200
   credentialsSecret:
     name: itineris-opensearch-credentials
