@@ -68,6 +68,10 @@ spec:
               value: {{ include "itineris.analyticsServiceAccountName" . | quote }}
             - name: ITINERIS_ANALYTICS_DEADLINE
               value: {{ .Values.analytics.deadline | quote }}
+            - name: ITINERIS_ANALYTICS_POD_RETENTION
+              value: {{ .Values.analytics.podRetention | quote }}
+            - name: ITINERIS_ANALYTICS_RETENTION_INTERVAL
+              value: {{ .Values.analytics.retentionInterval | quote }}
             - name: ITINERIS_SPARK_MASTER
               value: {{ .Values.analytics.master | quote }}
             - name: ITINERIS_SPARK_CONFIGURATION
