@@ -102,7 +102,7 @@ Usage: {{ include "itineris.image" . }}
 {{- end }}
 
 {{- define "itineris.analyticsServiceAccountName" -}}
-{{- default (printf "%s-analytics" (include "itineris.fullname" .) | trunc 63 | trimSuffix "-") .Values.analytics.serviceAccount.name -}}
+{{- default (include "itineris.suffixedName" (dict "root" . "suffix" "analytics")) .Values.analytics.serviceAccount.name -}}
 {{- end }}
 
 {{- define "itineris.migrationsImage" -}}

@@ -74,7 +74,8 @@ physical storage identity and it does not create a durable API run record. Prefe
 analytics API for ordinary tenant requests. Use a distinct lowercase DNS-label `analyticsJob.name`
 for each direct run: Job templates are immutable. The reserved migrations suffix cannot be reused
 while migrations are enabled. Long names retain their distinguishing suffix instead of truncating
-both Jobs to the same name.
+both Jobs to the same name. The worker service account also keeps its analytics suffix; chart
+RBAC rejects a shared controller/worker identity so their permissions remain separate.
 
 Server pods carry `app.kubernetes.io/component=server`; the Service selects that component so
 Spark worker pods never become HTTP endpoints. The existing Deployment selector remains stable

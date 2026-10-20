@@ -23,6 +23,9 @@ metadata:
     {{- include "itineris.labels" . | nindent 4 }}
 {{- end }}
 {{- if .Values.analytics.rbac.create }}
+{{- if eq (include "itineris.serviceAccountName" .) (include "itineris.analyticsServiceAccountName" .) }}
+{{- fail "Controller and analytics service accounts must differ when chart RBAC is enabled" }}
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
