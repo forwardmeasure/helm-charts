@@ -3,7 +3,7 @@ name: itineris
 description: Itineris distributed graph database (JanusGraph fork)
 type: application
 version: "0.1.10"
-appVersion: "1.1.0"
+appVersion: "2.0.0-SNAPSHOT"
 keywords:
   - graph
   - database

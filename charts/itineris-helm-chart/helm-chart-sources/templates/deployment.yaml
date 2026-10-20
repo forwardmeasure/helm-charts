@@ -15,7 +15,7 @@ spec:
       labels:
         {{- include "itineris.labels" . | nindent 8 }}
       annotations:
-        {{- if .Values.opensearch.enabled }}
+        {{- if .Values.opensearch.ssl.enabled }}
         traffic.sidecar.istio.io/excludeOutboundPorts: {{ .Values.opensearch.port | quote }}
         {{- end }}
         {{- with .Values.podAnnotations }}
@@ -27,6 +27,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "itineris.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.itineris.terminationGracePeriodSeconds }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -36,133 +37,102 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           ports:
-            - name: gremlin
+            - name: http
               containerPort: 8182
               protocol: TCP
           env:
-            # ----------------------------------------------------------------
-            # Server bootstrap
-            # ----------------------------------------------------------------
-            - name: ITINERIS_PROPS_TEMPLATE
-              value: {{ .Values.itineris.propsTemplate | quote }}
-            - name: ITINERIS_STORAGE_TIMEOUT
-              value: {{ .Values.itineris.storageTimeout | quote }}
-            - name: ITINERIS_SERVER_TIMEOUT
-              value: {{ .Values.itineris.serverTimeout | quote }}
-            - name: JAVA_OPTIONS
+            - name: ITINERIS_KEYCLOAK_ISSUER
+              value: {{ .Values.itineris.keycloakIssuer | quote }}
+            - name: ITINERIS_CLIENT_ID
+              value: {{ .Values.itineris.clientId | quote }}
+            - name: ITINERIS_ORGANIZATION_CLIENT_ID
+              value: {{ .Values.itineris.organizationClientId | quote }}
+            - name: ITINERIS_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.itineris.clientSecret.secretName }}
+                  key: {{ .Values.itineris.clientSecret.secretKey }}
+            - name: JDK_JAVA_OPTIONS
               value: {{ .Values.itineris.javaOptions | quote }}
-
-            # ----------------------------------------------------------------
-            # Gremlin server tuning
-            # ----------------------------------------------------------------
-            - name: gremlinserver.threadPoolWorker
-              value: {{ .Values.itineris.gremlinThreadPoolWorker | quote }}
-            - name: gremlinserver.gremlinPool
-              value: {{ .Values.itineris.gremlinPool | quote }}
-
-            # ----------------------------------------------------------------
-            # CQL storage backend
-            # ----------------------------------------------------------------
-            - name: itineris.storage.hostname
-              value: {{ .Values.cql.hostname | quote }}
-            - name: itineris.storage.port
-              value: {{ .Values.cql.port | quote }}
-            - name: itineris.storage.cql.keyspace
-              value: {{ .Values.cql.keyspace | quote }}
-            - name: itineris.storage.cql.local-datacenter
+            - name: ITINERIS_CASSANDRA_HOSTS
+              value: {{ .Values.cql.hosts | quote }}
+            - name: ITINERIS_CASSANDRA_LOCAL_DATACENTER
               value: {{ .Values.cql.localDatacenter | quote }}
-            - name: itineris.storage.cql.replication-factor
+            - name: ITINERIS_CASSANDRA_REPLICATION_FACTOR
               value: {{ .Values.cql.replicationFactor | quote }}
-            {{- if .Values.cql.initWaitTime }}
-            - name: itineris.storage.cql.init-wait-time
-              value: {{ .Values.cql.initWaitTime | quote }}
-            {{- end }}
-            # CQL credentials sourced from ExternalSecret itineris-cql-credentials
-            - name: itineris.storage.username
+            - name: itineris.graph-defaults.storage.username
               valueFrom:
                 secretKeyRef:
-                  name: itineris-cql-credentials
-                  key: username
-            - name: itineris.storage.password
+                  name: {{ .Values.cql.credentialsSecret.name }}
+                  key: {{ .Values.cql.credentialsSecret.usernameKey }}
+            - name: itineris.graph-defaults.storage.password
               valueFrom:
                 secretKeyRef:
-                  name: itineris-cql-credentials
-                  key: password
-
-            # ----------------------------------------------------------------
-            # OpenSearch index backend
-            # ----------------------------------------------------------------
-            {{- if .Values.opensearch.enabled }}
-            - name: itineris.index.search.backend
-              value: "opensearch"
-            - name: itineris.index.search.hostname
-              value: {{ .Values.opensearch.hostname | quote }}
-            - name: itineris.index.search.port
-              value: {{ .Values.opensearch.port | quote }}
-
-            # HTTP Basic auth — type must be "basic" for credentials to be sent
-            - name: itineris.index.search.opensearch.http.auth.type
+                  name: {{ .Values.cql.credentialsSecret.name }}
+                  key: {{ .Values.cql.credentialsSecret.passwordKey }}
+            - name: ITINERIS_OPENSEARCH_HOSTS
+              value: {{ .Values.opensearch.hosts | quote }}
+            - name: itineris.graph-defaults.index.search.opensearch.http.auth.type
               value: "basic"
-            - name: itineris.index.search.opensearch.http.auth.basic.username
+            - name: itineris.graph-defaults.index.search.opensearch.http.auth.basic.username
               valueFrom:
                 secretKeyRef:
-                  name: itineris-opensearch-credentials
-                  key: username
-            - name: itineris.index.search.opensearch.http.auth.basic.password
+                  name: {{ .Values.opensearch.credentialsSecret.name }}
+                  key: {{ .Values.opensearch.credentialsSecret.usernameKey }}
+            - name: itineris.graph-defaults.index.search.opensearch.http.auth.basic.password
               valueFrom:
                 secretKeyRef:
-                  name: itineris-opensearch-credentials
-                  key: password
-
-            # SSL — OpenSearch requires HTTPS; allow self-signed certs
-            - name: itineris.index.search.opensearch.ssl.enabled
+                  name: {{ .Values.opensearch.credentialsSecret.name }}
+                  key: {{ .Values.opensearch.credentialsSecret.passwordKey }}
+            - name: itineris.graph-defaults.index.search.opensearch.ssl.enabled
               value: {{ .Values.opensearch.ssl.enabled | quote }}
-            - name: itineris.index.search.opensearch.ssl.disable-hostname-verification
+            - name: itineris.graph-defaults.index.search.opensearch.ssl.disable-hostname-verification
               value: {{ .Values.opensearch.ssl.disableHostnameVerification | quote }}
-            - name: itineris.index.search.opensearch.ssl.allow-self-signed-certificates
+            - name: itineris.graph-defaults.index.search.opensearch.ssl.allow-self-signed-certificates
               value: {{ .Values.opensearch.ssl.allowSelfSignedCertificates | quote }}
-            {{- end }}
-
-            # ----------------------------------------------------------------
-            # Extra env vars (from values)
-            # ----------------------------------------------------------------
+            - name: ITINERIS_GRAPH_CACHE_MAXIMUM_SIZE
+              value: {{ .Values.itineris.graphCacheMaximumSize | quote }}
+            - name: ITINERIS_GRAPH_CACHE_IDLE_TIMEOUT
+              value: {{ .Values.itineris.graphCacheIdleTimeout | quote }}
+            - name: ITINERIS_GREMLIN_TIMEOUT
+              value: {{ .Values.itineris.gremlinTimeout | quote }}
+            - name: ITINERIS_GREMLIN_THREADS
+              value: {{ .Values.itineris.gremlinThreads | quote }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
 
+          startupProbe:
+            httpGet:
+              path: /q/health/started
+              port: http
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
           livenessProbe:
-            tcpSocket:
-              port: 8182
-            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            httpGet:
+              path: /q/health/live
+              port: http
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
           readinessProbe:
-            tcpSocket:
-              port: 8182
-            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            httpGet:
+              path: /q/health/ready
+              port: http
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if or .Values.persistence.enabled .Values.extraVolumeMounts }}
+          {{- if .Values.extraVolumeMounts }}
           volumeMounts:
-            {{- if .Values.persistence.enabled }}
-            - name: data
-              mountPath: /opt/itineris/data
-            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-      {{- if or .Values.persistence.enabled .Values.extraVolumes }}
+      {{- if .Values.extraVolumes }}
       volumes:
-        {{- if .Values.persistence.enabled }}
-        - name: data
-          persistentVolumeClaim:
-            claimName: {{ include "itineris.fullname" . }}
-        {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

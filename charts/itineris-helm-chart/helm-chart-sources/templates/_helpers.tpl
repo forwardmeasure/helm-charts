@@ -74,3 +74,16 @@ Usage: {{ include "itineris.image" . }}
 {{- printf "%s/%s:%s" $registry $repository $tag }}
 {{- end }}
 {{- end }}
+
+{{/* Runner image reference — prefers digest over tag if both are set. */}}
+{{- define "itineris.analyticsImage" -}}
+{{- $registry := .Values.image.registry -}}
+{{- $repository := .Values.analyticsJob.image.repository -}}
+{{- $digest := .Values.analyticsJob.image.digest | default "" -}}
+{{- $tag := .Values.analyticsJob.image.tag | default .Chart.AppVersion -}}
+{{- if $digest }}
+{{- printf "%s/%s@%s" $registry $repository $digest }}
+{{- else }}
+{{- printf "%s/%s:%s" $registry $repository $tag }}
+{{- end }}
+{{- end }}

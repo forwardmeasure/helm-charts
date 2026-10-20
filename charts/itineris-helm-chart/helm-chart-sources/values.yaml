@@ -15,7 +15,7 @@ image:
   # -- Image repository
   repository: forwardmeasure/itineris
   # -- Image tag (ignored if digest is set)
-  tag: "1.1.0"
+  tag: "2.0.0-SNAPSHOT"
   # -- Image digest (takes precedence over tag if set)
   # e.g. sha256:abc123...
   digest: ""
@@ -39,19 +39,24 @@ serviceAccount:
   name: ""
 
 # -- Annotations for the pod
-podAnnotations: {}
+# Prometheus scrape annotations for Quarkus metrics; set podAnnotations to
+# override or disable them when the cluster uses ServiceMonitor discovery.
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/path: /q/metrics
+  prometheus.io/port: "8182"
 
 # -- Security context for the pod
 podSecurityContext:
   runAsNonRoot: true
-  runAsUser: 10013
-  runAsGroup: 10013
-  fsGroup: 10013
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
 
 # -- Security context for the container
 securityContext:
   allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
@@ -59,7 +64,7 @@ securityContext:
 service:
   # -- Service type
   type: ClusterIP
-  # -- Gremlin WebSocket/HTTP port
+  # -- HTTP port for Gremlin, health, and metrics
   port: 8182
 
 # -- Resource requests and limits
@@ -82,88 +87,95 @@ affinity: {}
 
 # -- Probe timing configuration
 probes:
+  startup:
+    failureThreshold: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
   liveness:
-    initialDelaySeconds: 60
     periodSeconds: 30
     timeoutSeconds: 10
     failureThreshold: 3
   readiness:
-    initialDelaySeconds: 30
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
 
-# -- Itineris server configuration
+# -- Itineris 2.0 server configuration
 itineris:
-  # -- Properties template to use (inmemory-server, cql-server, cql-opensearch-server)
-  propsTemplate: cql-opensearch-server
-  # -- Storage backend timeout in seconds
-  storageTimeout: 120
-  # -- Server startup timeout in seconds
-  serverTimeout: 60
-  # -- Java options
-  javaOptions: "-Xmx1g"
-  # -- Gremlin thread pool worker count
-  gremlinThreadPoolWorker: 1
-  # -- Gremlin pool size
-  gremlinPool: 8
+  keycloakIssuer: http://keycloak:8080/realms/forwardmeasure
+  clientId: itineris
+  organizationClientId: forwardmeasure-public
+  clientSecret:
+    secretName: itineris-auth-credentials
+    secretKey: client-secret
+  javaOptions: "-XX:MaxRAMPercentage=75"
+  graphCacheMaximumSize: 64
+  graphCacheIdleTimeout: 30M
+  gremlinTimeout: 30S
+  gremlinThreads: 16
+  terminationGracePeriodSeconds: 60
 
-# -- CQL (Cassandra/k8ssandra) backend configuration
+# -- Cassandra defaults shared by tenant graphs; tenant keyspaces come from the catalog
 cql:
-  # -- Cassandra hostname or service name
-  hostname: ""
-  # -- Cassandra port
-  port: 9042
-  # -- Cassandra keyspace
-  keyspace: itineris
+  # -- Comma-separated Cassandra endpoints; each may include its port
+  hosts: cassandra:9042
   # -- Cassandra local datacenter
-  localDatacenter: dc1
+  localDatacenter: datacenter1
   # -- Replication factor
-  replicationFactor: 3
-  # -- Milliseconds to wait after creating each table, to allow schema propagation
-  # across all Cassandra nodes before preparing statements. Increase if you see
-  # "table X does not exist" errors on fresh installs with multi-node clusters.
-  initWaitTime: 2000
-  # -- k8ssandra superuser secret — read directly from k8ssandra namespace via SecretStore
+  replicationFactor: 1
   credentialsSecret:
-    name: data-fabric-superuser
-    namespace: k8ssandra-cluster
+    name: itineris-cql-credentials
+    usernameKey: username
+    passwordKey: password
 
-# -- OpenSearch index backend configuration
+# -- OpenSearch defaults shared by tenant graphs
 opensearch:
-  # -- Enable OpenSearch index backend
-  enabled: true
-  # -- OpenSearch hostname or service name
-  hostname: ""
-  # -- OpenSearch port
+  # -- Comma-separated OpenSearch endpoints; each may include its port
+  hosts: opensearch:9200
   port: 9200
-  # -- SSL configuration
+  credentialsSecret:
+    name: itineris-opensearch-credentials
+    usernameKey: username
+    passwordKey: password
   ssl:
     enabled: true
     disableHostnameVerification: true
     allowSelfSignedCertificates: true
 
-# -- External Secrets Operator configuration
-externalSecrets:
-  refreshInterval: 1h
-
-# -- Persistence configuration
-persistence:
-  # -- Enable persistent volume
-  enabled: false
-  # -- Storage class
-  storageClass: ""
-  # -- Access modes
-  accessModes:
-    - ReadWriteOnce
-  # -- Storage size
-  size: 10Gi
-
 # -- Extra environment variables
 extraEnv: []
 
-# -- Extra volumes
+# -- Extra volumes and mounts for certificates or configuration
 extraVolumes: []
 
 # -- Extra volume mounts
 extraVolumeMounts: []
+
+# -- Optional one-shot analytics run; the default uses Spark local mode in this Job pod
+analyticsJob:
+  enabled: false
+  name: analytics-run
+  image:
+    repository: forwardmeasure/itineris-spark-runner
+    tag: "2.0.0-SNAPSHOT"
+    digest: ""
+    pullPolicy: Always
+  runId: ""
+  jobName: ""
+  tenantId: ""
+  graphName: ""
+  keyspace: ""
+  indexPrefix: ""
+  master: local[*]
+  parametersProperties: ""
+  sparkConfigurationProperties: ""
+  graphConfigurationProperties: ""
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi

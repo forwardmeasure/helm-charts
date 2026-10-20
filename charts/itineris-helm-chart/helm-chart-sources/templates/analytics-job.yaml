@@ -1,0 +1,125 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements. See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+{{- if .Values.analyticsJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-%s" (include "itineris.fullname" .) .Values.analyticsJob.name | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "itineris.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analytics-runner
+spec:
+  backoffLimit: {{ .Values.analyticsJob.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.analyticsJob.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "itineris.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: analytics-runner
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "itineris.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: analytics-runner
+          image: {{ include "itineris.analyticsImage" . }}
+          imagePullPolicy: {{ .Values.analyticsJob.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: ITINERIS_RUN_ID
+              value: {{ required "analyticsJob.runId is required when enabled" .Values.analyticsJob.runId | quote }}
+            - name: ITINERIS_JOB_NAME
+              value: {{ required "analyticsJob.jobName is required when enabled" .Values.analyticsJob.jobName | quote }}
+            - name: ITINERIS_TENANT_ID
+              value: {{ required "analyticsJob.tenantId is required when enabled" .Values.analyticsJob.tenantId | quote }}
+            - name: ITINERIS_GRAPH_NAME
+              value: {{ required "analyticsJob.graphName is required when enabled" .Values.analyticsJob.graphName | quote }}
+            - name: ITINERIS_KEYSPACE
+              value: {{ required "analyticsJob.keyspace is required when enabled" .Values.analyticsJob.keyspace | quote }}
+            - name: ITINERIS_INDEX_PREFIX
+              value: {{ required "analyticsJob.indexPrefix is required when enabled" .Values.analyticsJob.indexPrefix | quote }}
+            - name: ITINERIS_GRAPH_CONFIGURATION
+              value: {{ .Values.analyticsJob.graphConfigurationProperties | quote }}
+            - name: ITINERIS_JOB_PARAMETERS
+              value: {{ .Values.analyticsJob.parametersProperties | quote }}
+            - name: ITINERIS_SPARK_CONFIGURATION
+              value: {{ .Values.analyticsJob.sparkConfigurationProperties | quote }}
+            - name: SPARK_MASTER
+              value: {{ .Values.analyticsJob.master | quote }}
+            - name: ITINERIS_CASSANDRA_HOSTS
+              value: {{ .Values.cql.hosts | quote }}
+            - name: ITINERIS_CASSANDRA_LOCAL_DATACENTER
+              value: {{ .Values.cql.localDatacenter | quote }}
+            - name: ITINERIS_CASSANDRA_REPLICATION_FACTOR
+              value: {{ .Values.cql.replicationFactor | quote }}
+            - name: itineris.graph-defaults.storage.username
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cql.credentialsSecret.name }}
+                  key: {{ .Values.cql.credentialsSecret.usernameKey }}
+            - name: itineris.graph-defaults.storage.password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cql.credentialsSecret.name }}
+                  key: {{ .Values.cql.credentialsSecret.passwordKey }}
+            - name: ITINERIS_OPENSEARCH_HOSTS
+              value: {{ .Values.opensearch.hosts | quote }}
+            - name: itineris.graph-defaults.index.search.backend
+              value: opensearch
+            - name: itineris.graph-defaults.index.search.interface
+              value: REST_CLIENT
+            - name: itineris.graph-defaults.index.search.opensearch.http.auth.type
+              value: basic
+            - name: itineris.graph-defaults.index.search.opensearch.http.auth.basic.username
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opensearch.credentialsSecret.name }}
+                  key: {{ .Values.opensearch.credentialsSecret.usernameKey }}
+            - name: itineris.graph-defaults.index.search.opensearch.http.auth.basic.password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.opensearch.credentialsSecret.name }}
+                  key: {{ .Values.opensearch.credentialsSecret.passwordKey }}
+            - name: itineris.graph-defaults.index.search.opensearch.ssl.enabled
+              value: {{ .Values.opensearch.ssl.enabled | quote }}
+            - name: itineris.graph-defaults.index.search.opensearch.ssl.disable-hostname-verification
+              value: {{ .Values.opensearch.ssl.disableHostnameVerification | quote }}
+            - name: itineris.graph-defaults.index.search.opensearch.ssl.allow-self-signed-certificates
+              value: {{ .Values.opensearch.ssl.allowSelfSignedCertificates | quote }}
+          resources:
+            {{- toYaml .Values.analyticsJob.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

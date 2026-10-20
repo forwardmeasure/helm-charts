@@ -10,8 +10,8 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: gremlin
+      targetPort: http
       protocol: TCP
-      name: gremlin
+      name: http
   selector:
     {{- include "itineris.selectorLabels" . | nindent 4 }}
