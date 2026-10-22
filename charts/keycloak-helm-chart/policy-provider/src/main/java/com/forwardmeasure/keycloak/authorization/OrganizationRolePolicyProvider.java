@@ -21,6 +21,7 @@ import org.keycloak.authorization.AuthorizationProvider;
 import org.keycloak.authorization.attribute.Attributes;
 import org.keycloak.authorization.model.Policy;
 import org.keycloak.authorization.model.ResourceServer;
+import org.keycloak.authorization.identity.Identity;
 import org.keycloak.authorization.policy.evaluation.Evaluation;
 import org.keycloak.authorization.policy.provider.PolicyProvider;
 import org.keycloak.models.ClientModel;
@@ -87,7 +88,11 @@ public class OrganizationRolePolicyProvider implements PolicyProvider {
     KeycloakSession session = authorization.getKeycloakSession();
     RealmModel realm = session.getContext().getRealm();
 
-    String userId = evaluation.getContext().getIdentity().getId();
+    String userId = subjectId(evaluation);
+    if (userId == null) {
+      LOG.debugf("Policy %s: the subject resolved to no Keycloak user - denying", policy.getName());
+      return;
+    }
     UserModel user = session.users().getUserById(realm, userId);
     if (user == null) {
       return;
@@ -131,6 +136,24 @@ public class OrganizationRolePolicyProvider implements PolicyProvider {
         hasOrganizationRole ? "GRANT" : "DENY");
     if (hasOrganizationRole) {
       evaluation.grant();
+    }
+  }
+
+  /**
+   * The evaluated subject's id, or null when the subject resolved to no Keycloak user or client.
+   * Keycloak's AuthZEN endpoint hands an unresolved subject (for example an id it cannot look up)
+   * to the policies as an identity whose getId() throws on its missing delegate; that must deny
+   * like any other unknown subject, never fail the whole evaluation with a server error.
+   */
+  private static String subjectId(Evaluation evaluation) {
+    Identity identity = evaluation.getContext().getIdentity();
+    if (identity == null) {
+      return null;
+    }
+    try {
+      return identity.getId();
+    } catch (NullPointerException unresolved) {
+      return null;
     }
   }
 
