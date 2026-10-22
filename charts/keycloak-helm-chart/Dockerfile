@@ -24,10 +24,10 @@
 #
 # The real source of truth for the Keycloak version is helm-chart-sources/values.yaml's own
 # `keycloakVersion` - build-and-push-image.sh reads it from there and passes it as the
-# KEYCLOAK_BASE_IMAGE build-arg below, so this ARG's own default only matters for a manual
-# `docker build` run directly against this file. Keep it in sync with values.yaml by hand if you
-# ever change one without running the build script.
-ARG KEYCLOAK_BASE_IMAGE=quay.io/keycloak/keycloak:26.7.4
+# KEYCLOAK_BASE_IMAGE build-arg below. Manual builds must supply that argument too, using the
+# version from values.yaml (and the resolved official-image digest for reproducible builds).
+# Requiring the argument prevents a new provider from silently using an old SPI runtime.
+ARG KEYCLOAK_BASE_IMAGE
 
 FROM ${KEYCLOAK_BASE_IMAGE}
 
