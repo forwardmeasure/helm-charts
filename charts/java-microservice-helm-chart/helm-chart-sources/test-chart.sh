@@ -6,7 +6,10 @@ map_render="$(mktemp)"
 neutral_render="$(mktemp)"
 legacy_render="$(mktemp)"
 gaps_render="$(mktemp)"
-trap 'rm -f "${map_render}" "${neutral_render}" "${legacy_render}" "${gaps_render}"' EXIT
+cronjob_render="$(mktemp)"
+once_spec="$(mktemp)"
+scheduled_spec="$(mktemp)"
+trap 'rm -f "${map_render}" "${neutral_render}" "${legacy_render}" "${gaps_render}" "${cronjob_render}" "${once_spec}" "${scheduled_spec}"' EXIT
 
 helm lint "${chart_dir}"
 
@@ -204,5 +207,97 @@ if awk '/^# Deployment: emptydir-fixture$/,/^---$/' "${gaps_render}" | grep -q '
   echo "a service with no podAntiAffinity override must not render an affinity block" >&2
   exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# deploymentMode: cronJob - scheduled, recurring finite work whose every run
+# is exactly the Job deploymentMode: job renders.
+# ---------------------------------------------------------------------------
+helm template cronjob-test "${chart_dir}" \
+  --namespace test \
+  -f "${chart_dir}/test-values-cronjob.yaml" > "${cronjob_render}"
+
+scheduled() { awk '/^# CronJob: reconcile-scheduled-fixture$/,/^---$/' "${cronjob_render}"; }
+options() { awk '/^# CronJob: cronjob-options-fixture$/,/^---$/' "${cronjob_render}"; }
+
+# Defaults: Forbid, history limits 3/1, not suspended, no timeZone/deadline.
+for expected in '^kind: CronJob$' '^  schedule: "\*/5 \* \* \* \*"$' '^  concurrencyPolicy: Forbid$' \
+  '^  successfulJobsHistoryLimit: 3$' '^  failedJobsHistoryLimit: 1$' '^  suspend: false$'; do
+  if ! scheduled | grep -q "${expected}"; then
+    echo "cronJob defaults: expected ${expected} on the CronJob" >&2
+    exit 1
+  fi
+done
+if scheduled | grep -q 'timeZone:\|startingDeadlineSeconds:'; then
+  echo "cronJob must not render unset timeZone/startingDeadlineSeconds" >&2
+  exit 1
+fi
+# Every optional field, including a zero history limit, renders as set.
+for expected in '^  schedule: "0 3 \* \* \*"$' '^  timeZone: "Etc/UTC"$' '^  concurrencyPolicy: Replace$' \
+  '^  startingDeadlineSeconds: 120$' '^  successfulJobsHistoryLimit: 0$' \
+  '^  failedJobsHistoryLimit: 5$' '^  suspend: true$'; do
+  if ! options | grep -q "${expected}"; then
+    echo "cronJob options: expected ${expected} on the CronJob" >&2
+    exit 1
+  fi
+done
+
+# A CronJob is an ordinary release resource, never a Helm hook.
+if scheduled | grep -q 'helm.sh/hook'; then
+  echo "a deploymentMode: cronJob resource must never carry Helm hook annotations" >&2
+  exit 1
+fi
+# Each run: the Cloud SQL proxy as a native sidecar (so the run completes),
+# never a regular container, and probes off by default as for a Job.
+if ! scheduled | awk '/^          initContainers:$/,/^          containers:$/' \
+  | grep -A3 '^            - name: cloud-sql-proxy$' | grep -q '^              restartPolicy: Always$'; then
+  echo "cronJob runs must carry the Cloud SQL proxy as a native sidecar init container" >&2
+  exit 1
+fi
+if scheduled | grep -q 'Probe:'; then
+  echo "deploymentMode: cronJob must default probes off" >&2
+  exit 1
+fi
+
+# Every scheduled run's pod is exactly the one-shot Job's pod: the Job's
+# spec.template and the CronJob's jobTemplate.spec.template are identical
+# apart from the service name.
+awk '/^# Job: reconcile-once-fixture$/,/^---$/' "${cronjob_render}" \
+  | awk '/^  template:$/{on=1} on' | sed -e 's/^  //' -e 's/reconcile-once-fixture/SERVICE/g' \
+  | grep -v '^---$' | sed '/^[[:space:]]*$/d' > "${once_spec}"
+scheduled | awk '/^      template:$/{on=1} on' | sed -e 's/^      //' -e 's/reconcile-scheduled-fixture/SERVICE/g' \
+  | grep -v '^---$' | sed '/^[[:space:]]*$/d' > "${scheduled_spec}"
+if [[ ! -s "${once_spec}" ]] || ! diff -u "${once_spec}" "${scheduled_spec}"; then
+  echo "a cronJob run's pod template must be exactly the deploymentMode: job pod template" >&2
+  exit 1
+fi
+for expected in 'name: RECONCILIATION_PASSWORD' 'name: reconciliation-credentials' \
+  'mountPath: "/tmp"' 'name: reconciliation-cloudsql' '^    restartPolicy: OnFailure$'; do
+  grep -q "${expected}" "${scheduled_spec}" || {
+    echo "cronJob run is missing ${expected}" >&2
+    exit 1
+  }
+done
+
+# Rejected configurations fail rendering with a precise message.
+expect_render_failure() {
+  local message="$1"
+  shift
+  local output
+  if output="$(helm template cronjob-test "${chart_dir}" --namespace test \
+    -f "${chart_dir}/test-values-cronjob.yaml" "$@" 2>&1)"; then
+    echo "expected rendering to fail with: ${message}" >&2
+    exit 1
+  fi
+  if ! grep -qF "${message}" <<< "${output}"; then
+    echo "expected failure message '${message}', got: ${output}" >&2
+    exit 1
+  fi
+}
+expect_render_failure "has deploymentMode=cronJob but cronJob.schedule is empty" \
+  --set 'services.cronjob-options-fixture.cronJob.schedule='
+expect_render_failure "has invalid cronJob.concurrencyPolicy 'Sometimes'" \
+  --set 'services.cronjob-options-fixture.cronJob.concurrencyPolicy=Sometimes'
+expect_render_failure "has deploymentMode=cronJob and must not set hooks" \
+  --set 'services.cronjob-options-fixture.hooks.events={post-install}'
 
 echo "java-microservice chart tests passed"

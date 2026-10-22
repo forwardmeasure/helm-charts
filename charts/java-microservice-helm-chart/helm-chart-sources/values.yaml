@@ -491,7 +491,7 @@ kafka:
 #     weight: "10"
 #     deletePolicy: "before-hook-creation,hook-succeeded"
 #
-# deploymentMode: knative (default) | deployment | scaledJob | job
+# deploymentMode: knative (default) | deployment | scaledJob | job | cronJob
 #   knative    — Knative Service with scale-to-zero and Knative traffic
 #                management. Use for pure HTTP request/response workloads.
 #   deployment — Standard Kubernetes Deployment + ClusterIP Service.
@@ -516,14 +516,40 @@ kafka:
 #                .activeDeadlineSeconds/.ttlSecondsAfterFinished/
 #                .restartPolicy — same meaning as scaledJob's job.* fields
 #                below (job.restartPolicy defaults to "Never").
+#   cronJob    — batch/v1 CronJob for scheduled, recurring finite work (e.g.
+#                a periodic reconciliation). Every run is exactly the Job
+#                deploymentMode: job renders - same pod, env, secrets,
+#                volumes and mounts, job.* fields, and the Cloud SQL proxy as
+#                a native sidecar so each run completes. It is an ordinary
+#                release resource, never a Helm hook: setting `hooks` fails
+#                rendering (a hook resource is not managed by its release, so
+#                the schedule would outlive upgrades and uninstall). Run
+#                hook-time work as a sibling deploymentMode: job service.
+#                cronJob fields:
+#                  schedule:                   required, standard cron syntax
+#                  timeZone:                   optional IANA zone name
+#                  concurrencyPolicy:          Allow | Forbid (default) | Replace
+#                  startingDeadlineSeconds:    optional
+#                  successfulJobsHistoryLimit: default 3
+#                  failedJobsHistoryLimit:     default 1
+#                  suspend:                    default false
+#   services:
+#     my-reconciliation:
+#       deploymentMode: cronJob
+#       cronJob:
+#         schedule: "*/5 * * * *"
+#         startingDeadlineSeconds: 240
+#       job:
+#         backoffLimit: 2
+#         activeDeadlineSeconds: 240
 #
 # probes.enabled: whether the main container gets liveness/readiness/startup
 # HTTP probes at all (see probes.liveness/.readiness/.startup path overrides
 # above). Default depends on deploymentMode:
 #   - knative, deployment, scaledJob: true (unchanged, identical to today —
 #     these are long-running workloads a probe genuinely supervises).
-#   - job: false. A one-shot batch/v1 Job is supposed to run to completion,
-#     not be supervised like a long-running service — a failing startupProbe
+#   - job, cronJob: false. A batch/v1 Job (one-shot, or each CronJob run)
+#     is supposed to run to completion, not be supervised like a long-running service — a failing startupProbe
 #     on a slow-starting or non-HTTP Job kills and restarts it before it ever
 #     finishes, which is a correctness bug, not a missing feature. Probes
 #     also assume an HTTP endpoint on `port`, which plenty of batch Jobs never

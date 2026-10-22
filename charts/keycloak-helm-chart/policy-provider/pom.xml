@@ -46,7 +46,7 @@
          Keycloak release the way a hand-maintained jboss-logging version once did (caught live:
          a guessed 3.6.1.Final differed from the real bundled 3.6.2.Final and went unnoticed until
          checked directly against the real image). -->
-    <keycloak.version>26.7.4</keycloak.version>
+    <keycloak.version>26.8.1</keycloak.version>
   </properties>
 
   <!-- Imports Keycloak's own real release BOM so every dependency below resolves to exactly the

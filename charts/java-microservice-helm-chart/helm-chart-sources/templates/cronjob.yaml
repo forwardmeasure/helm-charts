@@ -1,0 +1,49 @@
+{{- range (include "java-microservice.normalizedServices" . | fromYamlArray) }}
+{{- if and .enabled (eq (.deploymentMode | default "knative") "cronJob") }}
+{{- include "java-microservice.validateService" (dict "service" . "root" $) }}
+{{- $cronJob := .cronJob | default (dict) }}
+{{- $successfulJobsHistoryLimit := 3 }}
+{{- if hasKey $cronJob "successfulJobsHistoryLimit" }}
+{{- $successfulJobsHistoryLimit = $cronJob.successfulJobsHistoryLimit }}
+{{- end }}
+{{- $failedJobsHistoryLimit := 1 }}
+{{- if hasKey $cronJob "failedJobsHistoryLimit" }}
+{{- $failedJobsHistoryLimit = $cronJob.failedJobsHistoryLimit }}
+{{- end }}
+---
+# ---------------------------------------------------------------------------
+# CronJob: {{ .name }}
+# A batch/v1 CronJob for scheduled, recurring finite work (e.g. a periodic
+# reconciliation). Each run is exactly the Job deploymentMode: job renders
+# (java-microservice.jobSpec: same pod, env, secrets, mounts, and the Cloud
+# SQL proxy as a native sidecar so the run completes), started on
+# cronJob.schedule. Unlike deploymentMode: job it is an ordinary release
+# resource, never a Helm hook: upgrades update it and uninstall removes it.
+# ---------------------------------------------------------------------------
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 4 }}
+spec:
+  schedule: {{ $cronJob.schedule | quote }}
+  {{- with $cronJob.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  concurrencyPolicy: {{ $cronJob.concurrencyPolicy | default "Forbid" }}
+  {{- if hasKey $cronJob "startingDeadlineSeconds" }}
+  startingDeadlineSeconds: {{ $cronJob.startingDeadlineSeconds }}
+  {{- end }}
+  successfulJobsHistoryLimit: {{ $successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $failedJobsHistoryLimit }}
+  suspend: {{ $cronJob.suspend | default false }}
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "java-microservice.serviceLabels" (dict "service" . "root" $) | nindent 8 }}
+    spec:
+      {{- include "java-microservice.jobSpec" (dict "service" . "root" $) | nindent 6 }}
+{{- end }}
+{{- end }}

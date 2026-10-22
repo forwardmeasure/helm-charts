@@ -15,7 +15,7 @@ enableServiceLinks: true
 # default image.tag below (via the "keycloak.image" helper) and this chart's own Dockerfile/
 # build-and-push-image.sh key off this one value - never duplicate a Keycloak version literal
 # anywhere else in this chart.
-keycloakVersion: "26.7.4"
+keycloakVersion: "26.8.1"
 
 image:
   # The custom image built by this chart's own Dockerfile/build-and-push-image.sh, layering the
