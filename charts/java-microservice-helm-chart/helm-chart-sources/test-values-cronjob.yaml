@@ -1,0 +1,86 @@
+# ------------------------------------------------------------------------------
+# Test-only fixture for deploymentMode: cronJob. A one-shot Job and a CronJob
+# share one service definition (pod, env, secrets, emptyDir mounts, Cloud SQL
+# proxy) so test-chart.sh can prove every scheduled run is exactly the Job
+# deploymentMode: job renders. A second CronJob sets every optional field.
+# Self-contained - renders standalone, not layered on the other fixtures.
+# ------------------------------------------------------------------------------
+serviceAccount:
+  create: false
+  name: test-service-account
+
+liquibaseWait:
+  enabled: false
+
+cloudSqlProxy:
+  image:
+    repository: cloud-sql-connectors/cloud-sql-proxy
+    tag: "2.14.0"
+  port: 5432
+  privateIp: true
+
+services:
+  # The install-time hook Job.
+  reconcile-once-fixture: &reconciliation
+    enabled: true
+    deploymentMode: job
+    image:
+      repository: example/reconciliation-fixture
+      tag: test
+    hooks:
+      events: ["post-install", "post-upgrade"]
+      deletePolicy: "before-hook-creation"
+    job:
+      backoffLimit: 2
+      activeDeadlineSeconds: 240
+      restartPolicy: OnFailure
+    env:
+      RECONCILIATION_SCOPE: tenant-access
+    secrets:
+      - envVar: RECONCILIATION_PASSWORD
+        existingSecretName: reconciliation-credentials
+        secretKey: password
+    emptyDirVolumeMounts:
+      - name: tmp
+        mountPath: /tmp
+    cloudSqlProxy:
+      enabled: true
+      existingSecretName: reconciliation-cloudsql
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # The same work on a schedule: defaults only (Forbid, history 3/1, active).
+  reconcile-scheduled-fixture:
+    <<: *reconciliation
+    deploymentMode: cronJob
+    hooks: {}
+    cronJob:
+      schedule: "*/5 * * * *"
+
+  # Every optional cronJob field set explicitly.
+  cronjob-options-fixture:
+    enabled: true
+    deploymentMode: cronJob
+    image:
+      repository: example/cronjob-options-fixture
+      tag: test
+    cronJob:
+      schedule: "0 3 * * *"
+      timeZone: Etc/UTC
+      concurrencyPolicy: Replace
+      startingDeadlineSeconds: 120
+      successfulJobsHistoryLimit: 0
+      failedJobsHistoryLimit: 5
+      suspend: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

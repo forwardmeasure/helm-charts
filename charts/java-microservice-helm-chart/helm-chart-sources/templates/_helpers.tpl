@@ -548,8 +548,20 @@ Validate a service entry has all required fields.
 {{- end }}
 {{- $deploymentMode := .service.deploymentMode | default "knative" }}
 {{- $scaling := .service.scaling | default (dict) }}
-{{- if not (or (eq $deploymentMode "knative") (eq $deploymentMode "deployment") (eq $deploymentMode "scaledJob") (eq $deploymentMode "job")) }}
-{{- fail (printf "service '%s' has invalid deploymentMode '%s'; expected one of: knative, deployment, scaledJob, job" .service.name $deploymentMode) }}
+{{- if not (or (eq $deploymentMode "knative") (eq $deploymentMode "deployment") (eq $deploymentMode "scaledJob") (eq $deploymentMode "job") (eq $deploymentMode "cronJob")) }}
+{{- fail (printf "service '%s' has invalid deploymentMode '%s'; expected one of: knative, deployment, scaledJob, job, cronJob" .service.name $deploymentMode) }}
+{{- end }}
+{{- if eq $deploymentMode "cronJob" }}
+{{- $cronJob := .service.cronJob | default (dict) }}
+{{- if not $cronJob.schedule }}
+{{- fail (printf "service '%s' has deploymentMode=cronJob but cronJob.schedule is empty" .service.name) }}
+{{- end }}
+{{- if not (has ($cronJob.concurrencyPolicy | default "Forbid") (list "Allow" "Forbid" "Replace")) }}
+{{- fail (printf "service '%s' has invalid cronJob.concurrencyPolicy '%s'; expected one of: Allow, Forbid, Replace" .service.name $cronJob.concurrencyPolicy) }}
+{{- end }}
+{{- if .service.hooks }}
+{{- fail (printf "service '%s' has deploymentMode=cronJob and must not set hooks: a Helm hook resource is not managed by its release, so the schedule would outlive every upgrade and uninstall; run hook-time work as a separate deploymentMode: job service" .service.name) }}
+{{- end }}
 {{- end }}
 {{- if and (eq $deploymentMode "knative") .service.extraPorts (gt (len .service.extraPorts) 0) }}
 {{- fail (printf "service '%s' sets extraPorts but deploymentMode=knative; Knative Serving permits only a single container port, use deploymentMode: deployment or job" .service.name) }}
@@ -617,7 +629,7 @@ Usage: include "java-microservice.initContainers" (dict "service" . "root" $)
 {{- $root := .root -}}
 {{- $liquibaseEnabled := include "java-microservice.liquibaseWaitEnabled" (dict "service" $svc "root" $root) -}}
 {{- $hasCustomInit := and $svc.initContainers (gt (len $svc.initContainers) 0) -}}
-{{- $isFiniteJobMode := or (eq ($svc.deploymentMode | default "knative") "scaledJob") (eq ($svc.deploymentMode | default "knative") "job") -}}
+{{- $isFiniteJobMode := has ($svc.deploymentMode | default "knative") (list "scaledJob" "job" "cronJob") -}}
 {{- $cloudSqlProxyAsNativeSidecar := and $isFiniteJobMode $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled -}}
 {{- if or (eq $liquibaseEnabled "true") $hasCustomInit $cloudSqlProxyAsNativeSidecar }}
 initContainers:
@@ -823,8 +835,8 @@ url: QUARKUS_DATASOURCE_JDBC_URL
 Resolve whether the main container gets liveness/readiness/startup probes.
 service.probes.enabled wins when set explicitly. Otherwise the default
 depends on deploymentMode: true for knative/deployment/scaledJob (identical
-to today, where probes always render), false for job - a one-shot batch/v1
-Job is supposed to run to completion, not be supervised like a long-running
+to today, where probes always render), false for job and cronJob - a batch/v1
+Job (one-shot, or each scheduled run of a CronJob) is supposed to run to completion, not be supervised like a long-running
 service, and a failing startupProbe on a slow-starting or non-HTTP Job kills
 and restarts it before it ever finishes.
 Usage: include "java-microservice.probesEnabled" (dict "service" . "root" $)
@@ -834,7 +846,7 @@ Returns "true" or "false" as a string.
 {{- $probes := .service.probes | default (dict) -}}
 {{- if hasKey $probes "enabled" -}}
 {{- $probes.enabled | toString -}}
-{{- else if eq (.service.deploymentMode | default "knative") "job" -}}
+{{- else if has (.service.deploymentMode | default "knative") (list "job" "cronJob") -}}
 false
 {{- else -}}
 true
@@ -1023,7 +1035,7 @@ Usage: include "java-microservice.cloudSqlProxySidecar" (dict "service" . "root"
 {{- $svc := .service -}}
 {{- $root := .root -}}
 {{- $deploymentMode := $svc.deploymentMode | default "knative" -}}
-{{- if and (ne $deploymentMode "scaledJob") (ne $deploymentMode "job") $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
+{{- if and (not (has $deploymentMode (list "scaledJob" "job" "cronJob"))) $svc.cloudSqlProxy $svc.cloudSqlProxy.enabled }}
 {{- $proxy := $root.Values.cloudSqlProxy }}
 - name: cloud-sql-proxy
   image: {{ include "java-microservice.cloudSqlProxyImageRef" $proxy }}
@@ -1075,4 +1087,69 @@ always use a map because maps support stable environment-specific overlays.
 {{- else -}}
   {{- .Values.services | default (list) | toYaml -}}
 {{- end -}}
+{{- end }}
+
+{{/*
+The batch/v1 JobSpec of a finite run: the whole spec of a deploymentMode: job
+Job, and the jobTemplate.spec of every run of a deploymentMode: cronJob
+CronJob - one definition, so a scheduled run gets exactly the pod a one-shot
+run gets (env, secrets, volumes and mounts, init containers, and the Cloud SQL
+proxy as a native sidecar that stops with the main container, letting the run
+complete).
+Usage: include "java-microservice.jobSpec" (dict "service" . "root" $)
+*/}}
+{{- define "java-microservice.jobSpec" -}}
+{{- $svc := .service -}}
+{{- $root := .root -}}
+{{- $job := $svc.job | default (dict) -}}
+backoffLimit: {{ $job.backoffLimit | default 0 }}
+completions: {{ $job.completions | default 1 }}
+parallelism: {{ $job.parallelism | default 1 }}
+{{- if hasKey $job "activeDeadlineSeconds" }}
+activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
+{{- end }}
+{{- if hasKey $job "ttlSecondsAfterFinished" }}
+ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
+{{- end }}
+template:
+  metadata:
+    labels:
+      {{- include "java-microservice.serviceLabels" (dict "service" $svc "root" $root) | nindent 6 }}
+    {{- $podAnnotations := include "java-microservice.podAnnotations" (dict "service" $svc "root" $root) }}
+    {{- if $podAnnotations }}
+    annotations:
+      {{- $podAnnotations | nindent 6 }}
+    {{- end }}
+  spec:
+    restartPolicy: {{ $job.restartPolicy | default "Never" }}
+    serviceAccountName: {{ $root.Values.serviceAccount.name }}
+    {{- $automount := include "java-microservice.automountServiceAccountToken" (dict "service" $svc "root" $root) }}
+    {{- if $automount }}
+    automountServiceAccountToken: {{ $automount }}
+    {{- end }}
+    {{- $termGrace := include "java-microservice.terminationGracePeriodSeconds" (dict "service" $svc "root" $root) }}
+    {{- if $termGrace }}
+    terminationGracePeriodSeconds: {{ $termGrace }}
+    {{- end }}
+    {{- $podSecurityContext := include "java-microservice.podSecurityContext" (dict "service" $svc "root" $root) }}
+    {{- if $podSecurityContext }}
+    securityContext:
+      {{- $podSecurityContext | nindent 6 }}
+    {{- end }}
+    {{- with $root.Values.imagePullSecrets }}
+    imagePullSecrets:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with $svc.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with $svc.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- include "java-microservice.podVolumes" (dict "service" $svc "root" $root) | nindent 4 }}
+    {{- include "java-microservice.initContainers" (dict "service" $svc "root" $root) | nindent 4 }}
+    containers:
+      {{- include "java-microservice.mainContainer" (dict "service" $svc "root" $root) | nindent 6 }}
 {{- end }}
