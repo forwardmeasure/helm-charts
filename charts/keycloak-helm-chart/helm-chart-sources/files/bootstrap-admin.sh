@@ -1185,6 +1185,30 @@ reconcile_service_account_realm_roles() {
   done
 }
 
+reconcile_service_account_realm_management_roles() {
+  # Exactly the declared realm-management client roles - a read-only Admin REST identity
+  # (e.g. view-users, view-organizations) gains nothing else and keeps nothing it no longer declares.
+  user_id="$1"
+  desired="$2"
+  realm_mgmt_uuid="$(get_client_uuid_by_client_id "realm-management")"
+  [ -n "$realm_mgmt_uuid" ] || fail "Could not resolve realm-management client uuid"
+  existing="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/clients/${realm_mgmt_uuid}")"
+  printf '%s' "$existing" | jq -c '.[]' | while IFS= read -r role_json; do
+    role_name="$(printf '%s' "$role_json" | jq -r '.name')"
+    if ! printf '%s' "$desired" | jq -e --arg role "$role_name" \
+        'index($role) != null' >/dev/null; then
+      kc_delete_json \
+        "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}/role-mappings/clients/${realm_mgmt_uuid}" \
+        "[$role_json]"
+      log "Removed obsolete service-account realm-management role: ${role_name}"
+    fi
+  done
+  desired_csv="$(printf '%s' "$desired" | jq -r 'join(",")')"
+  if [ -n "$desired_csv" ]; then
+    assign_client_roles_to_user_if_missing "$user_id" "$realm_mgmt_uuid" "$desired_csv"
+  fi
+}
+
 configure_service_clients() {
   log_section "Least-privilege service clients"
   printf '%s' "${FORWARDMEASURE_SERVICE_CLIENTS_JSON}" | jq -e 'type == "array"' >/dev/null \
@@ -1264,6 +1288,16 @@ configure_service_clients() {
       assign_realm_role_to_user_if_missing "$service_user" "$role"
       role_index=$((role_index + 1))
     done
+    # Optional: realm-management client roles for a service that reads (or administers) the realm
+    # through Admin REST as itself. Absent leaves the account's realm-management roles untouched;
+    # present (even empty) reconciles them to exactly the listed ones.
+    if printf '%s' "$client" | jq -e 'has("realmManagementRoles")' >/dev/null; then
+      realm_management_roles="$(printf '%s' "$client" | jq -ec '.realmManagementRoles
+        | if type == "array" and all(.[]; type == "string" and test("^[a-z][a-z-]*$"))
+          then . else error("realmManagementRoles must be an array of role names") end')" \
+        || fail "serviceClients[$index].realmManagementRoles is invalid"
+      reconcile_service_account_realm_management_roles "$service_user" "$realm_management_roles"
+    fi
     audience_count="$(printf '%s' "$client" | jq -er '(.audiences // []) | if type == "array" then length else error("audiences must be an array") end')" \
       || fail "serviceClients[$index].audiences must be an array"
     desired_audiences="$(printf '%s' "$client" | jq -c '.audiences // []')"

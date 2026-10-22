@@ -155,6 +155,10 @@ realm:
   #   # real 404 to the caller.
   #   authorizationServicesEnabled: false
   #   realmRoles: [workflow-internal]
+  #   # Optional: the service account's realm-management client roles, reconciled to exactly
+  #   # these when present (absent leaves them untouched). A read-only Admin REST identity, e.g.
+  #   # Human Task management's live Organization membership reads: [view-users, view-organizations].
+  #   realmManagementRoles: [view-users, view-organizations]
   #   audiences: [entity-intelligence-internal]
   #   claims:
   #     tenant_did: did:web:tenant.example.com
