@@ -54,7 +54,24 @@ spec:
             {{- $secret := required "identity.secretName is required" .Values.identity.secretName }}
             - {name: OPENWORKFLOW_PUBLISHER_CLIENT_ID, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ required "identity.clientIdKey is required" .Values.identity.clientIdKey | quote }}}}}
             - {name: OPENWORKFLOW_PUBLISHER_CLIENT_SECRET, valueFrom: {secretKeyRef: {name: {{ $secret | quote }}, key: {{ required "identity.clientSecretKey is required" .Values.identity.clientSecretKey | quote }}}}}
+            {{- if .Values.reviewedCredentialCapabilities }}
+            - {name: OPENWORKFLOW_PUBLISHER_REVIEWED_CREDENTIALS_FILE, value: /credential-scopes/reviewed-scopes.json}
+            {{- $approverSecret := required "credentialApprover.secretName is required" .Values.credentialApprover.secretName }}
+            - name: OPENWORKFLOW_PUBLISHER_APPROVER_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $approverSecret | quote }}
+                  key: {{ required "credentialApprover.clientIdKey is required" .Values.credentialApprover.clientIdKey | quote }}
+            - name: OPENWORKFLOW_PUBLISHER_APPROVER_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $approverSecret | quote }}
+                  key: {{ required "credentialApprover.clientSecretKey is required" .Values.credentialApprover.clientSecretKey | quote }}
+            {{- end }}
           volumeMounts:
+            {{- if .Values.reviewedCredentialCapabilities }}
+            - {name: credential-scopes, mountPath: /credential-scopes, readOnly: true}
+            {{- end }}
             - {name: definitions, mountPath: /definitions, readOnly: true}
             {{- if .Values.apiDocuments }}
             - {name: api-documents, mountPath: /api-documents, readOnly: true}
@@ -63,6 +80,10 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+        {{- if .Values.reviewedCredentialCapabilities }}
+        - name: credential-scopes
+          configMap: {name: {{ include "openworkflow-workflow-bundle.name" . }}-credential-scopes}
+        {{- end }}
         - name: definitions
           configMap: {name: {{ include "openworkflow-workflow-bundle.name" . }}}
         {{- if .Values.apiDocuments }}

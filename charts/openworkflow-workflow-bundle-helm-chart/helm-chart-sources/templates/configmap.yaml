@@ -27,3 +27,16 @@ data:
     {{- $document | nindent 4 }}
   {{- end }}
 {{- end }}
+
+{{- if .Values.reviewedCredentialCapabilities }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openworkflow-workflow-bundle.name" . }}-credential-scopes
+  labels:
+    {{- include "openworkflow-workflow-bundle.labels" . | nindent 4 }}
+data:
+  reviewed-scopes.json: |
+    {{- toPrettyJson .Values.reviewedCredentialCapabilities | nindent 4 }}
+{{- end }}

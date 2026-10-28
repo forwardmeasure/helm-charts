@@ -80,3 +80,12 @@ resources:
 serviceAccount:
   name: ""
   automount: false
+
+# Deployment-reviewed scopes keyed by the full <domain>-<document.name>. The publisher attaches
+# these to the immutable revision and installs them using a separate, restricted approver identity.
+# Workflow source cannot replace these scopes. Keep this configuration under deployment review.
+reviewedCredentialCapabilities: {}
+credentialApprover:
+  secretName: openworkflow-platform-clients
+  clientIdKey: OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_ID
+  clientSecretKey: OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_SECRET
