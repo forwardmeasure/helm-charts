@@ -263,7 +263,7 @@ Editing or committing `helm-chart-sources` does not update a chart already publi
 
 1. For future chart changes, publish with `bash publish_charts.sh --chart-name docling-serve-helm-chart`. The publisher creates the next patch version and updates `Chart.yaml` itself; advance the platform pin to that published version. The first publication of this implementation advanced 0.0.9 to **0.0.10** with appVersion **v1.37.0**.
 2. Review and merge the publisher's release branch into `develop`, which serves the chart repository. Wait for that package to become available, then run `helm repo update forwardmeasure` and `helm show chart forwardmeasure/docling-serve --version 0.0.10`.
-3. Deploy the named release through the normal installer: `FORWARDMEASURE_ENABLE_FDE=true /home/pn/Documents/code/forwardmeasure/forwardmeasure-platform/deploy/install-platform.sh gcp-openworkflow-prod docling`.
+3. Deploy the named release through the normal installer: `/home/pn/Documents/code/forwardmeasure/forwardmeasure-platform/deploy/install-platform.sh --environment gcp-openworkflow-prod --release docling`.
 
 The previous platform pin was 0.0.8. Published 0.0.9 also contains the old Serve 1.31.0 defaults, so changing the pin only to 0.0.9 does not deliver this implementation. A forced pod restart would likewise reuse the old deployment image.
 
@@ -277,7 +277,7 @@ For an initial migration with accepted downtime, replace the Deployment once and
 
 ```bash
 kubectl -n docling-serve delete deployment docling-docling-serve --wait=true
-FORWARDMEASURE_ENABLE_FDE=true /home/pn/Documents/code/forwardmeasure/forwardmeasure-platform/deploy/install-platform.sh gcp-openworkflow-prod docling
+/home/pn/Documents/code/forwardmeasure/forwardmeasure-platform/deploy/install-platform.sh --environment gcp-openworkflow-prod --release docling
 ```
 
 This clears the old Deployment specification and managed fields without deleting model storage. Subsequent upgrades use the chart's normal `Recreate` strategy. No permanent upgrade script or migration hook is needed. The existing published **0.0.10** release can be used; no chart publication is required for the one-time recovery. On October 15 the running upgrade had already passed preparation of the strategy, so it was allowed to finish rather than deleting its active Deployment again.
