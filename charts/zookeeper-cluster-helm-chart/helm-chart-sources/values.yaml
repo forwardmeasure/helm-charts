@@ -21,7 +21,9 @@ resources:
     memory: 4Gi
 
 persistence:
-  storageClass: "standard-rwo"
+  # Empty = the cluster's default StorageClass, portable across GKE/EKS/AKS. Set a
+  # cloud-specific class (e.g. standard-rwo, gp3, managed-csi) via the per-cloud values overlay.
+  storageClass: ""
   size: 50Gi
 
 zookeeperConfig:

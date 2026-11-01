@@ -360,15 +360,11 @@ extraEnv: []
 extraVolumes: []
 extraVolumeMounts: []
 
-# ---------------------------------------------------------------------------
-# GCP / Workload Identity
-# ---------------------------------------------------------------------------
-gcp:
-  workloadIdentity:
-    enabled: false
-    gcpServiceAccountName: ""
-    gcpProjectId: ""
-
+# Cloud Workload Identity is wired cloud-neutrally through serviceAccount.annotations above
+# (GKE iam.gke.io, EKS eks.amazonaws.com/role-arn, or AKS azure.workload.identity/* - set via the
+# per-cloud values overlay). The former gcp.workloadIdentity block (GCP Config Connector CRDs that
+# minted IAM resources as a chart side effect) was removed 2026-11-01: it was default-off, unused
+# (the real consumer uses serviceAccount.annotations), GCP-only, and a second competing WI mechanism.
 cloudSqlProxy:
   enabled: false
   image:
