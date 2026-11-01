@@ -15,8 +15,8 @@ The architecture is fundamentally portable: cloud specifics go through generic e
 (`serviceAccount.annotations`, `nodeSelector`, `extraEnv`/`extraVolumes`), opt-in named blocks
 (`cloudSqlProxy`, default off), per-cloud release overlays (`releases/<name>/gcp/base.yaml.gotmpl`),
 and required-value CSI (`model-cache`). The Terraform outputs contract is already cloud-neutral. The
-audit found **five charts with a GCP construct lacking a neutral seam (all fixed)** and **one
-structural gap left for a reviewed follow-up** (`platform-routing` DNS-01). Nothing else is buried.
+audit found **five charts with a GCP construct lacking a neutral seam** plus **a DNS-01 solver
+layering defect in two cert-issuer charts** — all fixed and render-verified. Nothing else is buried.
 
 ## Fixed this pass (render-verified)
 
@@ -33,18 +33,28 @@ structural gap left for a reviewed follow-up** (`platform-routing` DNS-01). Noth
   `cloudSqlProxy.ambientCredentials`), GCP-only, and a second competing WI mechanism. Rendered: the
   SA still gets its WI annotation via `serviceAccount.annotations`; no Config Connector CRDs emitted.
 
-## One structural gap — fix next (not done here; changes a values contract)
+## ACME DNS-01 solver — a layering defect, now fixed (both charts)
 
-- **platform-routing** — `templates/certificates.yaml` hardcodes a GCP Cloud DNS ACME DNS-01 solver
-  (`solvers[].dns01.cloudDNS` + `gcpProject`/`gcpCredentialsSecret`). Opt-in (`clusterIssuer.enabled`)
-  but GCP-only when on; AWS needs `route53:`, Azure `azureDNS:`. A DNS-01 solver can't be made
-  "neutral" like a storage class. **Recommended fix (the platform-secrets pattern):** replace the
-  hardcoded `cloudDNS` block with a `clusterIssuer.solvers` passthrough (`toYaml`), and move the
-  provider block into each per-cloud overlay. Deferred because it changes the chart's values contract
-  and the `forwardmeasure-platform` consumer overlay must change in lockstep — do it as one reviewed
-  change with both sides render-verified. (The same GCP-only DNS-01 logic may also live in the
-  consumer repos' local charts — `platform-bootstrap`, `letsencrypt-dns01`; fold them into this one
-  abstraction rather than fixing three copies.)
+The cert-manager ClusterIssuer hardcoded a GCP **Cloud DNS** DNS-01 solver directly in the shared
+(cloud-neutral) chart layer — a layering bug, not a "needs more cloud branches" problem. A DNS-01
+solver is irreducibly cloud-specific (cloudDNS / route53 / azureDNS), so the chart should carry none
+of it and pass the whole solver list through from the per-cloud values overlay, exactly as
+`platform-secrets` passes its secret-store backend through. Two charts had it; both fixed, both
+render-verified:
+
+- **platform-routing** (`templates/certificates.yaml`) — replaced the hardcoded `cloudDNS` block with
+  a `clusterIssuer.solvers` passthrough (`toYaml`) + a cloud-neutral `privateKeySecretRef`; dropped
+  `gcpProject`/`gcpCredentialsSecret`. The `forwardmeasure-platform` consumer now layers a new
+  `releases/platform-routing/gcp/base.yaml.gotmpl` (the cloudDNS solver) over a neutral base with no
+  GCP in it, and the helmfile layers that overlay on `$cloud == gcp`.
+- **platform-bootstrap** (`forwardmeasure-platform` local chart; the **live** issuer, via the
+  `platform-certificates` release that `platform-routing` depends on) — same passthrough fix;
+  `releases/platform-certificates/gcp/base.yaml.gotmpl` now supplies the cloudDNS solver
+  (project-only, ambient Workload Identity) instead of a bare `gcpProject`.
+
+The TODO's third suspected copy (`forwardmeasure-openworkflow/charts/letsencrypt-dns01`) no longer
+exists — OpenWorkflow moved to the shared platform gateway/certificates, so there was nothing to fold.
+AWS/Azure now only need their own solver in a per-cloud overlay; neither chart needs touching.
 
 ## GCP-specific but correct — no change (opt-in block / generic escape hatch)
 
@@ -81,7 +91,8 @@ are targeted (the same shape of work as the Terraform per-cloud parity; see the 
 
 ## How to finish AWS/Azure enablement (when targeted)
 
-1. Land the `platform-routing` DNS-01 passthrough (above) + fold in the consumer-repo copies.
+1. Add the ACME solver to each cloud's cert-issuer overlay — `releases/platform-certificates/aws/`
+   (route53) and `/azure/` (azureDNS), mirroring the `gcp/` one. The charts are already solver-agnostic.
 2. For each product, add `releases/<name>/aws/` and `/azure/` overlays mirroring the `gcp/` one
    (WI annotation → `eks.amazonaws.com/role-arn` / `azure.workload.identity/client-id`; drop
    `cloudSqlProxy` — RDS/Azure DB connect directly; storage class per cloud).

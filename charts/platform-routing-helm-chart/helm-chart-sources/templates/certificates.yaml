@@ -9,14 +9,11 @@ spec:
     server: {{ .Values.clusterIssuer.server }}
     email: {{ .Values.clusterIssuer.email }}
     privateKeySecretRef:
-      name: letsencrypt-gcp-account-key
+      name: {{ .Values.clusterIssuer.privateKeySecretRef }}
+    # Solver-agnostic: the consumer's per-cloud overlay supplies the full solver list
+    # (GCP cloudDNS, AWS route53, Azure azureDNS). This chart stays cloud-neutral.
     solvers:
-      - dns01:
-          cloudDNS:
-            project: {{ .Values.clusterIssuer.gcpProject }}
-            serviceAccountSecretRef:
-              name: {{ .Values.clusterIssuer.gcpCredentialsSecret }}
-              key: {{ .Values.clusterIssuer.gcpCredentialsKey }}
+      {{- toYaml .Values.clusterIssuer.solvers | nindent 6 }}
 {{- end }}
 
 {{- range .Values.routes }}
