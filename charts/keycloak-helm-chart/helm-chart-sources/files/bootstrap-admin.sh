@@ -169,9 +169,15 @@ configure_realm_theme() {
 # attributes/groups (Keycloak's built-in username/email/firstName/lastName
 # schema) must survive this, only unmanagedAttributePolicy is being added.
 configure_user_profile_unmanaged_attributes() {
-  log_section "User profile: allow unmanaged attributes"
+  log_section "User profile: allow unmanaged attributes and two-letter usernames"
   current="$(kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/users/profile")"
-  body="$(printf '%s' "$current" | jq '.unmanagedAttributePolicy = "ENABLED"')"
+  # Keycloak's default username length is 3..255, which rejects a person's
+  # initials (a tenant administrator "pn" failed with error-invalid-length).
+  # Only the minimum changes; the maximum and the character rules stay.
+  body="$(printf '%s' "$current" | jq '
+    .unmanagedAttributePolicy = "ENABLED"
+    | (.attributes[]? | select(.name == "username" and .validations.length != null)
+        | .validations.length.min) = 2')"
   # Not kc_put_json: that helper requires a bare 204, which matches
   # resource-style endpoints (e.g. the user PUT below) but not this one -
   # PUT .../users/profile is a configuration-object endpoint and Keycloak's
@@ -194,7 +200,7 @@ configure_user_profile_unmanaged_attributes() {
       fail "PUT ${KEYCLOAK_URL}/admin/realms/${REALM}/users/profile failed with HTTP ${code}"
       ;;
   esac
-  log "User profile now allows unmanaged attributes (tenant_did/actor_did/actor_type)"
+  log "User profile now allows unmanaged attributes (tenant_did/actor_did/actor_type) and two-letter usernames"
 }
 
 # ---------------------------------------------------------------------------
@@ -1388,6 +1394,76 @@ configure_bootstrap_user() {
   log "Bootstrap user configured"
 }
 
+# ---------------------------------------------------------------------------
+# Tenant administrators
+# ---------------------------------------------------------------------------
+
+# Each one administers one tenant only. Created once, with the temporary
+# password from its passwordKey file (Keycloak makes them change it at first
+# login); a later run updates the profile and identity attributes but never
+# resets the password they chose. No platform realm role: their tenant roles
+# are their tenant Organization's role groups, which OpenWorkflow's tenant
+# reconciliation (the capability packs' members) adds them to.
+configure_tenant_administrators() {
+  log_section "Phase 2a: tenant administrators"
+  administrators="${FORWARDMEASURE_TENANT_ADMINISTRATORS_JSON:-[]}"
+  count="$(printf '%s' "$administrators" | jq 'length')"
+  if [ "$count" -eq 0 ]; then
+    log "No tenant administrators configured"
+    return 0
+  fi
+  index=0
+  while [ "$index" -lt "$count" ]; do
+    configure_tenant_administrator "$(printf '%s' "$administrators" | jq -c ".[$index]")"
+    index=$((index + 1))
+  done
+  log "Tenant administrators configured: ${count}"
+}
+
+get_user_id_by_exact_username() {
+  encoded="$(printf '%s' "$1" | jq -sRr @uri)"
+  kc_get "${KEYCLOAK_URL}/admin/realms/${REALM}/users?username=${encoded}&exact=true" \
+    | jq -r '.[0].id // empty'
+}
+
+configure_tenant_administrator() {
+  administrator="$1"
+  username="$(printf '%s' "$administrator" | jq -r '.username')"
+  password_key="$(printf '%s' "$administrator" | jq -r '.passwordKey')"
+  user_body="$(printf '%s' "$administrator" | jq '{
+      username, email, firstName, lastName,
+      enabled: true,
+      emailVerified: true,
+      attributes: {
+        tenant_did: [.tenantDid],
+        actor_did: [.actorDid],
+        actor_type: [.actorType]
+      }
+    }')"
+  user_id="$(get_user_id_by_exact_username "$username" || true)"
+  if [ -n "$user_id" ]; then
+    log "Tenant administrator found (id=${user_id}) — updating profile, keeping password: ${username}"
+    kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}" "$user_body"
+    return 0
+  fi
+  password_file="${FORWARDMEASURE_TENANT_ADMINISTRATOR_PASSWORDS_DIRECTORY}/${password_key}"
+  [ -s "$password_file" ] || fail "Tenant administrator ${username}: no initial password at ${password_file}"
+  log "Tenant administrator not found — creating with a temporary password: ${username}"
+  user_body="$(printf '%s' "$user_body" | jq --arg password "$(cat "$password_file")" \
+    '. + {credentials: [{type: "password", value: $password, temporary: true}]}')"
+  kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users" "$user_body"
+  attempt=0
+  while [ "$attempt" -lt 10 ]; do
+    user_id="$(get_user_id_by_exact_username "$username" || true)"
+    [ -n "$user_id" ] && break
+    log "User not yet queryable — waiting 2s (attempt $((attempt + 1))/10)"
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+  [ -n "$user_id" ] || fail "User POST succeeded but '${username}' not found after 10 retries"
+  log "Tenant administrator created: ${username} (id=${user_id})"
+}
+
 # Keycloak auto-creates the "organization" client scope once
 # organizationsEnabled=true on the realm, but the scope isn't attached to
 # any client by default, and KeycloakOrganizationClaims.extract() (the
@@ -1529,6 +1605,7 @@ main() {
   configure_platform_roles
   configure_services_roles
   configure_bootstrap_user
+  configure_tenant_administrators
   configure_organization_claim
   configure_admin_confidential_service_account
   configure_client_scopes

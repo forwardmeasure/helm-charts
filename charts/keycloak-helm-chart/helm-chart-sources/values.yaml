@@ -266,6 +266,25 @@ bootstrapAdminUser:
   keycloakReadyMaxAttempts: 60
 
 # ---------------------------------------------------------------------------
+# Tenant administrators: people who administer one tenant only. Each is created
+# once with a temporary password (passwordSecret's passwordKey entry) they must
+# change at first login; a later run updates their profile and identity
+# attributes but never resets the password. They get no platform realm role -
+# their tenant roles come from that tenant's Organization membership.
+# ---------------------------------------------------------------------------
+tenantAdministrators:
+  passwordSecret: ""
+  users: []
+  #  - username: jdoe
+  #    email: jdoe@example.com
+  #    firstName: Jane
+  #    lastName: Doe
+  #    tenantDid: did:web:tenant.example.com
+  #    actorDid: did:web:tenant.example.com:actors:jdoe
+  #    actorType: HUMAN
+  #    passwordKey: tenant-jdoe
+
+# ---------------------------------------------------------------------------
 # ServiceAccount
 # ---------------------------------------------------------------------------
 serviceAccount:
