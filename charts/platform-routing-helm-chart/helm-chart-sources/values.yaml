@@ -36,16 +36,20 @@ telemetry:
   enabled: true
 
 # ---------------------------------------------------------------------------
-# ClusterIssuer (cert-manager, Let's Encrypt via GCP Cloud DNS)
+# ClusterIssuer (cert-manager ACME). Solver-agnostic: the DNS-01/HTTP-01 solver(s) are
+# cloud-specific and supplied whole by the consumer's per-cloud values overlay (GCP cloudDNS,
+# AWS route53, Azure azureDNS), the same way platform-secrets is secret-store-agnostic. This chart
+# carries no cloud provider itself.
 # ---------------------------------------------------------------------------
 clusterIssuer:
   enabled: false
-  name: letsencrypt-gcp-dns
+  name: letsencrypt-dns
   server: https://acme-v02.api.letsencrypt.org/directory
   email: ""
-  gcpProject: ""
-  gcpCredentialsSecret: gcp-service-account-credentials
-  gcpCredentialsKey: gcp-service-account-credentials-json
+  # ACME account private-key Secret (cert-manager manages it); cloud-neutral name.
+  privateKeySecretRef: letsencrypt-account-key
+  # cert-manager solvers list, supplied whole by the per-cloud overlay; empty = none here.
+  solvers: []
 
 # ---------------------------------------------------------------------------
 # Routes

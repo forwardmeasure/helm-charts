@@ -190,8 +190,12 @@ modelDownload:
       - ppocrv6_dict.txt
 gpu:
   count: 1
-  nodeSelector:
-    cloud.google.com/gke-accelerator: nvidia-l4
+  # GPU node scheduling is cloud-specific. Empty = schedule anywhere the tolerations allow; set the
+  # cloud's accelerator node label via the per-cloud values overlay, e.g.:
+  #   GKE: {cloud.google.com/gke-accelerator: nvidia-l4}
+  #   EKS: {karpenter.k8s.aws/instance-gpu-name: l4}  (or a node-group label)
+  #   AKS: {kubernetes.azure.com/accelerator: nvidia}
+  nodeSelector: {}
   tolerations:
   - key: nvidia.com/gpu
     operator: Exists

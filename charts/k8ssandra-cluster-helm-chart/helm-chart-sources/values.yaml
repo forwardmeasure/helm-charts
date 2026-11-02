@@ -15,7 +15,9 @@ cassandra:
     pullSecretRef: ""
 
   defaults:
-    storageClassName: standard
+    # Empty = the cluster's default StorageClass, portable across GKE/EKS/AKS. Set a
+    # cloud-specific class (e.g. standard-rwo, gp3, managed-csi) via the per-cloud values overlay.
+    storageClassName: ""
     storageSize: 48Gi
     softPodAntiAffinity: false
 
@@ -41,7 +43,8 @@ cassandra:
       size: 3
       rackCount: 3
 
-      storageClassName: standard
+      # Empty = cluster default StorageClass (portable); set per-cloud via the values overlay.
+      storageClassName: ""
       storageSize: 48Gi
       softPodAntiAffinity: false
 
