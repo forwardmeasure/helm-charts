@@ -124,6 +124,10 @@ spec:
 {{- end }}
 {{- end }}
 
+{{- end }}
+
+{{- /* Access logging is independent of who owns the Gateway: an installation that brings its own
+       Gateway (gateway.enabled false) still needs request logs at the edge. */}}
 {{- if .Values.telemetry.enabled }}
 ---
 apiVersion: telemetry.istio.io/v1
@@ -135,5 +139,4 @@ spec:
   accessLogging:
     - providers:
         - name: envoy
-{{- end }}
 {{- end }}
