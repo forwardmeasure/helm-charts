@@ -28,7 +28,7 @@ spec:
         tls: false
       {{- end }}
       {{- with .Values.listeners.authenticatedPort }}
-      - name: authenticated
+      - name: scram
         port: {{ . }}
         type: internal
         tls: true
