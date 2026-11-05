@@ -14,6 +14,20 @@ listeners:
   clientPlainPort: 9092
   clientTlsPort: 9093
   interBrokerPort: 9094
+  # TLS with a SCRAM-SHA-512 login, for clients whose access is limited by ACLs. 0 leaves it out.
+  authenticatedPort: 0
+  # Whether the listeners above that need no login stay open. Turn this off only once every client
+  # uses the authenticated listener: a client still on an open one stops working.
+  openListeners: true
+
+# ---------------------------------------------------------------------------
+# Authorization
+# ---------------------------------------------------------------------------
+# Whether brokers enforce ACLs. Until this is on, a client on any listener can use any topic.
+authorization:
+  enabled: false
+  # Principals the ACLs don't apply to, for example User:CN=... Keep this to the operator's own.
+  superUsers: []
 
 # ---------------------------------------------------------------------------
 # Broker config

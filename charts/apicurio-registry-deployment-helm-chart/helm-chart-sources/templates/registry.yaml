@@ -23,6 +23,21 @@ spec:
         value: {{ .Values.kafka.topics.events | quote }}
       - name: APICURIO_KAFKASQL_TOPIC_AUTO_CREATE
         value: "false"
+      {{- with .Values.kafka.clientSecret }}
+      # A login, and only the group names its permissions allow. Each startup's group is unique.
+      - name: APICURIO_KAFKASQL_SECURITY_PROTOCOL
+        value: SASL_SSL
+      - name: APICURIO_KAFKA_COMMON_SASL_MECHANISM
+        value: SCRAM-SHA-512
+      - name: APICURIO_KAFKA_COMMON_SASL_JAAS_CONFIG
+        valueFrom: {secretKeyRef: {name: {{ . | quote }}, key: sasl.jaas.config}}
+      - name: APICURIO_KAFKA_COMMON_SSL_TRUSTSTORE_TYPE
+        value: PEM
+      - name: APICURIO_KAFKA_COMMON_SSL_TRUSTSTORE_CERTIFICATES
+        valueFrom: {secretKeyRef: {name: {{ . | quote }}, key: ssl.truststore.certificates}}
+      - name: APICURIO_KAFKASQL_CONSUMER_GROUP_PREFIX
+        value: {{ $.Values.kafka.groupPrefix | quote }}
+      {{- end }}
       {{- if .Values.cors.allowedOrigins }}
       - name: QUARKUS_HTTP_CORS_ORIGINS
         value: {{ join "," .Values.cors.allowedOrigins | quote }}

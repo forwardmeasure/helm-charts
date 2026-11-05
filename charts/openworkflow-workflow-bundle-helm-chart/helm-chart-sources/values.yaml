@@ -27,6 +27,10 @@ didMethod: ""
 # Aliases of the tenants entitled to this domain; every one is published to.
 tenants: []
 
+# The one tenant this bundle is for, when it names that tenant's own services. A tenant created later
+# doesn't receive it. Empty means every tenant, including any created later.
+onlyTenant: ""
+
 fowf:
   # definition-management, e.g. http://openworkflow-definition-management.<namespace>.svc
   definitionBaseUrl: ""

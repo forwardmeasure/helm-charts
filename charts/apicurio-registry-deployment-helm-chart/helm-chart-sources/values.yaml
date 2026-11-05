@@ -15,9 +15,16 @@ kafka:
     journal: apicurio-kafkasql-journal
     snapshots: apicurio-kafkasql-snapshots
     events: apicurio-registry-events
+  # The Secret holding this registry's login (sasl.jaas.config, ssl.truststore.certificates). Empty
+  # connects with none.
+  clientSecret: ""
+  # Consumer groups start with this, which its login's permissions must allow.
+  groupPrefix: apicurio-
 
 access:
   applicationNamespace: data-fabric
+  # Other namespaces whose services read the registry, such as each tenant's OpenWorkflow.
+  additionalApplicationNamespaces: []
   gatewayNamespace: istio-system
 
 auth:

@@ -10,6 +10,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 openworkflow.forwardmeasure.com/workflow-bundle: "true"
 openworkflow.forwardmeasure.com/domain: {{ .Values.domain | quote }}
+{{- with .Values.onlyTenant }}
+openworkflow.forwardmeasure.com/only-tenant: {{ . | quote }}
+{{- end }}
 {{- end -}}
 
 {{/* Fails the render on settings the publisher can't run without. */}}
