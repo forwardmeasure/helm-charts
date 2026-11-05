@@ -207,7 +207,14 @@ release_chart() {
   echo "⬇️ [$CHART_NAME] Fetching latest index.yaml from ${BASE_BRANCH}..."
   git fetch origin "$BASE_BRANCH" >/dev/null
   TMP_INDEX=$(mktemp)
-  git show "origin/${BASE_BRANCH}:index.yaml" > "$TMP_INDEX" || touch "$TMP_INDEX"
+  # The first chart of a run starts from the released index; each later one adds to the index the
+  # chart before it wrote, or only the run's last chart would stay listed.
+  if [[ -n "${RUN_INDEX_STARTED:-}" ]]; then
+    cp "${SCRIPT_DIR}/index.yaml" "$TMP_INDEX"
+  else
+    git show "origin/${BASE_BRANCH}:index.yaml" > "$TMP_INDEX" || touch "$TMP_INDEX"
+    RUN_INDEX_STARTED=true
+  fi
 
   echo "🧾 [$CHART_NAME] Merging chart into root-level index.yaml..."
   helm repo index "$CHART_PACKAGE_DIR" \

@@ -3,7 +3,27 @@ entries:
   apicurio-registry-deployment:
   - apiVersion: v2
     appVersion: 3.3.0
-    created: "2026-07-21T03:39:45.738632004-04:00"
+    created: "2026-11-05T14:23:27.88210159-05:00"
+    description: ApicurioRegistry3 instance managed by the Apicurio Registry operator
+    digest: ff994d08e2b773e4f16e7ba9cdab2740d40f3183c4cb82cec45d5c97656b6ccc
+    name: apicurio-registry-deployment
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/apicurio-registry-deployment-helm-chart/apicurio-registry-deployment-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
+    appVersion: 3.3.0
+    created: "2026-11-05T14:23:27.881758166-05:00"
+    description: ApicurioRegistry3 instance managed by the Apicurio Registry operator
+    digest: 5f0533bcb4a52d7483d7afcebe780603932f57e78bf74e7fba96b401a61dec31
+    name: apicurio-registry-deployment
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/apicurio-registry-deployment-helm-chart/apicurio-registry-deployment-0.1.3.tgz
+    version: 0.1.3
+  - apiVersion: v2
+    appVersion: 3.3.0
+    created: "2026-11-05T14:23:27.881407729-05:00"
     description: ApicurioRegistry3 instance managed by the Apicurio Registry operator
     digest: d48db0fc8e6c1e8343090dae24fe96d5ef067dabae1ab0f4ef2e135502b4606c
     name: apicurio-registry-deployment
@@ -218,7 +238,26 @@ entries:
   docling-serve:
   - apiVersion: v2
     appVersion: v1.37.0
-    created: "2026-10-17T04:36:52.270019967-04:00"
+    created: "2026-11-05T14:23:28.743932833-05:00"
+    description: Helm chart for deploying Docling Serve with PVC-backed cache and
+      configurable backend models.
+    digest: fbd247aef5bdbfcf45904602d14406a2603d69afe406b0103722091b3e530f18
+    keywords:
+    - docling
+    - NLP
+    - model-serving
+    - PVC
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: docling-serve
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.13.tgz
+    version: 0.0.13
+  - apiVersion: v2
+    appVersion: v1.37.0
+    created: "2026-11-05T14:23:28.738546978-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 58e7b85bcd3deac597fb04c694cb46be7676a728d3de343aeac540095f4bfcfd
@@ -237,7 +276,7 @@ entries:
     version: 0.0.12
   - apiVersion: v2
     appVersion: v1.37.0
-    created: "2026-10-17T04:36:52.267179427-04:00"
+    created: "2026-11-05T14:23:28.735364119-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 2b1cd933c4c915bf155391fdf70dc27dff6b6be4d3376186c712951a7d8d376c
@@ -256,7 +295,7 @@ entries:
     version: 0.0.11
   - apiVersion: v2
     appVersion: v1.37.0
-    created: "2026-10-17T04:36:52.264442792-04:00"
+    created: "2026-11-05T14:23:28.732244485-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 90f7af67624083626c5e5e68681e04764bd71f3cf16beabd587320235df39be4
@@ -275,7 +314,7 @@ entries:
     version: 0.0.10
   - apiVersion: v2
     appVersion: latest
-    created: "2026-10-17T04:36:52.274486534-04:00"
+    created: "2026-11-05T14:23:28.750802833-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 18a22db9b91e95095fa3c1a6aa037d8717eb2b9393bc50251ef79d6478ee4362
@@ -294,7 +333,7 @@ entries:
     version: 0.0.9
   - apiVersion: v2
     appVersion: latest
-    created: "2026-10-17T04:36:52.273302312-04:00"
+    created: "2026-11-05T14:23:28.749341-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: b5f9b2b79e324b755ae753b86f85655b6197a54b94e2cd98b35b29b2d906d882
@@ -313,7 +352,7 @@ entries:
     version: 0.0.8
   - apiVersion: v2
     appVersion: latest
-    created: "2026-10-17T04:36:52.272206445-04:00"
+    created: "2026-11-05T14:23:28.747913447-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: dde070a934f88d9954ef2de7cd0915c55e71442f136e61564f72bd3315cc2762
@@ -332,7 +371,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: latest
-    created: "2026-10-17T04:36:52.271013663-04:00"
+    created: "2026-11-05T14:23:28.746156935-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 5a6bd64e1515a7a18e2a662ec2f04f09ecb2f219cac0bcc9bb2094632881c1e4
@@ -1017,7 +1056,17 @@ entries:
   k8ssandra-cluster:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-23T10:06:46.627729927-04:00"
+    created: "2026-11-05T14:23:29.52337097-05:00"
+    description: K8ssandraCluster instance for the k8ssandra-operator
+    digest: e46644293f1f86bde22d7436c2810226925c85739274020e3ce48639214d6f86
+    name: k8ssandra-cluster
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/k8ssandra-cluster-helm-chart/k8ssandra-cluster-0.1.8.tgz
+    version: 0.1.8
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-11-05T14:23:29.522396213-05:00"
     description: K8ssandraCluster instance for the k8ssandra-operator
     digest: 729a331455c8d8a0fbf4e610a404e829092d89cc0964008a1bb58af99e66be81
     name: k8ssandra-cluster
@@ -1027,7 +1076,7 @@ entries:
     version: 0.1.7
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-03-23T10:06:46.627538512-04:00"
+    created: "2026-11-05T14:23:29.521021886-05:00"
     description: K8ssandraCluster instance for the k8ssandra-operator
     digest: e9200655c6a871de098c5c77f5df9fa6837ef8b6d8e839503a472f82bf1ecd21
     name: k8ssandra-cluster
@@ -1078,7 +1127,33 @@ entries:
   kafka:
   - apiVersion: v2
     appVersion: 4.0.0
-    created: "2026-10-12T13:26:44.972056356-04:00"
+    created: "2026-11-05T14:23:30.323667417-05:00"
+    description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
+      mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
+      resources. Requires the Strimzi operator to be installed and watching the target
+      namespace. '
+    digest: 7ae0c7efff4bce058bccf5f25a2669b0c7b7ae5a56a4c163e03fe0e6701eb3af
+    name: kafka
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/kafka-deployment-helm-chart/kafka-0.0.7.tgz
+    version: 0.0.7
+  - apiVersion: v2
+    appVersion: 4.0.0
+    created: "2026-11-05T14:23:30.323343224-05:00"
+    description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
+      mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
+      resources. Requires the Strimzi operator to be installed and watching the target
+      namespace. '
+    digest: 2ccaaf7f224c8e4472025962d68eead757ecf1cc4d58b45fcd6b3aa39117f13d
+    name: kafka
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/kafka-deployment-helm-chart/kafka-0.0.6.tgz
+    version: 0.0.6
+  - apiVersion: v2
+    appVersion: 4.0.0
+    created: "2026-11-05T14:23:30.322982715-05:00"
     description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
       mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
       resources. Requires the Strimzi operator to be installed and watching the target
@@ -1091,7 +1166,7 @@ entries:
     version: 0.0.5
   - apiVersion: v2
     appVersion: 4.0.0
-    created: "2026-10-12T13:26:44.971755802-04:00"
+    created: "2026-11-05T14:23:30.322700034-05:00"
     description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
       mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
       resources. Requires the Strimzi operator to be installed and watching the target
@@ -1104,7 +1179,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: 4.0.0
-    created: "2026-10-12T13:26:44.971448445-04:00"
+    created: "2026-11-05T14:23:30.322381664-05:00"
     description: 'Deploys a production-grade Apache Kafka cluster using Strimzi KRaft
       mode. Manages Kafka, KafkaNodePool (controllers and brokers), and KafkaUser
       resources. Requires the Strimzi operator to be installed and watching the target
@@ -3226,7 +3301,20 @@ entries:
   platform-routing:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-08-01T13:04:50.727792662-04:00"
+    created: "2026-11-05T14:23:31.115836324-05:00"
+    description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
+      platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
+      Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
+      and DestinationRule resources. '
+    digest: 512054d5feaf792671c54b4a38e259ca810bb9c62be891d56795279e534cbac7
+    name: platform-routing
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/platform-routing-helm-chart/platform-routing-0.0.12.tgz
+    version: 0.0.12
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-11-05T14:23:31.115126173-05:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -3239,7 +3327,7 @@ entries:
     version: 0.0.11
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-08-01T13:04:50.730286028-04:00"
+    created: "2026-11-05T14:23:31.119958174-05:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -3252,7 +3340,7 @@ entries:
     version: 0.0.9
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-08-01T13:04:50.729777058-04:00"
+    created: "2026-11-05T14:23:31.118898036-05:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -3265,7 +3353,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-08-01T13:04:50.729026478-04:00"
+    created: "2026-11-05T14:23:31.117883261-05:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -3278,7 +3366,7 @@ entries:
     version: 0.0.6
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-08-01T13:04:50.728481361-04:00"
+    created: "2026-11-05T14:23:31.116879965-05:00"
     description: 'Manages all Istio/Gateway API routing resources for the Data Fabric
       platform. Includes Gateway, HTTPRoutes, TCPRoutes, ReferenceGrants, cert-manager
       Certificates, ClusterIssuer, and optional Istio RequestAuthentication, AuthorizationPolicy,
@@ -4360,4 +4448,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-11-05T14:16:44.052474585-05:00"
+generated: "2026-11-05T14:23:31.104753807-05:00"
