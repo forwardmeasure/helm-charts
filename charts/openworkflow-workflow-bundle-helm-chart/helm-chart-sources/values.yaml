@@ -1,5 +1,6 @@
-# The product's moniker, e.g. fei. Workflows are named <domain>-<document.name>.
-domain: ""
+# The workflow namespace, e.g. entity-intelligence (not a Kubernetes namespace): the publisher fills
+# it into each document's "@WORKFLOW_NAMESPACE@". Workflows are named <workflowNamespace>-<document.name>.
+workflowNamespace: ""
 
 # File name -> workflow document (YAML text), e.g. filled with .Files or readFile in the helmfile:
 #   definitions:
@@ -9,12 +10,12 @@ domain: ""
 definitions: {}
 
 # File name -> API document (AsyncAPI, OpenAPI or JSON Schema; YAML or JSON) the workflows
-# reference. Uploaded to the platform's registry under group <domain> before any workflow is
+# reference. Uploaded to the platform's registry under group <workflowNamespace> before any workflow is
 # published. A workflow names one by DID URL, never by registry URL (the registry host differs per
 # environment):
 #   endpoint: "@BUNDLE_DID@/<file name>"
-# The publisher renders @BUNDLE_DID@ to this bundle's DID, did:<didMethod>:bundle:<domain>, so the
-# definition stores did:<didMethod>:bundle:<domain>/<file name>; definition-management resolves that
+# The publisher renders @BUNDLE_DID@ to this bundle's DID, did:<didMethod>:bundle:<workflowNamespace>, so the
+# definition stores did:<didMethod>:bundle:<workflowNamespace>/<file name>; definition-management resolves that
 # from the registry with its own credentials. A document's relative references ($ref:
 # 'messages.yaml#/...') resolve to the bundle's other documents the same way. The map is flat: a
 # DID URL names a document by its file name alone.
@@ -24,7 +25,7 @@ apiDocuments: {}
 # FORWARDMEASURE_DID_METHOD. Required when any definition contains @BUNDLE_DID@; no default.
 didMethod: ""
 
-# Aliases of the tenants entitled to this domain; every one is published to.
+# Aliases of the tenants entitled to this workflow namespace; every one is published to.
 tenants: []
 
 # The one tenant this bundle is for, when it names that tenant's own services. A tenant created later
@@ -85,7 +86,7 @@ serviceAccount:
   name: ""
   automount: false
 
-# Deployment-reviewed scopes keyed by the full <domain>-<document.name>. The publisher attaches
+# Deployment-reviewed scopes keyed by the full <workflowNamespace>-<document.name>. The publisher attaches
 # these to the immutable revision and installs them using a separate, restricted approver identity.
 # Workflow source cannot replace these scopes. Keep this configuration under deployment review.
 reviewedCredentialCapabilities: {}

@@ -3,13 +3,13 @@
 {{- printf "%s-workflows" .Release.Name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{/* Labels shared by every resource; the domain label lets tenant provisioning find bundles. */}}
+{{/* Labels shared by every resource; the workflow-namespace label lets tenant provisioning find bundles. */}}
 {{- define "openworkflow-workflow-bundle.labels" -}}
 app.kubernetes.io/name: openworkflow-workflow-bundle
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 openworkflow.forwardmeasure.com/workflow-bundle: "true"
-openworkflow.forwardmeasure.com/domain: {{ .Values.domain | quote }}
+openworkflow.forwardmeasure.com/workflow-namespace: {{ .Values.workflowNamespace | quote }}
 {{- with .Values.onlyTenant }}
 openworkflow.forwardmeasure.com/only-tenant: {{ . | quote }}
 {{- end }}
@@ -17,8 +17,8 @@ openworkflow.forwardmeasure.com/only-tenant: {{ . | quote }}
 
 {{/* Fails the render on settings the publisher can't run without. */}}
 {{- define "openworkflow-workflow-bundle.validate" -}}
-{{- if not (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" (.Values.domain | default "")) -}}
-{{- fail "domain is required: lowercase letters, digits and single hyphens, e.g. fei" -}}
+{{- if not (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" (.Values.workflowNamespace | default "")) -}}
+{{- fail "workflowNamespace is required: lowercase letters, digits and single hyphens, e.g. entity-intelligence" -}}
 {{- end -}}
 {{- if not .Values.definitions -}}
 {{- fail "definitions must hold at least one workflow document" -}}

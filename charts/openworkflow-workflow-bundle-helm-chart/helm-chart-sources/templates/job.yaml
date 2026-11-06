@@ -37,7 +37,7 @@ spec:
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           env:
-            - {name: OPENWORKFLOW_PUBLISHER_DOMAIN, value: {{ .Values.domain | quote }}}
+            - {name: OPENWORKFLOW_PUBLISHER_WORKFLOW_NAMESPACE, value: {{ .Values.workflowNamespace | quote }}}
             - {name: OPENWORKFLOW_PUBLISHER_DEFINITIONS_DIR, value: /definitions}
             - {name: OPENWORKFLOW_PUBLISHER_TENANTS, value: {{ join "," .Values.tenants | quote }}}
             {{- with .Values.didMethod }}
