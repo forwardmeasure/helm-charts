@@ -337,3 +337,5 @@ else
 fi
 
 echo "✅ Helm chart(s) released: ${CHART_NAMES[*]}"
+echo "➡️  Once the release has merged, move the pins that use it, then commit them:"
+echo "   python3 ../forwardmeasure-platform/deploy/scripts/sync-chart-versions.py"
