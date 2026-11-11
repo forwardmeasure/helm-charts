@@ -10,6 +10,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 openworkflow.forwardmeasure.com/workflow-bundle: "true"
 openworkflow.forwardmeasure.com/workflow-namespace: {{ .Values.workflowNamespace | quote }}
+openworkflow.forwardmeasure.com/registry-scope: {{ .Values.scope | quote }}
 {{- with .Values.onlyTenant }}
 openworkflow.forwardmeasure.com/only-tenant: {{ . | quote }}
 {{- end }}
@@ -19,6 +20,9 @@ openworkflow.forwardmeasure.com/only-tenant: {{ . | quote }}
 {{- define "openworkflow-workflow-bundle.validate" -}}
 {{- if not (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" (.Values.workflowNamespace | default "")) -}}
 {{- fail "workflowNamespace is required: lowercase letters, digits and single hyphens, e.g. entity-intelligence" -}}
+{{- end -}}
+{{- if not (has .Values.scope (list "platform" "tenant")) -}}
+{{- fail "scope is required: platform (contracts every tenant shares) or tenant (each target tenant's own); there is no default" -}}
 {{- end -}}
 {{- if not .Values.definitions -}}
 {{- fail "definitions must hold at least one workflow document" -}}

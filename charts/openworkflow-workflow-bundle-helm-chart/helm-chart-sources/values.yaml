@@ -2,6 +2,17 @@
 # it into each document's "@WORKFLOW_NAMESPACE@". Workflows are named <workflowNamespace>-<document.name>.
 workflowNamespace: ""
 
+# Required, no default: whose contracts this bundle publishes, which decides the registry group its
+# apiDocuments go in and the DID its definitions name them by.
+#   platform - contracts every tenant shares (a product's or the platform's own API): uploaded once to
+#              group platform.<workflowNamespace>; @BUNDLE_DID@ renders to
+#              did:<didMethod>:bundle:<workflowNamespace>.
+#   tenant   - contracts that belong to each target tenant: uploaded to each tenant's own group
+#              tenant.<tenant id>.<workflowNamespace> (the tenant id derived from its DID); @BUNDLE_DID@
+#              renders, in each tenant, to did:<didMethod>:tenant:<tenant id>:bundle:<workflowNamespace>.
+# Studio's schema browser shows a tenant only platform.* groups and its own tenant.<tenant id>.* groups.
+scope: ""
+
 # File name -> workflow document (YAML text), e.g. filled with .Files or readFile in the helmfile:
 #   definitions:
 #     population-screening.yaml: |
@@ -10,13 +21,13 @@ workflowNamespace: ""
 definitions: {}
 
 # File name -> API document (AsyncAPI, OpenAPI or JSON Schema; YAML or JSON) the workflows
-# reference. Uploaded to the platform's registry under group <workflowNamespace> before any workflow is
-# published. A workflow names one by DID URL, never by registry URL (the registry host differs per
+# reference. Uploaded to the platform's registry, in the group the bundle's scope names (above), before
+# any workflow is published. A workflow names one by DID URL, never by registry URL (the registry host differs per
 # environment):
 #   endpoint: "@BUNDLE_DID@/<file name>"
-# The publisher renders @BUNDLE_DID@ to this bundle's DID, did:<didMethod>:bundle:<workflowNamespace>, so the
-# definition stores did:<didMethod>:bundle:<workflowNamespace>/<file name>; definition-management resolves that
-# from the registry with its own credentials. A document's relative references ($ref:
+# The publisher renders @BUNDLE_DID@ to this bundle's DID by its scope (above), so the definition stores
+# e.g. did:<didMethod>:bundle:<workflowNamespace>/<file name>; definition-management resolves that from
+# the registry with its own credentials, a tenant's own documents only for that tenant. A document's relative references ($ref:
 # 'messages.yaml#/...') resolve to the bundle's other documents the same way. The map is flat: a
 # DID URL names a document by its file name alone.
 apiDocuments: {}
