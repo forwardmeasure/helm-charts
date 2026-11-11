@@ -60,6 +60,7 @@ WORKFLOWS = {
 CONTRACTS = {
     "workflowNamespace": "entity-intelligence",
     "scope": "platform",
+    "didMethod": "fwm",
     "contracts": {
         "resolution-application.contract.json": '{"$defs": {"input": {"type": "object"}}}',
         "entity-intelligence-api.yaml": "openapi: 3.1.0\n",
@@ -140,6 +141,25 @@ class Refusals(unittest.TestCase):
             definitions={"x.yaml": "endpoint: '@BUNDLE_DID:selfsame@/selfsame.openapi.yaml'\n"})
         self.assertIn("didMethod is required: definition x.yaml", render(aliased, success=False))
 
+    def test_contracts_need_the_did_method(self):
+        error = render(values(CONTRACTS, didMethod=None), success=False)
+        self.assertIn(
+            "didMethod is required when contracts are given: every uploaded version records its"
+            " bundle's DID", error)
+
+    def test_a_contract_entry_is_its_text_or_content_and_a_role(self):
+        for entry, message in (
+                ({"content": "openapi: 3.1.0\n", "role": "RAG"},
+                 "contracts.rag-api.yaml.role RAG must be lowercase letters and digits"),
+                ({"content": "openapi: 3.1.0\n", "role": "model_openai"},
+                 "contracts.rag-api.yaml.role model_openai must be lowercase letters and digits"),
+                ({"role": "rag"}, "contracts.rag-api.yaml.content is required"),
+                ({"content": "openapi: 3.1.0\n", "rol": "rag"},
+                 "contracts.rag-api.yaml has rol: an entry is the file's text, or {content, role}"),
+                (["openapi: 3.1.0\n"], "contracts.rag-api.yaml must be the file's text, or {content, role}")):
+            error = render(values(CONTRACTS, contracts={"rag-api.yaml": entry}), success=False)
+            self.assertIn(message, error)
+
     def test_the_old_api_documents_key_is_refused(self):
         error = render(values(CONTRACTS, apiDocuments={"a.yaml": "x: 1\n"}), success=False)
         self.assertIn("apiDocuments is renamed contracts", error)
@@ -198,6 +218,39 @@ class Jobs(unittest.TestCase):
         volumes = upload["spec"]["template"]["spec"]["volumes"]
         self.assertIn(
             {"name": "contracts", "configMap": {"name": "fei-workflows-contracts"}}, volumes)
+
+    def test_the_upload_records_the_bundles_did_and_no_roles_unless_declared(self):
+        docs = render(CONTRACTS)
+        variables = env(jobs(docs)["fei-workflows-contracts"])
+        self.assertEqual("fwm", variables["FORWARDMEASURE_DID_METHOD"])
+        self.assertNotIn("OPENWORKFLOW_PUBLISHER_CONTRACT_ROLES", variables)
+        contracts = next(
+            doc for doc in docs
+            if doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == "fei-workflows-contracts")
+        self.assertNotIn("annotations", contracts["metadata"])
+
+    def test_a_role_the_release_declares_reaches_the_upload_and_the_contracts_config_map(self):
+        text = "openapi: 3.1.0\ninfo: {title: RAG, version: 1.0.0}\n"
+        rag = values(
+            CONTRACTS,
+            workflowNamespace="rag",
+            contracts={
+                "rag-api.yaml": {"content": text, "role": "rag"},
+                "rag-common.yaml": "openapi: 3.1.0\n",
+            })
+        docs = render(rag)
+        roles = {"rag-api.yaml": "rag"}
+        upload = jobs(docs)["fei-workflows-contracts"]
+        self.assertEqual(roles, json.loads(env(upload)["OPENWORKFLOW_PUBLISHER_CONTRACT_ROLES"]))
+        contracts = next(
+            doc for doc in docs
+            if doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == "fei-workflows-contracts")
+        self.assertEqual(text, contracts["data"]["rag-api.yaml"], "the file's text, exactly")
+        self.assertEqual("openapi: 3.1.0\n", contracts["data"]["rag-common.yaml"])
+        self.assertEqual(
+            roles,
+            json.loads(
+                contracts["metadata"]["annotations"]["openworkflow.forwardmeasure.com/contract-roles"]))
 
     def test_a_release_with_both_uploads_before_it_publishes(self):
         both = values(WORKFLOWS, contracts=CONTRACTS["contracts"])

@@ -21,10 +21,18 @@ metadata:
   # Not the workflow-bundle label: tenant administration reads labelled ConfigMaps as workflows.
   labels:
     {{- include "openworkflow-workflow-bundle.plainLabels" . | nindent 4 }}
+  {{- with include "openworkflow-workflow-bundle.contractRoles" . | fromJson }}
+  # The roles the release declares for its contract files (file name -> role), which tenant
+  # administration records on each version it uploads into a tenant created later.
+  annotations:
+    openworkflow.forwardmeasure.com/contract-roles: {{ toJson . | quote }}
+  {{- end }}
 data:
-  {{- range $file, $document := .Values.contracts }}
+  {{- range $file, $entry := .Values.contracts }}
+  {{- $text := $entry }}
+  {{- if kindIs "map" $entry }}{{ $text = $entry.content }}{{ end }}
   {{ $file }}: |
-    {{- $document | nindent 4 }}
+    {{- $text | nindent 4 }}
   {{- end }}
 {{- end }}
 {{- if and .Values.definitions .Values.reviewedCredentialCapabilities }}

@@ -33,6 +33,17 @@ definitions: {}
 # e.g. did:<didMethod>:bundle:<workflowNamespace>/<file name>?version=3#/$defs/output. A contract
 # file's relative references ($ref: 'messages.yaml#/...') name the bundle's other contract files. The
 # map is flat: a DID URL names a file by its file name alone.
+#
+# An entry is the file's text, or, when the release publishes the file as something Studio's forms
+# bind to, {content: <the file's text>, role: <role>}: the role (lowercase letters and digits in
+# hyphen-separated words, e.g. rag, model-openai-chat-completions, model-anthropic-messages) is
+# recorded on every registry version uploaded from the file, beside its file name and the bundle's
+# DID. Studio's catalog finds RAG's document and the platform's model contracts by these roles,
+# never by a file name:
+#   contracts:
+#     rag-api.yaml: {content: <text>, role: rag}
+#     rag-common.yaml: <text>
+# A release with contracts needs didMethod: every uploaded version records its bundle's DID.
 contracts: {}
 
 # Required with definitions, no default: every other bundle the definitions name contracts of, by the

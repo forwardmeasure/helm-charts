@@ -37,6 +37,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if $names -}}true{{- end -}}
 {{- end -}}
 
+{{/* The roles the release declares for its contract files, as a JSON object of file name to role. */}}
+{{- define "openworkflow-workflow-bundle.contractRoles" -}}
+{{- $roles := dict -}}
+{{- range $file, $entry := .Values.contracts -}}
+{{- if and (kindIs "map" $entry) (hasKey $entry "role") -}}
+{{- $_ := set $roles $file $entry.role -}}
+{{- end -}}
+{{- end -}}
+{{- toJson $roles -}}
+{{- end -}}
+
 {{/* Fails the render on settings the publisher can't run without. */}}
 {{- define "openworkflow-workflow-bundle.validate" -}}
 {{- if not (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" (.Values.workflowNamespace | default "")) -}}
@@ -56,10 +67,30 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- fail (printf "definitions key %s must be a *.yaml or *.yml file name" $file) -}}
 {{- end -}}
 {{- end -}}
-{{- range $file, $_ := .Values.contracts -}}
+{{- range $file, $entry := .Values.contracts -}}
 {{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._-]*\\.(ya?ml|json|proto)$" $file) -}}
 {{- fail (printf "contracts key %s must be a *.yaml, *.yml, *.json or *.proto file name" $file) -}}
 {{- end -}}
+{{- if kindIs "map" $entry -}}
+{{- range $key, $_ := $entry -}}
+{{- if not (has $key (list "content" "role")) -}}
+{{- fail (printf "contracts.%s has %s: an entry is the file's text, or {content, role}" $file $key) -}}
+{{- end -}}
+{{- end -}}
+{{- if not (kindIs "string" $entry.content) -}}
+{{- fail (printf "contracts.%s.content is required: the file's text" $file) -}}
+{{- end -}}
+{{- if hasKey $entry "role" -}}
+{{- if not (and (kindIs "string" $entry.role) (le (len $entry.role) 64) (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" $entry.role)) -}}
+{{- fail (printf "contracts.%s.role %v must be lowercase letters and digits in hyphen-separated words, e.g. model-openai-chat-completions" $file $entry.role) -}}
+{{- end -}}
+{{- end -}}
+{{- else if not (kindIs "string" $entry) -}}
+{{- fail (printf "contracts.%s must be the file's text, or {content, role}" $file) -}}
+{{- end -}}
+{{- end -}}
+{{- if and .Values.contracts (not .Values.didMethod) -}}
+{{- fail "didMethod is required when contracts are given: every uploaded version records its bundle's DID; set it from the shared platform.identity.didMethod" -}}
 {{- end -}}
 {{- if .Values.definitions -}}
 {{- if kindIs "invalid" .Values.contractBundles -}}
