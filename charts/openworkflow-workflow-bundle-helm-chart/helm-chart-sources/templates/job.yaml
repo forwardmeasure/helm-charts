@@ -1,7 +1,10 @@
 {{- include "openworkflow-workflow-bundle.validate" . }}
-# Runs after every install/upgrade: publishes the ConfigMap's documents into every tenant. A rerun
-# with unchanged documents publishes nothing; a failure in one (tenant, workflow) doesn't stop the
-# others, but fails the Job.
+{{- if .Values.definitions }}
+# Runs after every install/upgrade of a release with definitions: renders every bundle reference
+# (@BUNDLE_DID@ and @BUNDLE_DID:<alias>@) to the DID URL of the registry version it names, then
+# publishes the documents into every tenant. A rerun with an unchanged rendered source publishes
+# nothing; a failure in one (tenant, workflow) doesn't stop the others, but fails the Job, and every
+# refusal is logged with all its violations.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -10,6 +13,7 @@ metadata:
     {{- include "openworkflow-workflow-bundle.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
     helm.sh/hook-delete-policy: before-hook-creation
 spec:
   backoffLimit: {{ .Values.backoffLimit }}
@@ -32,11 +36,12 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: publish
-          image: {{ printf "%s%s" .Values.image.repository (ternary (printf "@%s" .Values.image.digest) (printf ":%s" .Values.image.tag) (not (empty .Values.image.digest))) | quote }}
+          image: {{ include "openworkflow-workflow-bundle.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           env:
+            - {name: OPENWORKFLOW_PUBLISHER_RUN, value: publish}
             - {name: OPENWORKFLOW_PUBLISHER_WORKFLOW_NAMESPACE, value: {{ .Values.workflowNamespace | quote }}}
             - {name: OPENWORKFLOW_PUBLISHER_REGISTRY_SCOPE, value: {{ .Values.scope | quote }}}
             - {name: OPENWORKFLOW_PUBLISHER_DEFINITIONS_DIR, value: /definitions}
@@ -44,8 +49,9 @@ spec:
             {{- with .Values.didMethod }}
             - {name: FORWARDMEASURE_DID_METHOD, value: {{ . | quote }}}
             {{- end }}
-            {{- if .Values.apiDocuments }}
-            - {name: OPENWORKFLOW_PUBLISHER_RESOURCES_DIR, value: /api-documents}
+            # alias -> {workflowNamespace, scope}: the other bundles @BUNDLE_DID:<alias>@ names.
+            - {name: OPENWORKFLOW_PUBLISHER_CONTRACT_BUNDLES, value: {{ toJson .Values.contractBundles | quote }}}
+            {{- if include "openworkflow-workflow-bundle.namesContracts" . }}
             - {name: OPENWORKFLOW_PUBLISHER_REGISTRY_URL, value: {{ .Values.registry.apiUrl | quote }}}
             {{- end }}
             - name: OPENWORKFLOW_PUBLISHER_DEFINITION_BASE_URL
@@ -74,9 +80,6 @@ spec:
             - {name: credential-scopes, mountPath: /credential-scopes, readOnly: true}
             {{- end }}
             - {name: definitions, mountPath: /definitions, readOnly: true}
-            {{- if .Values.apiDocuments }}
-            - {name: api-documents, mountPath: /api-documents, readOnly: true}
-            {{- end }}
             - {name: tmp, mountPath: /tmp}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
@@ -87,9 +90,6 @@ spec:
         {{- end }}
         - name: definitions
           configMap: {name: {{ include "openworkflow-workflow-bundle.name" . }}}
-        {{- if .Values.apiDocuments }}
-        - name: api-documents
-          configMap: {name: {{ include "openworkflow-workflow-bundle.name" . }}-api-documents}
-        {{- end }}
         # The JVM writes its performance data here; the root filesystem is read-only.
         - {name: tmp, emptyDir: {}}
+{{- end }}
