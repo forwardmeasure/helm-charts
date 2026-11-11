@@ -46,6 +46,11 @@ spec:
             - {name: OPENWORKFLOW_PUBLISHER_REGISTRY_SCOPE, value: {{ .Values.scope | quote }}}
             - {name: OPENWORKFLOW_PUBLISHER_RESOURCES_DIR, value: /contracts}
             - {name: OPENWORKFLOW_PUBLISHER_REGISTRY_URL, value: {{ .Values.registry.apiUrl | quote }}}
+            {{- if not (kindIs "invalid" .Values.contractBundles) }}
+            # alias -> {workflowNamespace, scope}: the bundles whose files a contract file's relative
+            # references name (../<path>/<file>), each registered as an artifact reference.
+            - {name: OPENWORKFLOW_PUBLISHER_CONTRACT_BUNDLES, value: {{ toJson .Values.contractBundles | quote }}}
+            {{- end }}
             {{- with .Values.tenants }}
             # Scope tenant: each tenant's own registry group.
             - {name: OPENWORKFLOW_PUBLISHER_TENANTS, value: {{ join "," . | quote }}}

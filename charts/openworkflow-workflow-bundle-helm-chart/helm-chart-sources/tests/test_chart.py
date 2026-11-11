@@ -179,6 +179,18 @@ class Jobs(unittest.TestCase):
             definitions={"own.yaml": "endpoint: '@BUNDLE_DID@/own.contract.json'\n"})
         self.assertEqual(["fei-workflows"], sorted(jobs(render(own))))
 
+    def test_the_upload_job_declares_the_bundles_its_contract_files_reference(self):
+        declared = dict(
+            CONTRACTS,
+            contractBundles={"platform": {"workflowNamespace": "platform-contracts", "scope": "platform"}})
+        variables = env(jobs(render(declared))["fei-workflows-contracts"])
+        self.assertEqual(
+            {"platform": {"workflowNamespace": "platform-contracts", "scope": "platform"}},
+            json.loads(variables["OPENWORKFLOW_PUBLISHER_CONTRACT_BUNDLES"]))
+        self.assertNotIn(
+            "OPENWORKFLOW_PUBLISHER_CONTRACT_BUNDLES",
+            env(jobs(render(CONTRACTS))["fei-workflows-contracts"]))
+
     def test_a_contracts_release_renders_only_the_upload_job(self):
         docs = render(CONTRACTS)
         self.assertEqual(["fei-workflows-contracts"], sorted(jobs(docs)))
