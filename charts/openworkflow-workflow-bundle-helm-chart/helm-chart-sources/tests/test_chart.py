@@ -179,6 +179,19 @@ class Jobs(unittest.TestCase):
             definitions={"own.yaml": "endpoint: '@BUNDLE_DID@/own.contract.json'\n"})
         self.assertEqual(["fei-workflows"], sorted(jobs(render(own))))
 
+    def test_the_definitions_configmap_carries_the_declared_bundles(self):
+        declared = values(
+            WORKFLOWS,
+            contractBundles={"selfsame": {"workflowNamespace": "selfsame", "scope": "platform"}},
+            definitions={"own.yaml": "endpoint: '@BUNDLE_DID:selfsame@/selfsame.openapi.yaml'\n"})
+        definitions = next(
+            doc for doc in render(declared)
+            if doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == "fei-workflows")
+        self.assertEqual(
+            {"selfsame": {"workflowNamespace": "selfsame", "scope": "platform"}},
+            json.loads(
+                definitions["metadata"]["annotations"]["openworkflow.forwardmeasure.com/contract-bundles"]))
+
     def test_the_upload_job_declares_the_bundles_its_contract_files_reference(self):
         declared = dict(
             CONTRACTS,

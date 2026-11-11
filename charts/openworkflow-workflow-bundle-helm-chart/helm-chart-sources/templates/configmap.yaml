@@ -6,6 +6,10 @@ metadata:
   name: {{ include "openworkflow-workflow-bundle.name" . }}
   labels:
     {{- include "openworkflow-workflow-bundle.labels" . | nindent 4 }}
+  annotations:
+    # The bundles the definitions name by alias, for tenant administration's publication into a
+    # tenant created later (KubernetesWorkflowBundleSource reads it).
+    openworkflow.forwardmeasure.com/contract-bundles: {{ toJson .Values.contractBundles | quote }}
 data:
   {{- range $file, $document := .Values.definitions }}
   {{ $file }}: |
