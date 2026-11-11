@@ -25,27 +25,9 @@ access:
   applicationNamespace: data-fabric
   # Other namespaces whose services read the registry, such as each tenant's OpenWorkflow.
   additionalApplicationNamespaces: []
-  gatewayNamespace: istio-system
 
+# Required, no defaults: the OIDC client the registry validates tokens for and the realm's URL
+# (https://<host>/realms/<realm>). Authentication and role-based authorization are always on.
 auth:
-  enabled: false
   clientId: ""
   serverUrl: ""
-  redirectUrl: ""
-  logoutUrl: ""
-
-cors:
-  allowedOrigins: []
-
-ui:
-  enabled: true
-  replicas: 2
-  contextPath: /registry/
-  apiUrl: ""
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
