@@ -17,10 +17,10 @@ reconcile_client_audiences() { :; }
 reconcile_client_hardcoded_claims() { :; }
 kc_get() {
   case "$1" in
-    */clients/fixture-client) printf '%s' '{"id":"fixture-client"}' ;;
-    */clients/fixture-client/default-client-scopes) printf '%s' '[]' ;;
     */users/fixture-user/role-mappings/clients/fixture-client)
       printf '%s' "${EXISTING_REALM_MANAGEMENT_ROLES:-[]}" ;;
+    */clients/fixture-client) printf '%s' '{"id":"fixture-client"}' ;;
+    */clients/fixture-client/default-client-scopes) printf '%s' '[]' ;;
     */clients/fixture-client/roles/*) printf '{"name":"%s"}' "${1##*/}" ;;
     *) echo "Unexpected tenant or Admin REST dependency: $1" >&2; exit 1 ;;
   esac
