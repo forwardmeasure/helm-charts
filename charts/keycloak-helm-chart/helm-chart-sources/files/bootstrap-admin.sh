@@ -13,8 +13,15 @@ log_section() {
   printf '%s ----- %s -----\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2
 }
 
+# Ends the whole Job, also from inside a command substitution or a pipeline
+# stage. Those run in subshells, where a bare exit ends only the subshell and
+# the caller carries on with an empty value (e.g. a failed client lookup read
+# as "client does not exist"). start_job_session records the Job's own shell.
 fail() {
   printf '%s ERROR %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2
+  if [ -n "${KC_JOB_PID:-}" ]; then
+    kill -TERM "$KC_JOB_PID" 2>/dev/null || true
+  fi
   exit 1
 }
 
@@ -32,88 +39,183 @@ json_escape() {
   printf '%s' "$1" | jq -R .
 }
 
-kc_get() {
-  url="$1"
-  out="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -H "Authorization: Bearer ${TOKEN}" \
-    "$url")"
-  if [ "$out" != "200" ]; then
-    log "GET $url -> HTTP $out: $(cat /tmp/kc.out 2>/dev/null || true)" >&2
-    return 1
+# ---------------------------------------------------------------------------
+# Admin REST session
+#
+# The Job logs in as the master-realm administrator through admin-cli. The
+# master realm issues those access tokens for about a minute, far less than
+# reconciling every service client takes, so no call uses a token it holds
+# from the start: each Admin REST call goes through kc_request, which renews
+# the token before it expires (from the login's own expires_in, with a margin)
+# and, should Keycloak still answer 401, renews once and retries that one call
+# once. A second 401 fails the Job like any other unexpected status.
+#
+# The token and its renewal time live in files in a private session directory,
+# not in shell variables: most calls run in command substitutions, and a token
+# renewed in a subshell must be what the caller uses next. Tokens, passwords,
+# and request bodies never appear on a command line (curl reads them from a
+# file or standard input) and never in the log (response bodies are redacted).
+# ---------------------------------------------------------------------------
+
+start_job_session() {
+  KC_JOB_PID=$$
+  trap 'exit 1' TERM INT
+  KC_SESSION_DIR="$(mktemp -d)" || fail "Could not create a private directory for the admin session"
+  chmod 700 "$KC_SESSION_DIR"
+  trap 'rm -rf "$KC_SESSION_DIR"' EXIT
+  export KC_JOB_PID KC_SESSION_DIR
+}
+
+kc_epoch_seconds() {
+  date -u +%s
+}
+
+# Prints a response body for the log: JSON with every token, secret, password,
+# or credential value replaced, anything else cut to 2000 bytes on one line.
+kc_redacted_body() {
+  if [ ! -s "$1" ]; then
+    printf '%s' '<empty body>'
+  elif jq empty "$1" >/dev/null 2>&1; then
+    jq -c 'walk(if type == "object" then with_entries(
+        if (.key | test("token|secret|password|credential|assertion"; "i"))
+        then .value = "<redacted>" else . end) else . end)' "$1"
+  else
+    head -c 2000 "$1" | tr '\n\r' '  ' \
+      | sed -E 's/(token|secret|password|credential|assertion)([^A-Za-z0-9<]{1,4})[^&" ,;<]+/\1\2<redacted>/Ig'
   fi
-  cat /tmp/kc.out
+}
+
+kc_admin_login() {
+  kc_login_url="${KEYCLOAK_URL}/realms/master/protocol/openid-connect/token"
+  kc_login_call="POST ${kc_login_url} (admin login as ${KEYCLOAK_ADMIN})"
+  kc_login_response="$(mktemp "${KC_SESSION_DIR}/login.XXXXXX")"
+  kc_login_requested_at="$(kc_epoch_seconds)"
+  kc_login_rc=0
+  kc_login_status="$(printf '%s' "${KEYCLOAK_ADMIN_PASSWORD}" | curl -sS \
+    -o "$kc_login_response" -w '%{http_code}' \
+    -X POST "$kc_login_url" \
+    --data-urlencode "grant_type=password" \
+    --data-urlencode "client_id=admin-cli" \
+    --data-urlencode "username=${KEYCLOAK_ADMIN}" \
+    --data-urlencode "password@-")" || kc_login_rc=$?
+  [ "$kc_login_rc" -eq 0 ] || fail "${kc_login_call} could not reach Keycloak (curl exit ${kc_login_rc})"
+  if [ "$kc_login_status" != "200" ]; then
+    fail "${kc_login_call} -> HTTP ${kc_login_status}: $(kc_redacted_body "$kc_login_response")"
+  fi
+  kc_login_expires_in="$(jq -er '.expires_in | select(type == "number" and . >= 1) | floor' "$kc_login_response")" \
+    || fail "${kc_login_call} -> HTTP 200 without a positive expires_in: $(kc_redacted_body "$kc_login_response")"
+  kc_login_header="$(mktemp "${KC_SESSION_DIR}/authorization.XXXXXX")"
+  jq -er '.access_token | select(type == "string" and length > 0) | "Authorization: Bearer " + .' \
+    "$kc_login_response" > "$kc_login_header" \
+    || fail "${kc_login_call} -> HTTP 200 without an access_token: $(kc_redacted_body "$kc_login_response")"
+  rm -f "$kc_login_response"
+  # Renew a quarter of the lifetime early, at most 15 seconds: a call never
+  # starts with a token about to lapse, and a minute-long token lasts 45s.
+  kc_login_margin=$((kc_login_expires_in / 4))
+  [ "$kc_login_margin" -le 15 ] || kc_login_margin=15
+  printf '%s\n' "$((kc_login_requested_at + kc_login_expires_in - kc_login_margin))" \
+    > "${KC_SESSION_DIR}/renew-at.next"
+  mv -f "${KC_SESSION_DIR}/renew-at.next" "${KC_SESSION_DIR}/renew-at"
+  mv -f "$kc_login_header" "${KC_SESSION_DIR}/authorization"
+  log "Admin access token obtained (lifetime ${kc_login_expires_in}s; renewed ${kc_login_margin}s before it expires)"
+}
+
+kc_ensure_admin_token() {
+  [ -n "${KC_SESSION_DIR:-}" ] || fail "Admin REST call before start_job_session"
+  if [ -s "${KC_SESSION_DIR}/authorization" ] && [ -s "${KC_SESSION_DIR}/renew-at" ]; then
+    if [ "$(kc_epoch_seconds)" -lt "$(cat "${KC_SESSION_DIR}/renew-at")" ]; then
+      return 0
+    fi
+    log "Admin access token is due for renewal - logging in again"
+  fi
+  kc_admin_login
+}
+
+# kc_send METHOD URL [JSON_BODY]: one HTTP exchange with the current token.
+# Sets KC_STATUS and KC_RESPONSE (a file the caller removes).
+kc_send() {
+  KC_RESPONSE="$(mktemp "${KC_SESSION_DIR}/response.XXXXXX")"
+  kc_send_rc=0
+  if [ "$#" -ge 3 ]; then
+    KC_STATUS="$(printf '%s' "$3" | curl -sS -o "$KC_RESPONSE" -w '%{http_code}' \
+      -X "$1" \
+      -H "@${KC_SESSION_DIR}/authorization" \
+      -H "Content-Type: application/json" \
+      --data-binary @- \
+      "$2")" || kc_send_rc=$?
+  else
+    KC_STATUS="$(curl -sS -o "$KC_RESPONSE" -w '%{http_code}' \
+      -X "$1" \
+      -H "@${KC_SESSION_DIR}/authorization" \
+      "$2")" || kc_send_rc=$?
+  fi
+  if [ "$kc_send_rc" -ne 0 ]; then
+    rm -f "$KC_RESPONSE"
+    fail "$1 $2 could not reach Keycloak (curl exit ${kc_send_rc})"
+  fi
+}
+
+# kc_request METHOD URL [JSON_BODY]: kc_send with a token that is renewed
+# before it expires, and renewed once more (one retry of this call) on a 401.
+kc_request() {
+  kc_ensure_admin_token
+  kc_send "$@"
+  if [ "$KC_STATUS" = "401" ]; then
+    log "$1 $2 -> HTTP 401: $(kc_redacted_body "$KC_RESPONSE") - renewing the admin token and retrying this call once"
+    rm -f "$KC_RESPONSE"
+    kc_admin_login
+    kc_send "$@"
+  fi
+}
+
+# kc_call "ACCEPTED STATUSES" METHOD URL [JSON_BODY]: any other status ends the
+# Job with the call, the status, and Keycloak's (redacted) response body.
+kc_call() {
+  kc_call_accepted="$1"
+  shift
+  kc_request "$@"
+  case " ${kc_call_accepted} " in
+    *" ${KC_STATUS} "*) ;;
+    *)
+      kc_call_detail="$(kc_redacted_body "$KC_RESPONSE")"
+      rm -f "$KC_RESPONSE"
+      fail "$1 $2 -> HTTP ${KC_STATUS}: ${kc_call_detail}"
+      ;;
+  esac
+}
+
+kc_get() {
+  kc_call "200" GET "$1"
+  cat "$KC_RESPONSE"
+  rm -f "$KC_RESPONSE"
 }
 
 kc_post_json() {
-  url="$1"
-  body="$2"
-  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -X POST \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    "$url" \
-    --data "$body")"
-  if [ "$code" != "201" ] && [ "$code" != "204" ] && [ "$code" != "409" ]; then
-    cat /tmp/kc.out >&2 || true
-    fail "POST $url failed with HTTP $code"
-  fi
-  if [ "$code" = "409" ]; then
-    log "POST $url returned 409 (already exists) — skipping"
+  kc_call "201 204 409" POST "$1" "$2"
+  rm -f "$KC_RESPONSE"
+  if [ "$KC_STATUS" = "409" ]; then
+    log "POST $1 returned 409 (already exists) — skipping"
   fi
 }
 
 kc_put_json() {
-  url="$1"
-  body="$2"
-  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -X PUT \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    "$url" \
-    --data "$body")"
-  if [ "$code" != "204" ]; then
-    cat /tmp/kc.out >&2 || true
-    fail "PUT $url failed with HTTP $code"
-  fi
+  kc_call "204" PUT "$1" "$2"
+  rm -f "$KC_RESPONSE"
 }
 
 kc_put_no_body() {
-  url="$1"
-  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -X PUT \
-    -H "Authorization: Bearer ${TOKEN}" \
-    "$url")"
-  if [ "$code" != "204" ]; then
-    cat /tmp/kc.out >&2 || true
-    fail "PUT $url failed with HTTP $code"
-  fi
+  kc_call "204" PUT "$1"
+  rm -f "$KC_RESPONSE"
 }
 
 kc_delete_json() {
-  url="$1"
-  body="$2"
-  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -X DELETE \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    "$url" \
-    --data "$body")"
-  if [ "$code" != "204" ]; then
-    cat /tmp/kc.out >&2 || true
-    fail "DELETE $url failed with HTTP $code"
-  fi
+  kc_call "204" DELETE "$1" "$2"
+  rm -f "$KC_RESPONSE"
 }
 
 kc_delete_no_body() {
-  url="$1"
-  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -X DELETE \
-    -H "Authorization: Bearer ${TOKEN}" \
-    "$url")"
-  if [ "$code" != "204" ]; then
-    cat /tmp/kc.out >&2 || true
-    fail "DELETE $url failed with HTTP $code"
-  fi
+  kc_call "204" DELETE "$1"
+  rm -f "$KC_RESPONSE"
 }
 
 # ---------------------------------------------------------------------------
@@ -187,19 +289,8 @@ configure_user_profile_unmanaged_attributes() {
   # was garbage-collected before its logs could be read to confirm the
   # exact status code, so this accepts either rather than guessing which
   # one it actually was.
-  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -X PUT \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    "${KEYCLOAK_URL}/admin/realms/${REALM}/users/profile" \
-    --data "$body")"
-  case "$code" in
-    200 | 204) ;;
-    *)
-      cat /tmp/kc.out >&2 || true
-      fail "PUT ${KEYCLOAK_URL}/admin/realms/${REALM}/users/profile failed with HTTP ${code}"
-      ;;
-  esac
+  kc_call "200 204" PUT "${KEYCLOAK_URL}/admin/realms/${REALM}/users/profile" "$body"
+  rm -f "$KC_RESPONSE"
   log "User profile now allows unmanaged attributes (tenant_did/actor_did/actor_type) and two-letter usernames"
 }
 
@@ -234,44 +325,33 @@ wait_for_keycloak() {
 # (e.g. realm-management) are visible. This function waits for realm-management
 # specifically, since Phase 3 depends on it to assign service account roles.
 # Without this guard, the bootstrap Job races against the async realm import and
-# Phase 3 fails silently or with a 403.
+# Phase 3 fails silently or with a 403. Each attempt that is not an HTTP 200
+# logs its status and Keycloak's response; the last one is the failure.
 wait_for_realm_management_client() {
   log "Waiting for realm-management client to be visible in realm '${REALM}'..."
+  url="${KEYCLOAK_URL}/admin/realms/${REALM}/clients?clientId=realm-management"
   attempt=1
   while :; do
-    uuid="$(get_client_uuid_by_client_id "realm-management" 2>/dev/null || true)"
-    if [ -n "$uuid" ] && [ "$uuid" != "null" ]; then
+    kc_request GET "$url"
+    if [ "$KC_STATUS" = "200" ]; then
+      uuid="$(jq -r '.[0].id // empty' "$KC_RESPONSE")"
+      outcome="HTTP 200 without the client"
+    else
+      uuid=""
+      outcome="HTTP ${KC_STATUS}: $(kc_redacted_body "$KC_RESPONSE")"
+    fi
+    rm -f "$KC_RESPONSE"
+    if [ -n "$uuid" ]; then
       log "realm-management client is visible (uuid=${uuid})"
       return 0
     fi
     if [ "$attempt" -ge "${KEYCLOAK_READY_MAX_ATTEMPTS}" ]; then
-      fail "realm-management client not visible after ${KEYCLOAK_READY_MAX_ATTEMPTS} attempts — realm import may have failed or stalled"
+      fail "realm-management client not visible after ${KEYCLOAK_READY_MAX_ATTEMPTS} attempts — realm import may have failed or stalled (last: GET ${url} -> ${outcome})"
     fi
-    log "realm-management not yet visible (attempt ${attempt}/${KEYCLOAK_READY_MAX_ATTEMPTS}) — retrying in ${KEYCLOAK_READY_SLEEP_SECONDS}s"
+    log "realm-management not yet visible (attempt ${attempt}/${KEYCLOAK_READY_MAX_ATTEMPTS}, GET ${url} -> ${outcome}) — retrying in ${KEYCLOAK_READY_SLEEP_SECONDS}s"
     attempt=$((attempt + 1))
     sleep "${KEYCLOAK_READY_SLEEP_SECONDS}"
   done
-}
-
-# ---------------------------------------------------------------------------
-# Auth
-# ---------------------------------------------------------------------------
-
-fetch_admin_token() {
-  log "Fetching admin token from ${KEYCLOAK_URL}/realms/master (user: ${KEYCLOAK_ADMIN})"
-  TOKEN="$(
-    curl -fsS \
-      -X POST "${KEYCLOAK_URL}/realms/master/protocol/openid-connect/token" \
-      -H "Content-Type: application/x-www-form-urlencoded" \
-      -d "client_id=admin-cli" \
-      -d "username=${KEYCLOAK_ADMIN}" \
-      -d "password=${KEYCLOAK_ADMIN_PASSWORD}" \
-      -d "grant_type=password" \
-      | jq -r '.access_token'
-  )"
-  [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] || fail "Failed to obtain admin token — check KEYCLOAK_ADMIN / KEYCLOAK_ADMIN_PASSWORD"
-  export TOKEN
-  log "Admin token obtained successfully"
 }
 
 # ---------------------------------------------------------------------------
@@ -282,14 +362,12 @@ ensure_realm_role() {
   role_name="$1"
   description="$2"
   log "Checking realm role: ${role_name}"
-  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -H "Authorization: Bearer ${TOKEN}" \
-    "${KEYCLOAK_URL}/admin/realms/${REALM}/roles/${role_name}")"
-  if [ "$code" = "200" ]; then
+  kc_call "200 404" GET "${KEYCLOAK_URL}/admin/realms/${REALM}/roles/${role_name}"
+  rm -f "$KC_RESPONSE"
+  if [ "$KC_STATUS" = "200" ]; then
     log "Realm role already exists: ${role_name}"
     return 0
   fi
-  [ "$code" = "404" ] || fail "Unexpected HTTP $code checking realm role '${role_name}'"
   log "Creating realm role: ${role_name}"
   body="$(cat <<EOF
 {
@@ -494,17 +572,9 @@ ensure_client_scope() {
     return 0
   fi
   log "Creating client scope: ${scope_name}"
-  code="$(curl -sS -o /tmp/kc.out -w '%{http_code}' \
-    -X POST \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    "${KEYCLOAK_URL}/admin/realms/${REALM}/client-scopes" \
-    --data "$scope_body")"
-  if [ "$code" != "201" ] && [ "$code" != "409" ]; then
-    cat /tmp/kc.out >&2 || true
-    fail "POST client-scope '${scope_name}' failed with HTTP $code"
-  fi
-  if [ "$code" = "409" ]; then
+  kc_call "201 409" POST "${KEYCLOAK_URL}/admin/realms/${REALM}/client-scopes" "$scope_body"
+  rm -f "$KC_RESPONSE"
+  if [ "$KC_STATUS" = "409" ]; then
     log "Client scope '${scope_name}' already exists (409) — skipping creation"
   fi
   new_id="$(get_scope_id_by_name "$scope_name")"
@@ -1596,9 +1666,10 @@ main() {
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
   : "${KEYCLOAK_READY_MAX_ATTEMPTS:=60}"
 
+  start_job_session
   print_config_banner
   wait_for_keycloak
-  fetch_admin_token
+  kc_admin_login
   wait_for_realm_management_client
   configure_realm_theme
   configure_user_profile_unmanaged_attributes
