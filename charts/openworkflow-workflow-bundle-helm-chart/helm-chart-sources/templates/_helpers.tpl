@@ -23,6 +23,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 
+{{/* The bundle's contracts image, by its digest (validate requires one). */}}
+{{- define "openworkflow-workflow-bundle.contractsImage" -}}
+{{- printf "%s@%s" .Values.contracts.repository .Values.contracts.digest | quote -}}
+{{- end -}}
+
 {{/* The publisher image, by digest when one is set. */}}
 {{- define "openworkflow-workflow-bundle.image" -}}
 {{- printf "%s%s" .Values.image.repository (ternary (printf "@%s" .Values.image.digest) (printf ":%s" .Values.image.tag) (not (empty .Values.image.digest))) | quote -}}
@@ -48,17 +53,28 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if hasKey .Values "apiDocuments" -}}
 {{- fail "apiDocuments is renamed contracts (chart 0.3.0): move the files there" -}}
 {{- end -}}
+{{- if not (kindIs "map" .Values.contracts) -}}
+{{- fail "contracts must be the bundle's contracts image, {repository, digest}" -}}
+{{- end -}}
+{{- range $key, $_ := .Values.contracts -}}
+{{- if not (has $key (list "repository" "digest")) -}}
+{{- fail (printf "contracts.%s: contracts is the bundle's contracts image, {repository, digest}; contract files no longer travel inside the release (chart 0.3.0), the contracts image carries them" $key) -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.contracts -}}
+{{- if not .Values.contracts.repository -}}
+{{- fail "contracts.repository is required: the bundle's contracts image, e.g. docker.io/forwardmeasure/<bundle>-contracts" -}}
+{{- end -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" (.Values.contracts.digest | default "")) -}}
+{{- fail (printf "contracts.digest is required: the contracts image %s by its sha256 digest (the release's image-versions pin, which the install's digest sync fills); there is no tag fallback" .Values.contracts.repository) -}}
+{{- end -}}
+{{- end -}}
 {{- if not (or .Values.definitions .Values.contracts) -}}
-{{- fail "definitions or contracts must hold at least one file: a release publishes workflow documents, uploads contract files, or both" -}}
+{{- fail "definitions or contracts must be given: a release publishes workflow documents, uploads its contracts image's files, or both" -}}
 {{- end -}}
 {{- range $file, $_ := .Values.definitions -}}
 {{- if not (regexMatch "^[^./][^/]*\\.ya?ml$" $file) -}}
 {{- fail (printf "definitions key %s must be a *.yaml or *.yml file name" $file) -}}
-{{- end -}}
-{{- end -}}
-{{- range $file, $_ := .Values.contracts -}}
-{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._-]*\\.(ya?ml|json|proto)$" $file) -}}
-{{- fail (printf "contracts key %s must be a *.yaml, *.yml, *.json or *.proto file name" $file) -}}
 {{- end -}}
 {{- end -}}
 {{- if .Values.definitions -}}

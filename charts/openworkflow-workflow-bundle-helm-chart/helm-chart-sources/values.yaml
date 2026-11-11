@@ -21,18 +21,26 @@ scope: ""
 # A release with definitions renders the publish Job, which publishes every one into every tenant.
 definitions: {}
 
-# File name -> contract file the bundle owns (OpenAPI, AsyncAPI, a .proto, or a JSON Schema contract
-# file such as <workflow>.contract.json, <workflow>.<step>.form.json or <event>.data.schema.json; YAML
-# or JSON). A release with contracts renders the upload Job, which uploads every one to the
-# platform's registry, in the group the bundle's scope names (above), so that they are there before
-# any workflow that names them is published. A workflow names one by DID URL, never by registry URL
-# (the registry host differs per environment):
+# The bundle's contracts image: the image its repository's build assembles from the contract files'
+# single sources (OpenAPI, AsyncAPI, a .proto, or a JSON Schema contract file such as
+# <workflow>.contract.json, <workflow>.<step>.form.json or <event>.data.schema.json) and pushes like
+# every service image, with every file and a SHA256SUMS listing them all at /contracts. Contract files
+# never travel inside the release (Kubernetes caps a ConfigMap and Helm's release Secret at 1 MiB):
+#   contracts:
+#     repository: docker.io/forwardmeasure/entity-intelligence-contracts
+#     digest: sha256:...      # the release's image-versions pin; required, there is no tag fallback
+# A release with contracts renders the upload Job: an init container from this image copies
+# /contracts into the Job's emptyDir, and the publisher verifies every file against SHA256SUMS
+# (refusing a mismatch, a missing file, or an unlisted one) before it uploads them to the platform's
+# registry, in the group the bundle's scope names (above), so that they are there before any workflow
+# that names them is published. A workflow names one by DID URL, never by registry URL (the registry
+# host differs per environment):
 #   endpoint: "@BUNDLE_DID@/<file name>"                  # a file of this bundle
 #   endpoint: "@BUNDLE_DID:<alias>@/<file name>"          # a file of the bundle contractBundles names
 # The publisher renders each to the DID URL of the registry version it names, keeping any fragment,
 # e.g. did:<didMethod>:bundle:<workflowNamespace>/<file name>?version=3#/$defs/output. A contract
 # file's relative references ($ref: 'messages.yaml#/...') name the bundle's other contract files. The
-# map is flat: a DID URL names a file by its file name alone.
+# files are a flat list: a DID URL names a file by its file name alone.
 contracts: {}
 
 # Required with definitions, no default: every other bundle the definitions name contracts of, by the

@@ -1,9 +1,11 @@
 {{- include "openworkflow-workflow-bundle.validate" . }}
 {{- if .Values.contracts }}
-# Runs after every install/upgrade of a release with contracts: uploads every contract file to the
-# platform's registry, in the group the bundle's scope names, before anything that names them is
-# published. Identical content reuses its registry version, so a rerun with unchanged files uploads
-# nothing new.
+# Runs after every install/upgrade of a release with contracts: an init container from the bundle's
+# contracts image (by digest) copies its /contracts into the Job's emptyDir, and the publisher
+# verifies every file against the image's SHA256SUMS, refusing any mismatch, missing file, or
+# unlisted one, then uploads every contract file to the platform's registry, in the group the
+# bundle's scope names, before anything that names them is published. Identical content reuses its
+# registry version, so a rerun with unchanged files uploads nothing new.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -34,6 +36,19 @@ spec:
       automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        # The contracts image is the platform's base image with the files at /contracts: its cp
+        # copies them, SHA256SUMS included, into the emptyDir the publisher reads.
+        - name: contracts
+          image: {{ include "openworkflow-workflow-bundle.contractsImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [cp, -R, /contracts/., /bundle-contracts/]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - {name: contracts, mountPath: /bundle-contracts}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
       containers:
         - name: upload
           image: {{ include "openworkflow-workflow-bundle.image" . }}
@@ -55,8 +70,11 @@ spec:
             # Scope tenant: each tenant's own registry group.
             - {name: OPENWORKFLOW_PUBLISHER_TENANTS, value: {{ join "," . | quote }}}
             {{- end }}
+            {{- if eq .Values.scope "tenant" }}
+            # Scope tenant: each tenant's id, for its group, from definition management.
             - name: OPENWORKFLOW_PUBLISHER_DEFINITION_BASE_URL
-              value: {{ required "fowf.definitionBaseUrl is required" .Values.fowf.definitionBaseUrl | quote }}
+              value: {{ required "fowf.definitionBaseUrl is required with scope tenant" .Values.fowf.definitionBaseUrl | quote }}
+            {{- end }}
             - name: OPENWORKFLOW_PUBLISHER_KEYCLOAK_TOKEN_URL
               value: {{ required "fowf.keycloakTokenUrl is required" .Values.fowf.keycloakTokenUrl | quote }}
             {{- $secret := required "identity.secretName is required" .Values.identity.secretName }}
@@ -68,8 +86,8 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
-        - name: contracts
-          configMap: {name: {{ include "openworkflow-workflow-bundle.name" . }}-contracts}
+        # The contracts image's files, as the init container copied them.
+        - {name: contracts, emptyDir: {}}
         # The JVM writes its performance data here; the root filesystem is read-only.
         - {name: tmp, emptyDir: {}}
 {{- end }}
