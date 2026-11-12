@@ -61,8 +61,8 @@ CONTRACTS = {
     "workflowNamespace": "entity-intelligence",
     "scope": "platform",
     "contracts": {
-        "resolution-application.contract.json": '{"$defs": {"input": {"type": "object"}}}',
-        "entity-intelligence-api.yaml": "openapi: 3.1.0\n",
+        "repository": "docker.io/forwardmeasure/entity-intelligence-contracts",
+        "digest": "sha256:" + "b" * 64,
     },
     "fowf": WORKFLOWS["fowf"],
     "registry": WORKFLOWS["registry"],
@@ -146,7 +146,30 @@ class Refusals(unittest.TestCase):
 
     def test_a_release_with_nothing_to_publish_or_upload_fails_to_render(self):
         error = render(values(CONTRACTS, contracts={}), success=False)
-        self.assertIn("definitions or contracts must hold at least one file", error)
+        self.assertIn("definitions or contracts must be given", error)
+
+    def test_a_contracts_image_without_a_digest_fails_to_render(self):
+        for digest in (None, "", "latest", "sha256:" + "B" * 64, "sha256:" + "b" * 63):
+            with self.subTest(digest=digest):
+                image = {"repository": CONTRACTS["contracts"]["repository"]}
+                if digest is not None:
+                    image["digest"] = digest
+                error = render(values(CONTRACTS, contracts=image), success=False)
+                self.assertIn(
+                    "contracts.digest is required: the contracts image "
+                    "docker.io/forwardmeasure/entity-intelligence-contracts by its sha256 digest", error)
+
+    def test_a_contracts_image_without_a_repository_fails_to_render(self):
+        error = render(values(CONTRACTS, contracts={"digest": "sha256:" + "b" * 64}), success=False)
+        self.assertIn("contracts.repository is required", error)
+
+    def test_contract_file_contents_in_the_release_are_refused(self):
+        error = render(
+            values(CONTRACTS, contracts={"entity-intelligence-api.yaml": "openapi: 3.1.0\n"}),
+            success=False)
+        self.assertIn(
+            "contracts.entity-intelligence-api.yaml: contracts is the bundle's contracts image, "
+            "{repository, digest}; contract files no longer travel inside the release", error)
 
     def test_contracts_need_the_registry(self):
         error = render(values(CONTRACTS, registry={"apiUrl": ""}), success=False)
@@ -213,16 +236,33 @@ class Jobs(unittest.TestCase):
         self.assertEqual("/contracts", variables["OPENWORKFLOW_PUBLISHER_RESOURCES_DIR"])
         self.assertEqual("platform", variables["OPENWORKFLOW_PUBLISHER_REGISTRY_SCOPE"])
         self.assertNotIn("OPENWORKFLOW_PUBLISHER_DEFINITIONS_DIR", variables)
-        contracts = next(
-            doc for doc in docs
-            if doc["kind"] == "ConfigMap" and doc["metadata"]["name"] == "fei-workflows-contracts")
-        self.assertEqual(sorted(CONTRACTS["contracts"]), sorted(contracts["data"]))
-        # Contract files are not workflows: tenant administration reads labelled ConfigMaps as such.
-        self.assertNotIn(
-            "openworkflow.forwardmeasure.com/workflow-bundle", contracts["metadata"]["labels"])
-        volumes = upload["spec"]["template"]["spec"]["volumes"]
+        # A platform bundle's group needs no tenant id, so no definition management.
+        self.assertNotIn("OPENWORKFLOW_PUBLISHER_DEFINITION_BASE_URL", variables)
+
+    def test_a_contracts_release_copies_its_contracts_image_and_renders_no_configmap_of_files(self):
+        docs = render(CONTRACTS)
+        # No contract file travels in the release: no ConfigMap at all for a contracts-only release.
+        self.assertEqual([], [doc["metadata"]["name"] for doc in docs if doc["kind"] == "ConfigMap"])
+        pod = jobs(docs)["fei-workflows-contracts"]["spec"]["template"]["spec"]
+        [copier] = pod["initContainers"]
+        self.assertEqual(
+            "docker.io/forwardmeasure/entity-intelligence-contracts@sha256:" + "b" * 64,
+            copier["image"])
+        self.assertEqual(["cp", "-R", "/contracts/.", "/bundle-contracts/"], copier["command"])
+        self.assertEqual([{"name": "contracts", "mountPath": "/bundle-contracts"}], copier["volumeMounts"])
+        self.assertEqual(
+            {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
+             "capabilities": {"drop": ["ALL"]}},
+            copier["securityContext"])
+        [upload] = pod["containers"]
         self.assertIn(
-            {"name": "contracts", "configMap": {"name": "fei-workflows-contracts"}}, volumes)
+            {"name": "contracts", "mountPath": "/contracts", "readOnly": True}, upload["volumeMounts"])
+        self.assertIn({"name": "contracts", "emptyDir": {}}, pod["volumes"])
+        self.assertNotIn("configMap", json.dumps(pod["volumes"]))
+
+    def test_a_workflows_release_renders_no_contracts_copier(self):
+        pod = jobs(render(WORKFLOWS))["fei-workflows"]["spec"]["template"]["spec"]
+        self.assertNotIn("initContainers", pod)
 
     def test_a_release_with_both_uploads_before_it_publishes(self):
         both = values(WORKFLOWS, contracts=CONTRACTS["contracts"])
@@ -237,6 +277,14 @@ class Jobs(unittest.TestCase):
         tenant["tenants"] = ["acme", "globex"]
         upload = jobs(render(tenant))["fei-workflows-contracts"]
         self.assertEqual("acme,globex", env(upload)["OPENWORKFLOW_PUBLISHER_TENANTS"])
+        # Each tenant's id, for its own group, comes from definition management.
+        self.assertEqual(
+            WORKFLOWS["fowf"]["definitionBaseUrl"],
+            env(upload)["OPENWORKFLOW_PUBLISHER_DEFINITION_BASE_URL"])
+        no_definitions = dict(tenant, fowf={"keycloakTokenUrl": WORKFLOWS["fowf"]["keycloakTokenUrl"]})
+        self.assertIn(
+            "fowf.definitionBaseUrl is required with scope tenant",
+            render(no_definitions, success=False))
 
 
 if __name__ == "__main__":

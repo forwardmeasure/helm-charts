@@ -16,21 +16,6 @@ data:
     {{- $document | nindent 4 }}
   {{- end }}
 {{- end }}
-{{- if .Values.contracts }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "openworkflow-workflow-bundle.name" . }}-contracts
-  # Not the workflow-bundle label: tenant administration reads labelled ConfigMaps as workflows.
-  labels:
-    {{- include "openworkflow-workflow-bundle.plainLabels" . | nindent 4 }}
-data:
-  {{- range $file, $document := .Values.contracts }}
-  {{ $file }}: |
-    {{- $document | nindent 4 }}
-  {{- end }}
-{{- end }}
 {{- if and .Values.definitions .Values.reviewedCredentialCapabilities }}
 ---
 apiVersion: v1
