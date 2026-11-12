@@ -42,6 +42,12 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if $names -}}true{{- end -}}
 {{- end -}}
 
+{{/* The roles the release declares for its contract files (contracts.roles), as a JSON object of
+file name to role. */}}
+{{- define "openworkflow-workflow-bundle.contractRoles" -}}
+{{- toJson (.Values.contracts.roles | default dict) -}}
+{{- end -}}
+
 {{/* Fails the render on settings the publisher can't run without. */}}
 {{- define "openworkflow-workflow-bundle.validate" -}}
 {{- if not (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" (.Values.workflowNamespace | default "")) -}}
@@ -54,11 +60,24 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- fail "apiDocuments is renamed contracts (chart 0.3.0): move the files there" -}}
 {{- end -}}
 {{- if not (kindIs "map" .Values.contracts) -}}
-{{- fail "contracts must be the bundle's contracts image, {repository, digest}" -}}
+{{- fail "contracts must be the bundle's contracts image, {repository, digest, roles}" -}}
 {{- end -}}
 {{- range $key, $_ := .Values.contracts -}}
-{{- if not (has $key (list "repository" "digest")) -}}
-{{- fail (printf "contracts.%s: contracts is the bundle's contracts image, {repository, digest}; contract files no longer travel inside the release (chart 0.3.0), the contracts image carries them" $key) -}}
+{{- if not (has $key (list "repository" "digest" "roles")) -}}
+{{- fail (printf "contracts.%s: contracts is the bundle's contracts image, {repository, digest, roles}; contract files no longer travel inside the release (chart 0.3.0), the contracts image carries them" $key) -}}
+{{- end -}}
+{{- end -}}
+{{- if hasKey .Values.contracts "roles" -}}
+{{- if not (kindIs "map" .Values.contracts.roles) -}}
+{{- fail "contracts.roles must map a contract file's name to its role" -}}
+{{- end -}}
+{{- range $file, $role := .Values.contracts.roles -}}
+{{- if not (regexMatch "^[A-Za-z0-9][A-Za-z0-9._-]*\\.(ya?ml|json|proto)$" $file) -}}
+{{- fail (printf "contracts.roles key %s must be a contract file's name: *.yaml, *.yml, *.json or *.proto" $file) -}}
+{{- end -}}
+{{- if not (and (kindIs "string" $role) (le (len $role) 64) (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" $role)) -}}
+{{- fail (printf "contracts.roles.%s %v must be lowercase letters and digits in hyphen-separated words, e.g. model-openai-chat-completions" $file $role) -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- if .Values.contracts -}}
@@ -76,6 +95,9 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if not (regexMatch "^[^./][^/]*\\.ya?ml$" $file) -}}
 {{- fail (printf "definitions key %s must be a *.yaml or *.yml file name" $file) -}}
 {{- end -}}
+{{- end -}}
+{{- if and .Values.contracts (not .Values.didMethod) -}}
+{{- fail "didMethod is required when contracts are given: every uploaded version records its bundle's DID; set it from the shared platform.identity.didMethod" -}}
 {{- end -}}
 {{- if .Values.definitions -}}
 {{- if kindIs "invalid" .Values.contractBundles -}}

@@ -60,6 +60,7 @@ WORKFLOWS = {
 CONTRACTS = {
     "workflowNamespace": "entity-intelligence",
     "scope": "platform",
+    "didMethod": "fwm",
     "contracts": {
         "repository": "docker.io/forwardmeasure/entity-intelligence-contracts",
         "digest": "sha256:" + "b" * 64,
@@ -140,6 +141,26 @@ class Refusals(unittest.TestCase):
             definitions={"x.yaml": "endpoint: '@BUNDLE_DID:selfsame@/selfsame.openapi.yaml'\n"})
         self.assertIn("didMethod is required: definition x.yaml", render(aliased, success=False))
 
+    def test_contracts_need_the_did_method(self):
+        error = render(values(CONTRACTS, didMethod=None), success=False)
+        self.assertIn(
+            "didMethod is required when contracts are given: every uploaded version records its"
+            " bundle's DID", error)
+
+    def test_a_declared_role_names_a_contract_file_and_is_a_role(self):
+        for roles, message in (
+                ({"rag-api.yaml": "RAG"},
+                 "contracts.roles.rag-api.yaml RAG must be lowercase letters and digits"),
+                ({"rag-api.yaml": "model_openai"},
+                 "contracts.roles.rag-api.yaml model_openai must be lowercase letters and digits"),
+                ({"rag api": "rag"},
+                 "contracts.roles key rag api must be a contract file's name"),
+                (["rag"], "contracts.roles must map a contract file's name to its role")):
+            with self.subTest(roles=roles):
+                image = dict(CONTRACTS["contracts"], roles=roles)
+                error = render(values(CONTRACTS, contracts=image), success=False)
+                self.assertIn(message, error)
+
     def test_the_old_api_documents_key_is_refused(self):
         error = render(values(CONTRACTS, apiDocuments={"a.yaml": "x: 1\n"}), success=False)
         self.assertIn("apiDocuments is renamed contracts", error)
@@ -169,7 +190,7 @@ class Refusals(unittest.TestCase):
             success=False)
         self.assertIn(
             "contracts.entity-intelligence-api.yaml: contracts is the bundle's contracts image, "
-            "{repository, digest}; contract files no longer travel inside the release", error)
+            "{repository, digest, roles}; contract files no longer travel inside the release", error)
 
     def test_contracts_need_the_registry(self):
         error = render(values(CONTRACTS, registry={"apiUrl": ""}), success=False)
@@ -263,6 +284,21 @@ class Jobs(unittest.TestCase):
     def test_a_workflows_release_renders_no_contracts_copier(self):
         pod = jobs(render(WORKFLOWS))["fei-workflows"]["spec"]["template"]["spec"]
         self.assertNotIn("initContainers", pod)
+
+    def test_the_upload_records_the_bundles_did_and_no_roles_unless_declared(self):
+        docs = render(CONTRACTS)
+        variables = env(jobs(docs)["fei-workflows-contracts"])
+        self.assertEqual("fwm", variables["FORWARDMEASURE_DID_METHOD"])
+        self.assertNotIn("OPENWORKFLOW_PUBLISHER_CONTRACT_ROLES", variables)
+
+    def test_a_role_the_release_declares_reaches_the_upload(self):
+        roles = {"rag-api.yaml": "rag"}
+        rag = values(
+            CONTRACTS,
+            workflowNamespace="rag",
+            contracts=dict(CONTRACTS["contracts"], roles=roles))
+        upload = jobs(render(rag))["fei-workflows-contracts"]
+        self.assertEqual(roles, json.loads(env(upload)["OPENWORKFLOW_PUBLISHER_CONTRACT_ROLES"]))
 
     def test_a_release_with_both_uploads_before_it_publishes(self):
         both = values(WORKFLOWS, contracts=CONTRACTS["contracts"])

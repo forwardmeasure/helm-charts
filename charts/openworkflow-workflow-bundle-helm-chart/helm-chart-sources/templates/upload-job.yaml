@@ -66,6 +66,12 @@ spec:
             # references name (../<path>/<file>), each registered as an artifact reference.
             - {name: OPENWORKFLOW_PUBLISHER_CONTRACT_BUNDLES, value: {{ toJson .Values.contractBundles | quote }}}
             {{- end }}
+            # Every uploaded version records its bundle's DID.
+            - {name: FORWARDMEASURE_DID_METHOD, value: {{ .Values.didMethod | quote }}}
+            {{- with include "openworkflow-workflow-bundle.contractRoles" . | fromJson }}
+            # file name -> role: recorded on every version uploaded from the file.
+            - {name: OPENWORKFLOW_PUBLISHER_CONTRACT_ROLES, value: {{ toJson . | quote }}}
+            {{- end }}
             {{- with .Values.tenants }}
             # Scope tenant: each tenant's own registry group.
             - {name: OPENWORKFLOW_PUBLISHER_TENANTS, value: {{ join "," . | quote }}}
