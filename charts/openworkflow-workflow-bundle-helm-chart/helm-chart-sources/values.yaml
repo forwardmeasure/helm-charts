@@ -3,7 +3,7 @@
 workflowNamespace: ""
 
 # Required, no default: whose contracts this bundle publishes, which decides the registry group its
-# apiDocuments go in and the DID its definitions name them by.
+# contract files go in and the DID its definitions name them by.
 #   platform - contracts every tenant shares (a product's or the platform's own API): uploaded once to
 #              group platform.<workflowNamespace>; @BUNDLE_DID@ renders to
 #              did:<didMethod>:bundle:<workflowNamespace>.
@@ -18,25 +18,38 @@ scope: ""
 #     population-screening.yaml: |
 #       document: {dsl: '1.0.3', namespace: ..., name: population-screening, version: '1.0.0'}
 #       ...
+# A release with definitions renders the publish Job, which publishes every one into every tenant.
 definitions: {}
 
-# File name -> API document (AsyncAPI, OpenAPI or JSON Schema; YAML or JSON) the workflows
-# reference. Uploaded to the platform's registry, in the group the bundle's scope names (above), before
-# any workflow is published. A workflow names one by DID URL, never by registry URL (the registry host differs per
-# environment):
-#   endpoint: "@BUNDLE_DID@/<file name>"
-# The publisher renders @BUNDLE_DID@ to this bundle's DID by its scope (above), so the definition stores
-# e.g. did:<didMethod>:bundle:<workflowNamespace>/<file name>; definition-management resolves that from
-# the registry with its own credentials, a tenant's own documents only for that tenant. A document's relative references ($ref:
-# 'messages.yaml#/...') resolve to the bundle's other documents the same way. The map is flat: a
-# DID URL names a document by its file name alone.
-apiDocuments: {}
+# File name -> contract file the bundle owns (OpenAPI, AsyncAPI, a .proto, or a JSON Schema contract
+# file such as <workflow>.contract.json, <workflow>.<step>.form.json or <event>.data.schema.json; YAML
+# or JSON). A release with contracts renders the upload Job, which uploads every one to the
+# platform's registry, in the group the bundle's scope names (above), so that they are there before
+# any workflow that names them is published. A workflow names one by DID URL, never by registry URL
+# (the registry host differs per environment):
+#   endpoint: "@BUNDLE_DID@/<file name>"                  # a file of this bundle
+#   endpoint: "@BUNDLE_DID:<alias>@/<file name>"          # a file of the bundle contractBundles names
+# The publisher renders each to the DID URL of the registry version it names, keeping any fragment,
+# e.g. did:<didMethod>:bundle:<workflowNamespace>/<file name>?version=3#/$defs/output. A contract
+# file's relative references ($ref: 'messages.yaml#/...') name the bundle's other contract files. The
+# map is flat: a DID URL names a file by its file name alone.
+contracts: {}
+
+# Required with definitions, no default: every other bundle the definitions name contracts of, by the
+# alias they use (@BUNDLE_DID:<alias>@). Each entry is that bundle's workflow namespace and scope:
+#   contractBundles:
+#     selfsame:  {workflowNamespace: selfsame,  scope: platform}
+#     indexical: {workflowNamespace: indexical, scope: platform}
+# A bundle whose definitions name no other bundle's contracts states that with an empty map ({}). A
+# definition that uses an alias this map does not declare fails to render.
+contractBundles: null
 
 # The platform's DID method (shared platform.identity.didMethod), set on the publisher as
 # FORWARDMEASURE_DID_METHOD. Required when any definition contains @BUNDLE_DID@; no default.
 didMethod: ""
 
-# Aliases of the tenants entitled to this workflow namespace; every one is published to.
+# Aliases of the tenants entitled to this workflow namespace; every one is published to. Required with
+# definitions, and with contracts of scope tenant (each tenant's own registry group).
 tenants: []
 
 # The one tenant this bundle is for, when it names that tenant's own services. A tenant created later
@@ -50,7 +63,9 @@ fowf:
   keycloakTokenUrl: ""
 
 registry:
-  # The platform's Apicurio Registry API (shared endpoints.registry.apiUrl); required with apiDocuments.
+  # The platform's Apicurio Registry API (shared endpoints.registry.apiUrl); required with contracts,
+  # and with definitions that name any bundle's contracts (the publisher pins each reference to the
+  # registry version it names).
   apiUrl: ""
 
 # fowf's one publisher identity (openworkflow-platform-clients writes it). It creates, validates

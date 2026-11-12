@@ -1,34 +1,37 @@
 {{- include "openworkflow-workflow-bundle.validate" . }}
+{{- if .Values.definitions }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "openworkflow-workflow-bundle.name" . }}
   labels:
     {{- include "openworkflow-workflow-bundle.labels" . | nindent 4 }}
+  annotations:
+    # The bundles the definitions name by alias, for tenant administration's publication into a
+    # tenant created later (KubernetesWorkflowBundleSource reads it).
+    openworkflow.forwardmeasure.com/contract-bundles: {{ toJson .Values.contractBundles | quote }}
 data:
   {{- range $file, $document := .Values.definitions }}
   {{ $file }}: |
     {{- $document | nindent 4 }}
   {{- end }}
-{{- if .Values.apiDocuments }}
+{{- end }}
+{{- if .Values.contracts }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "openworkflow-workflow-bundle.name" . }}-api-documents
+  name: {{ include "openworkflow-workflow-bundle.name" . }}-contracts
   # Not the workflow-bundle label: tenant administration reads labelled ConfigMaps as workflows.
   labels:
-    app.kubernetes.io/name: openworkflow-workflow-bundle
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- include "openworkflow-workflow-bundle.plainLabels" . | nindent 4 }}
 data:
-  {{- range $file, $document := .Values.apiDocuments }}
+  {{- range $file, $document := .Values.contracts }}
   {{ $file }}: |
     {{- $document | nindent 4 }}
   {{- end }}
 {{- end }}
-
-{{- if .Values.reviewedCredentialCapabilities }}
+{{- if and .Values.definitions .Values.reviewedCredentialCapabilities }}
 ---
 apiVersion: v1
 kind: ConfigMap
