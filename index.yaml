@@ -3191,7 +3191,37 @@ entries:
   openworkflow-workflow-bundle:
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:22:51.911886124-05:00"
+    created: "2026-11-11T23:23:08.866609822-05:00"
+    description: 'A product''s OpenWorkflow workflow bundle: its contract files and
+      its workflow documents (YAML), in its workflow namespace. A release with contracts
+      renders an upload Job that uploads every contract file to the platform registry,
+      in the group its scope names; a release with definitions renders a publish Job
+      that runs forwardmeasure-openworkflow''s workflow publisher, which renders every
+      bundle reference ("@BUNDLE_DID@/<file>" for this bundle, "@BUNDLE_DID:<alias>@/<file>"
+      for a bundle contractBundles declares) to the DID URL of the registry version
+      it names (did:<didMethod>:bundle:<workflowNamespace>/<file>?version=<n>), never
+      a registry URL, and publishes each document into every listed tenant. Workflows
+      are named <workflowNamespace>-<document.name>; rerunning with an unchanged rendered
+      source publishes nothing. Products add a contracts release and a workflows release
+      of this chart to their own helmfile - no code, image or Keycloak clients of
+      their own (forwardmeasure-platform docs/contract-bundling-design-2026-11-11.md,
+      sections 2.2, 2.3 and 2.15).  Install it in the namespace holding fowf''s publisher
+      identity Secret (identity.secretName). '
+    digest: 9b5ab7bc77bc8f03e7a70373b62f19f8619ed1c2cdb1cc286b5ae7a425c7a50b
+    keywords:
+    - openworkflow
+    - workflow
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: openworkflow-workflow-bundle
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/openworkflow-workflow-bundle-helm-chart/openworkflow-workflow-bundle-0.3.1.tgz
+    version: 0.3.1
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2026-11-11T23:23:08.865955963-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its contract files and
       its workflow documents (YAML), in its workflow namespace. A release with contracts
       renders an upload Job that uploads every contract file to the platform registry,
@@ -3221,7 +3251,7 @@ entries:
     version: 0.3.0
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:22:51.910565583-05:00"
+    created: "2026-11-11T23:23:08.865308248-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its workflow namespace, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3248,7 +3278,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:22:51.910027313-05:00"
+    created: "2026-11-11T23:23:08.864774278-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3275,7 +3305,7 @@ entries:
     version: 0.1.6
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:22:51.909476408-05:00"
+    created: "2026-11-11T23:23:08.864291712-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3302,7 +3332,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:22:51.908982895-05:00"
+    created: "2026-11-11T23:23:08.863803911-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3329,7 +3359,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:22:51.908515261-05:00"
+    created: "2026-11-11T23:23:08.86324992-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3356,7 +3386,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:22:51.907968329-05:00"
+    created: "2026-11-11T23:23:08.862727854-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -4528,4 +4558,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-11-11T23:22:51.907308123-05:00"
+generated: "2026-11-11T23:23:08.862126617-05:00"
