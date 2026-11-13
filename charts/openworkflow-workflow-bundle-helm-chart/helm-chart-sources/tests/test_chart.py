@@ -42,12 +42,21 @@ do:
         operationId: getResolutionRun
 """
 
+# The shared platform.contractDigests: every workflow namespace's contracts image digest.
+DIGESTS = {
+    "entity-intelligence": "sha256:" + "c" * 64,
+    "selfsame": "sha256:" + "d" * 64,
+    "indexical": "sha256:" + "e" * 64,
+    "platform-contracts": "sha256:" + "f" * 64,
+}
+
 WORKFLOWS = {
     "workflowNamespace": "entity-intelligence",
     "scope": "platform",
     "didMethod": "fwm",
     "definitions": {"resolution-application.yaml": DEFINITION},
     "contractBundles": {"selfsame": {"workflowNamespace": "selfsame", "scope": "platform"}},
+    "contractDigests": DIGESTS,
     "tenants": ["acme"],
     "fowf": {
         "definitionBaseUrl": "http://openworkflow-definition-management.openworkflow.svc",
@@ -65,10 +74,13 @@ CONTRACTS = {
         "repository": "docker.io/forwardmeasure/entity-intelligence-contracts",
         "digest": "sha256:" + "b" * 64,
     },
+    "contractDigests": DIGESTS,
     "fowf": WORKFLOWS["fowf"],
     "registry": WORKFLOWS["registry"],
     "image": WORKFLOWS["image"],
 }
+
+CONTRACT_DIGESTS = "openworkflow.forwardmeasure.com/contract-digests"
 
 
 def values(base, **changes):
@@ -99,6 +111,10 @@ def render(chart_values, success=True):
 
 def jobs(docs):
     return {doc["metadata"]["name"]: doc for doc in docs if doc["kind"] == "Job"}
+
+
+def pod_annotations(job):
+    return job["spec"]["template"]["metadata"].get("annotations", {})
 
 
 def env(job):
@@ -321,6 +337,92 @@ class Jobs(unittest.TestCase):
         self.assertIn(
             "fowf.definitionBaseUrl is required with scope tenant",
             render(no_definitions, success=False))
+
+
+class ContractDigests(unittest.TestCase):
+    """Each Job carries the contracts image digest of every bundle its release names, so new contracts
+    of a named bundle change the release's render and the installer re-syncs it."""
+
+    BOTH = {"selfsame": {"workflowNamespace": "selfsame", "scope": "platform"},
+            "indexical": {"workflowNamespace": "indexical", "scope": "platform"}}
+
+    def test_the_publish_job_carries_the_digest_of_each_named_bundle(self):
+        publish = jobs(render(values(WORKFLOWS, contractBundles=self.BOTH)))["fei-workflows"]
+        self.assertEqual(
+            {"indexical": DIGESTS["indexical"], "selfsame": DIGESTS["selfsame"]},
+            json.loads(pod_annotations(publish)[CONTRACT_DIGESTS]))
+        # In a stable order, alias by alias.
+        self.assertEqual(
+            '{"indexical":"%s","selfsame":"%s"}' % (DIGESTS["indexical"], DIGESTS["selfsame"]),
+            pod_annotations(publish)[CONTRACT_DIGESTS])
+        # The publisher's own view of the bundles is unchanged: no digest in it.
+        self.assertEqual(
+            self.BOTH, json.loads(env(publish)["OPENWORKFLOW_PUBLISHER_CONTRACT_BUNDLES"]))
+
+    def test_the_upload_job_carries_the_digest_of_each_bundle_its_files_reference(self):
+        declared = values(
+            CONTRACTS,
+            contractBundles={"platform": {"workflowNamespace": "platform-contracts", "scope": "platform"}})
+        upload = jobs(render(declared))["fei-workflows-contracts"]
+        self.assertEqual(
+            {"platform": DIGESTS["platform-contracts"]},
+            json.loads(pod_annotations(upload)[CONTRACT_DIGESTS]))
+
+    def test_a_release_naming_no_bundle_carries_no_digests(self):
+        own = values(
+            WORKFLOWS,
+            contractBundles={},
+            definitions={"own.yaml": "endpoint: '@BUNDLE_DID@/own.contract.json'\n"})
+        self.assertNotIn(CONTRACT_DIGESTS, pod_annotations(jobs(render(own))["fei-workflows"]))
+        self.assertNotIn(
+            CONTRACT_DIGESTS, pod_annotations(jobs(render(CONTRACTS))["fei-workflows-contracts"]))
+
+    def test_a_named_bundles_new_digest_changes_the_render(self):
+        changed = dict(DIGESTS, selfsame="sha256:" + "1" * 64)
+        self.assertNotEqual(render(WORKFLOWS), render(values(WORKFLOWS, contractDigests=changed)))
+        declared = values(
+            CONTRACTS,
+            contractBundles={"platform": {"workflowNamespace": "platform-contracts", "scope": "platform"}})
+        changed = dict(DIGESTS, **{"platform-contracts": "sha256:" + "1" * 64})
+        self.assertNotEqual(render(declared), render(values(declared, contractDigests=changed)))
+
+    def test_another_bundles_new_digest_leaves_the_render_unchanged(self):
+        # WORKFLOWS names only selfsame: Indexical's and its own bundle's new contracts change nothing.
+        changed = dict(DIGESTS, indexical="sha256:" + "1" * 64, **{"entity-intelligence": "sha256:" + "2" * 64})
+        self.assertEqual(render(WORKFLOWS), render(values(WORKFLOWS, contractDigests=changed)))
+        self.assertEqual(render(CONTRACTS), render(values(CONTRACTS, contractDigests=changed)))
+
+    def test_a_named_bundle_whose_namespace_has_no_digest_fails_to_render(self):
+        missing = {key: value for key, value in DIGESTS.items() if key != "selfsame"}
+        error = render(values(WORKFLOWS, contractDigests=missing), success=False)
+        self.assertIn(
+            'contractDigests has no digest for workflow namespace "selfsame", which '
+            'contractBundles.selfsame names', error)
+        declared = values(
+            CONTRACTS,
+            contractBundles={"platform": {"workflowNamespace": "platform", "scope": "platform"}})
+        error = render(declared, success=False)
+        self.assertIn(
+            'contractDigests has no digest for workflow namespace "platform", which '
+            'contractBundles.platform names', error)
+
+    def test_a_named_bundle_without_a_sha256_digest_fails_to_render(self):
+        for digest in ("", "latest", "sha256:" + "D" * 64, "sha256:" + "d" * 63):
+            with self.subTest(digest=digest):
+                error = render(values(WORKFLOWS, contractDigests=dict(DIGESTS, selfsame=digest)), success=False)
+                self.assertIn(
+                    "contractDigests.selfsame is required: the contracts image of the bundle "
+                    "contractBundles.selfsame names, by its sha256 digest", error)
+        # An unnamed bundle's empty pin is not this release's concern.
+        self.assertTrue(render(values(WORKFLOWS, contractDigests=dict(DIGESTS, indexical=""))))
+
+    def test_contract_digests_is_required(self):
+        for base in (WORKFLOWS, CONTRACTS):
+            for digests in (None, {}, ["sha256:" + "c" * 64]):
+                with self.subTest(release="workflows" if base is WORKFLOWS else "contracts", digests=digests):
+                    error = render(values(base, contractDigests=digests), success=False)
+                    self.assertIn("contractDigests is required: every workflow namespace's contracts"
+                                  " image digest", error)
 
 
 if __name__ == "__main__":

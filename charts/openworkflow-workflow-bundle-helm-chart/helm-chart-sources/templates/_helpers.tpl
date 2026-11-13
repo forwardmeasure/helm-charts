@@ -48,6 +48,34 @@ file name to role. */}}
 {{- toJson (.Values.contracts.roles | default dict) -}}
 {{- end -}}
 
+{{/* The contracts image digest of every bundle contractBundles names, as a JSON object of alias to
+digest (contractDigests holds each workflow namespace's, the shared platform.contractDigests). Both
+Jobs carry it on their pod template, so a named bundle's new contracts image changes the release's
+render: the installer upgrades the release, Helm reruns the Job, and the publisher pins the named
+bundle's new registry versions. A namespace contractDigests doesn't map, or a digest that isn't a
+sha256 one, fails the render: an unknown digest would let the Job keep a stale pin unseen. Empty
+when the release names no other bundle. */}}
+{{- define "openworkflow-workflow-bundle.contractDigests" -}}
+{{- $digests := dict -}}
+{{- if kindIs "map" .Values.contractBundles -}}
+{{- range $alias, $bundle := .Values.contractBundles -}}
+{{- if not (kindIs "map" $bundle) -}}
+{{- fail (printf "contractBundles.%s must be {workflowNamespace, scope}" $alias) -}}
+{{- end -}}
+{{- $namespace := $bundle.workflowNamespace | default "" | toString -}}
+{{- if not (hasKey $.Values.contractDigests $namespace) -}}
+{{- fail (printf "contractDigests has no digest for workflow namespace %s, which contractBundles.%s names: pass the shared platform.contractDigests whole, and give that namespace's contracts release a pin there" (quote $namespace) $alias) -}}
+{{- end -}}
+{{- $digest := index $.Values.contractDigests $namespace | default "" | toString -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $digest) -}}
+{{- fail (printf "contractDigests.%s is required: the contracts image of the bundle contractBundles.%s names, by its sha256 digest (its owner's contracts-image-versions pin, which the install's digest sync fills); there is no fallback" $namespace $alias) -}}
+{{- end -}}
+{{- $_ := set $digests $alias $digest -}}
+{{- end -}}
+{{- end -}}
+{{- toJson $digests -}}
+{{- end -}}
+
 {{/* Fails the render on settings the publisher can't run without. */}}
 {{- define "openworkflow-workflow-bundle.validate" -}}
 {{- if not (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" (.Values.workflowNamespace | default "")) -}}
@@ -152,4 +180,8 @@ file name to role. */}}
 {{- if not (or .Values.image.digest .Values.image.tag) -}}
 {{- fail "image.digest (or, until it is resolved, image.tag) is required" -}}
 {{- end -}}
+{{- if not (and (kindIs "map" .Values.contractDigests) .Values.contractDigests) -}}
+{{- fail "contractDigests is required: every workflow namespace's contracts image digest, the shared platform.contractDigests passed whole; there is no default" -}}
+{{- end -}}
+{{- $_ := include "openworkflow-workflow-bundle.contractDigests" . -}}
 {{- end -}}

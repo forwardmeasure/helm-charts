@@ -63,6 +63,19 @@ contracts: {}
 # definition that uses an alias this map does not declare fails to render.
 contractBundles: null
 
+# Required, no default: every workflow namespace's contracts image digest, the shared
+# platform.contractDigests passed whole (each repository's contracts-image-versions pin, which the
+# install's digest sync refreshes before anything renders):
+#   contractDigests: {{ toJson .Values.platform.contractDigests }}
+#   # e.g. {"indexical": "sha256:...", "selfsame": "sha256:...", "entity-intelligence": "sha256:...", ...}
+# Each Job's pod template carries the digest of every bundle contractBundles names, as the annotation
+# openworkflow.forwardmeasure.com/contract-digests (alias -> digest), so a named bundle's new
+# contracts change the release's render: the install upgrades the release, Helm reruns the Job, and
+# the publisher pins the new registry versions. The publisher never reads it. A namespace
+# contractBundles names that this map lacks, or whose digest isn't a sha256 one, fails to render; a
+# release whose contractBundles names no bundle renders no annotation.
+contractDigests: null
+
 # The platform's DID method (shared platform.identity.didMethod), set on the publisher as
 # FORWARDMEASURE_DID_METHOD. Required when any definition contains @BUNDLE_DID@; no default.
 didMethod: ""

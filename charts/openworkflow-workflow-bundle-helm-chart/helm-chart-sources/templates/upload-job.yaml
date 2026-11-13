@@ -25,6 +25,12 @@ spec:
     metadata:
       labels:
         {{- include "openworkflow-workflow-bundle.plainLabels" . | nindent 8 }}
+      {{- with include "openworkflow-workflow-bundle.contractDigests" . | fromJson }}
+      annotations:
+        # alias -> contracts image digest of each bundle contractBundles names: their new contracts
+        # change this Job, so the release upgrades and the publisher pins their new versions.
+        openworkflow.forwardmeasure.com/contract-digests: {{ toJson . | quote }}
+      {{- end }}
     spec:
       restartPolicy: OnFailure
       {{- with .Values.imagePullSecrets }}
