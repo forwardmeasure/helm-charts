@@ -340,20 +340,24 @@ class Jobs(unittest.TestCase):
 
 
 class ContractDigests(unittest.TestCase):
-    """Each Job carries the contracts image digest of every bundle its release names, so new contracts
-    of a named bundle change the release's render and the installer re-syncs it."""
+    """Each Job carries the contracts image digest of every bundle its release names, and its own
+    bundle's when its definitions name them (@BUNDLE_DID@), so new contracts of either change the
+    release's render and the installer re-syncs it."""
 
     BOTH = {"selfsame": {"workflowNamespace": "selfsame", "scope": "platform"},
             "indexical": {"workflowNamespace": "indexical", "scope": "platform"}}
 
     def test_the_publish_job_carries_the_digest_of_each_named_bundle(self):
         publish = jobs(render(values(WORKFLOWS, contractBundles=self.BOTH)))["fei-workflows"]
+        # WORKFLOWS' definition names its own bundle's contracts too (@BUNDLE_DID@): under @self.
         self.assertEqual(
-            {"indexical": DIGESTS["indexical"], "selfsame": DIGESTS["selfsame"]},
+            {"@self": DIGESTS["entity-intelligence"], "indexical": DIGESTS["indexical"],
+             "selfsame": DIGESTS["selfsame"]},
             json.loads(pod_annotations(publish)[CONTRACT_DIGESTS]))
-        # In a stable order, alias by alias.
+        # In a stable order, key by key.
         self.assertEqual(
-            '{"indexical":"%s","selfsame":"%s"}' % (DIGESTS["indexical"], DIGESTS["selfsame"]),
+            '{"@self":"%s","indexical":"%s","selfsame":"%s"}'
+            % (DIGESTS["entity-intelligence"], DIGESTS["indexical"], DIGESTS["selfsame"]),
             pod_annotations(publish)[CONTRACT_DIGESTS])
         # The publisher's own view of the bundles is unchanged: no digest in it.
         self.assertEqual(
@@ -368,12 +372,12 @@ class ContractDigests(unittest.TestCase):
             {"platform": DIGESTS["platform-contracts"]},
             json.loads(pod_annotations(upload)[CONTRACT_DIGESTS]))
 
-    def test_a_release_naming_no_bundle_carries_no_digests(self):
-        own = values(
+    def test_a_release_naming_no_bundles_contracts_carries_no_digests(self):
+        plain = values(
             WORKFLOWS,
             contractBundles={},
-            definitions={"own.yaml": "endpoint: '@BUNDLE_DID@/own.contract.json'\n"})
-        self.assertNotIn(CONTRACT_DIGESTS, pod_annotations(jobs(render(own))["fei-workflows"]))
+            definitions={"plain.yaml": "endpoint: 'https://example.test/plain.yaml'\n"})
+        self.assertNotIn(CONTRACT_DIGESTS, pod_annotations(jobs(render(plain))["fei-workflows"]))
         self.assertNotIn(
             CONTRACT_DIGESTS, pod_annotations(jobs(render(CONTRACTS))["fei-workflows-contracts"]))
 
@@ -387,10 +391,51 @@ class ContractDigests(unittest.TestCase):
         self.assertNotEqual(render(declared), render(values(declared, contractDigests=changed)))
 
     def test_another_bundles_new_digest_leaves_the_render_unchanged(self):
-        # WORKFLOWS names only selfsame: Indexical's and its own bundle's new contracts change nothing.
-        changed = dict(DIGESTS, indexical="sha256:" + "1" * 64, **{"entity-intelligence": "sha256:" + "2" * 64})
+        # WORKFLOWS names only selfsame's and its own: Indexical's new contracts change nothing.
+        changed = dict(DIGESTS, indexical="sha256:" + "1" * 64)
         self.assertEqual(render(WORKFLOWS), render(values(WORKFLOWS, contractDigests=changed)))
+        # A contracts-only release follows no own digest here: its own image is contracts.digest.
+        changed = dict(changed, **{"entity-intelligence": "sha256:" + "2" * 64})
         self.assertEqual(render(CONTRACTS), render(values(CONTRACTS, contractDigests=changed)))
+        self.assertNotIn(
+            CONTRACT_DIGESTS, pod_annotations(jobs(render(CONTRACTS))["fei-workflows-contracts"]))
+
+    def test_its_own_contracts_new_digest_changes_a_bundle_that_names_them(self):
+        own = values(
+            WORKFLOWS,
+            contractBundles={},
+            definitions={"own.yaml": "endpoint: '@BUNDLE_DID@/own.contract.json'\n"})
+        publish = jobs(render(own))["fei-workflows"]
+        self.assertEqual(
+            {"@self": DIGESTS["entity-intelligence"]},
+            json.loads(pod_annotations(publish)[CONTRACT_DIGESTS]))
+        changed = dict(DIGESTS, **{"entity-intelligence": "sha256:" + "2" * 64})
+        self.assertNotEqual(render(own), render(values(own, contractDigests=changed)))
+
+    def test_its_own_contracts_new_digest_leaves_a_bundle_that_names_none_unchanged(self):
+        aliased = values(
+            WORKFLOWS,
+            definitions={"x.yaml": "endpoint: '@BUNDLE_DID:selfsame@/selfsame.openapi.yaml'\n"})
+        self.assertEqual(
+            {"selfsame": DIGESTS["selfsame"]},
+            json.loads(pod_annotations(jobs(render(aliased))["fei-workflows"])[CONTRACT_DIGESTS]))
+        changed = dict(DIGESTS, **{"entity-intelligence": "sha256:" + "2" * 64})
+        self.assertEqual(render(aliased), render(values(aliased, contractDigests=changed)))
+
+    def test_a_bundle_naming_its_own_contracts_needs_its_own_digest(self):
+        missing = {key: value for key, value in DIGESTS.items() if key != "entity-intelligence"}
+        error = render(values(WORKFLOWS, contractDigests=missing), success=False)
+        self.assertIn(
+            'contractDigests has no digest for workflow namespace "entity-intelligence", this bundle\'s'
+            ' own, whose contracts its definitions name (@BUNDLE_DID@)', error)
+        for digest in ("", "latest", "sha256:" + "C" * 64):
+            with self.subTest(digest=digest):
+                error = render(
+                    values(WORKFLOWS, contractDigests=dict(DIGESTS, **{"entity-intelligence": digest})),
+                    success=False)
+                self.assertIn(
+                    "contractDigests.entity-intelligence is required: the contracts image of this bundle,"
+                    " whose contracts its definitions name (@BUNDLE_DID@), by its sha256 digest", error)
 
     def test_a_named_bundle_whose_namespace_has_no_digest_fails_to_render(self):
         missing = {key: value for key, value in DIGESTS.items() if key != "selfsame"}

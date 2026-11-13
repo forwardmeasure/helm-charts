@@ -49,12 +49,13 @@ file name to role. */}}
 {{- end -}}
 
 {{/* The contracts image digest of every bundle contractBundles names, as a JSON object of alias to
-digest (contractDigests holds each workflow namespace's, the shared platform.contractDigests). Both
+digest (contractDigests holds each workflow namespace's, the shared platform.contractDigests), and of
+the bundle's own contracts under @self when its definitions name them (@BUNDLE_DID@). Both
 Jobs carry it on their pod template, so a named bundle's new contracts image changes the release's
 render: the installer upgrades the release, Helm reruns the Job, and the publisher pins the named
 bundle's new registry versions. A namespace contractDigests doesn't map, or a digest that isn't a
 sha256 one, fails the render: an unknown digest would let the Job keep a stale pin unseen. Empty
-when the release names no other bundle. */}}
+when the release names no other bundle and its definitions name none of its own contracts. */}}
 {{- define "openworkflow-workflow-bundle.contractDigests" -}}
 {{- $digests := dict -}}
 {{- if kindIs "map" .Values.contractBundles -}}
@@ -72,6 +73,23 @@ when the release names no other bundle. */}}
 {{- end -}}
 {{- $_ := set $digests $alias $digest -}}
 {{- end -}}
+{{- end -}}
+{{- /* The bundle's own contracts, when its definitions name them (@BUNDLE_DID@): under @self, which no
+alias can be (an alias starts with a letter or digit and never holds an @). */ -}}
+{{- $own := false -}}
+{{- range $_, $text := .Values.definitions -}}
+{{- if regexMatch "@BUNDLE_DID@" $text -}}{{- $own = true -}}{{- end -}}
+{{- end -}}
+{{- if $own -}}
+{{- $namespace := .Values.workflowNamespace | default "" | toString -}}
+{{- if not (hasKey .Values.contractDigests $namespace) -}}
+{{- fail (printf "contractDigests has no digest for workflow namespace %s, this bundle's own, whose contracts its definitions name (@BUNDLE_DID@): pass the shared platform.contractDigests whole, and give that namespace's contracts release a pin there" (quote $namespace)) -}}
+{{- end -}}
+{{- $digest := index .Values.contractDigests $namespace | default "" | toString -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $digest) -}}
+{{- fail (printf "contractDigests.%s is required: the contracts image of this bundle, whose contracts its definitions name (@BUNDLE_DID@), by its sha256 digest (its contracts-image-versions pin, which the install's digest sync fills); there is no fallback" $namespace) -}}
+{{- end -}}
+{{- $_ := set $digests "@self" $digest -}}
 {{- end -}}
 {{- toJson $digests -}}
 {{- end -}}

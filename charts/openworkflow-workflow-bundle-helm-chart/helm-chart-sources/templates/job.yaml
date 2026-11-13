@@ -25,8 +25,9 @@ spec:
         {{- include "openworkflow-workflow-bundle.labels" . | nindent 8 }}
       {{- with include "openworkflow-workflow-bundle.contractDigests" . | fromJson }}
       annotations:
-        # alias -> contracts image digest of each bundle contractBundles names: their new contracts
-        # change this Job, so the release upgrades and the publisher pins their new versions.
+        # alias -> contracts image digest of each bundle contractBundles names, and @self -> this
+        # bundle's own when its definitions name them: new contracts change this Job, so the release
+        # upgrades and the publisher pins their new versions.
         openworkflow.forwardmeasure.com/contract-digests: {{ toJson . | quote }}
       {{- end }}
     spec:
