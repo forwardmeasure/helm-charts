@@ -1496,8 +1496,25 @@ get_user_id_by_exact_username() {
     | jq -r '.[0].id // empty'
 }
 
+# A tenant administrator may be declared a platform viewer (platformRoles: [platform-viewer]), to read
+# platform service health - never any other platform role: tenant administration grants no control
+# over the platform. Refused before anything is written.
+require_tenant_administrator_platform_roles() {
+  for role in $(printf '%s' "$1" | jq -r '.platformRoles // [] | .[]'); do
+    [ "$role" = "platform-viewer" ] \
+      || fail "Tenant administrator $(printf '%s' "$1" | jq -r '.username') may be declared only platform-viewer, not ${role}"
+  done
+}
+
+assign_tenant_administrator_platform_roles() {
+  for role in $(printf '%s' "$2" | jq -r '.platformRoles // [] | .[]'); do
+    assign_realm_role_to_user_if_missing "$1" "$role"
+  done
+}
+
 configure_tenant_administrator() {
   administrator="$1"
+  require_tenant_administrator_platform_roles "$administrator"
   username="$(printf '%s' "$administrator" | jq -r '.username')"
   password_key="$(printf '%s' "$administrator" | jq -r '.passwordKey')"
   user_body="$(printf '%s' "$administrator" | jq '{
@@ -1514,6 +1531,7 @@ configure_tenant_administrator() {
   if [ -n "$user_id" ]; then
     log "Tenant administrator found (id=${user_id}) — updating profile, keeping password: ${username}"
     kc_put_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${user_id}" "$user_body"
+    assign_tenant_administrator_platform_roles "$user_id" "$administrator"
     return 0
   fi
   password_file="${FORWARDMEASURE_TENANT_ADMINISTRATOR_PASSWORDS_DIRECTORY}/${password_key}"
@@ -1532,6 +1550,7 @@ configure_tenant_administrator() {
   done
   [ -n "$user_id" ] || fail "User POST succeeded but '${username}' not found after 10 retries"
   log "Tenant administrator created: ${username} (id=${user_id})"
+  assign_tenant_administrator_platform_roles "$user_id" "$administrator"
 }
 
 # Keycloak auto-creates the "organization" client scope once

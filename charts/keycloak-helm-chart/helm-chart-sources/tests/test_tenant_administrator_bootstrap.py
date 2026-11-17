@@ -21,7 +21,7 @@ kc_get() {
 }
 kc_post_json() { printf 'POST %s %s\n' "$1" "$(printf '%s' "$2" | jq -c .)" >> "$CAPTURE"; }
 kc_put_json() { printf 'PUT %s %s\n' "$1" "$(printf '%s' "$2" | jq -c .)" >> "$CAPTURE"; }
-assign_realm_role_to_user_if_missing() { echo "unexpected realm role $2" >&2; exit 1; }
+assign_realm_role_to_user_if_missing() { printf 'ROLE %s %s\n' "$1" "$2" >> "$CAPTURE"; }
 configure_tenant_administrators
 '''
 
@@ -87,3 +87,23 @@ class TenantAdministratorBootstrapTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_a_declared_platform_viewer_is_given_that_role_when_created(self):
+        result, calls = self.invoke([dict(ADMINISTRATOR, platformRoles=["platform-viewer"])])
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(2, len(calls), calls)
+        self.assertTrue(calls[0].startswith("POST http://fixture.invalid/admin/realms/test/users "))
+        self.assertEqual("ROLE fixture-user platform-viewer", calls[1])
+
+    def test_an_existing_administrator_declared_a_platform_viewer_is_given_that_role(self):
+        result, calls = self.invoke(
+            [dict(ADMINISTRATOR, platformRoles=["platform-viewer"])], existing=True, password=None)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(
+            ["ROLE fixture-user platform-viewer"], [c for c in calls if c.startswith("ROLE")])
+
+    def test_no_other_platform_role_may_be_declared_and_nothing_is_written(self):
+        result, calls = self.invoke([dict(ADMINISTRATOR, platformRoles=["platform-admin"])])
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("may be declared only platform-viewer, not platform-admin", result.stderr + result.stdout)
+        self.assertEqual([], calls)
