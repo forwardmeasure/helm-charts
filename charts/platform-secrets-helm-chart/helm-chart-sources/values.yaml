@@ -19,6 +19,16 @@ secretStoreRef:
 
 refreshInterval: 1h
 
+# What each Secret's content is made of, by namespace and Secret name: an opaque digest that
+# changes exactly when the Secret's content does (forwardmeasure-platform's
+# deploy/helmfile/scripts/credential-fingerprints.py; never a secret value). Rendered as the
+# platform.forwardmeasure.com/credential-fingerprint annotation on the ExternalSecret and on its
+# Secret. A Secret without one renders without the annotation.
+#   credentialFingerprints:
+#     keycloak:
+#       keycloak-realm-client-secrets: 3f9a...
+credentialFingerprints: {}
+
 secrets: []
 
 clusterSecretStore:
