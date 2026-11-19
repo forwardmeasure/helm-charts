@@ -105,6 +105,9 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 {{- if hasKey .Values "apiDocuments" -}}
 {{- fail "apiDocuments is renamed contracts (chart 0.3.0): move the files there" -}}
 {{- end -}}
+{{- if or (hasKey .Values "reviewedCredentialCapabilities") (hasKey .Values "credentialApprover") -}}
+{{- fail "reviewedCredentialCapabilities and credentialApprover are retired: definition management derives each revision's credential grant and the credential-use PDP (forwardmeasure-authzen's per-product policies) decides it; remove them" -}}
+{{- end -}}
 {{- if not (kindIs "map" .Values.contracts) -}}
 {{- fail "contracts must be the bundle's contracts image, {repository, digest, roles}" -}}
 {{- end -}}

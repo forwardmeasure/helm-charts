@@ -181,6 +181,13 @@ class Refusals(unittest.TestCase):
         error = render(values(CONTRACTS, apiDocuments={"a.yaml": "x: 1\n"}), success=False)
         self.assertIn("apiDocuments is renamed contracts", error)
 
+    def test_the_retired_reviewed_credentials_are_refused(self):
+        for retired in ({"reviewedCredentialCapabilities": {"x-y": {"capabilities": []}}},
+                        {"credentialApprover": {"secretName": "openworkflow-platform-clients"}}):
+            with self.subTest(retired=list(retired)):
+                error = render(values(CONTRACTS, **retired), success=False)
+                self.assertIn("are retired", error)
+
     def test_a_release_with_nothing_to_publish_or_upload_fails_to_render(self):
         error = render(values(CONTRACTS, contracts={}), success=False)
         self.assertIn("definitions or contracts must be given", error)
