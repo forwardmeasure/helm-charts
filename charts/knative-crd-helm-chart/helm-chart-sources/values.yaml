@@ -18,7 +18,7 @@ serving:
   config:
     # DNS domain for Knative services — override per environment
     domain: ""
-    progressDeadline: "1800s"
+    progressDeadline: "2147483647s"
     # -------------------------------------------------------------------------
     # Autoscaler configuration
     #

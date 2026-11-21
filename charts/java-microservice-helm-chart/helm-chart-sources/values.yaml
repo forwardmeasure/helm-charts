@@ -251,7 +251,6 @@ liquibaseWait:
   imagePullPolicy: IfNotPresent
   serviceName: liquibase-migration
   serviceNamespace: data-fabric
-  maxAttempts: 30
   sleepSeconds: 10
   resources:
     requests:

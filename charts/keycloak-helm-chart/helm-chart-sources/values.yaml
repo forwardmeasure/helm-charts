@@ -263,7 +263,6 @@ bootstrapAdminUser:
   # Keycloak readiness tuning (for slow startups / cold clusters)
   # -----------------------------------------------------------------------
   keycloakReadySleepSeconds: 5
-  keycloakReadyMaxAttempts: 60
 
 # ---------------------------------------------------------------------------
 # Tenant administrators: people who administer one tenant only. Each is created

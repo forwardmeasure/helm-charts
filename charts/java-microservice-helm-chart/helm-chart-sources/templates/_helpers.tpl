@@ -644,8 +644,6 @@ initContainers:
     env:
       - name: LIQUIBASE_SERVICE_URL
         value: {{ include "java-microservice.liquibaseServiceUrl" $root | quote }}
-      - name: MAX_ATTEMPTS
-        value: {{ $lw.maxAttempts | default 30 | quote }}
       - name: SLEEP_SECONDS
         value: {{ $lw.sleepSeconds | default 10 | quote }}
     command:
@@ -653,11 +651,12 @@ initContainers:
       - -c
       - |
         echo "Waiting for public schema migrations to complete"
+        # No attempt count: polled until the migrations are done; Kubernetes or a person stops it.
         ATTEMPTS=0
         STATUS_URL="${LIQUIBASE_SERVICE_URL}/migration/schemas/public/ready"
-        until [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; do
+        while true; do
           ATTEMPTS=$((ATTEMPTS + 1))
-          echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: polling ${STATUS_URL}"
+          echo "Attempt ${ATTEMPTS}: polling ${STATUS_URL}"
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${STATUS_URL}")
           if [ "${HTTP_CODE}" = "200" ]; then
             echo "Public schema migrations complete"
@@ -666,8 +665,6 @@ initContainers:
           echo "Schema not ready (HTTP ${HTTP_CODE}) — waiting ${SLEEP_SECONDS}s"
           sleep ${SLEEP_SECONDS}
         done
-        echo "Timed out waiting for public schema migrations after $((MAX_ATTEMPTS * SLEEP_SECONDS))s"
-        exit 1
     resources:
       requests:
         cpu: {{ $lw.resources.requests.cpu | default "50m" | quote }}

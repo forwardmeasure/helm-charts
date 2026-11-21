@@ -93,7 +93,6 @@ securityConfig:
 # run again unless you explicitly re-trigger it.
 # ------------------------------------------------------------------------------
 securityInit:
-  retries: 20
   retryIntervalSeconds: 15
   image:
     # Stock opensearchproject/opensearch: this Job only runs securityadmin and

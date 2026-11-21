@@ -245,7 +245,6 @@ print_config_banner() {
   log "KEYCLOAK_REALM_MGMT_ROLES               = ${KEYCLOAK_REALM_MGMT_ROLES}"
   log "FORWARDMEASURE_TENANT_GROUP_ROLES           = ${FORWARDMEASURE_TENANT_GROUP_ROLES:-<empty>}"
   log "KEYCLOAK_READY_SLEEP_SECONDS            = ${KEYCLOAK_READY_SLEEP_SECONDS}"
-  log "KEYCLOAK_READY_MAX_ATTEMPTS             = ${KEYCLOAK_READY_MAX_ATTEMPTS}"
   log_section "Starting bootstrap"
 }
 
@@ -307,10 +306,8 @@ wait_for_keycloak() {
       log "Keycloak is ready (HTTP 200)"
       return 0
     fi
-    if [ "$attempt" -ge "${KEYCLOAK_READY_MAX_ATTEMPTS}" ]; then
-      fail "Keycloak not ready after ${KEYCLOAK_READY_MAX_ATTEMPTS} attempts (last HTTP status: ${http_code})"
-    fi
-    log "Keycloak not ready yet (attempt ${attempt}/${KEYCLOAK_READY_MAX_ATTEMPTS}, HTTP ${http_code}) — retrying in ${KEYCLOAK_READY_SLEEP_SECONDS}s"
+    # No attempt count: retried until Keycloak answers; Kubernetes or a person stops the Job.
+    log "Keycloak not ready yet (attempt ${attempt}, HTTP ${http_code}) — retrying in ${KEYCLOAK_READY_SLEEP_SECONDS}s"
     attempt=$((attempt + 1))
     sleep "${KEYCLOAK_READY_SLEEP_SECONDS}"
   done
@@ -345,10 +342,7 @@ wait_for_realm_management_client() {
       log "realm-management client is visible (uuid=${uuid})"
       return 0
     fi
-    if [ "$attempt" -ge "${KEYCLOAK_READY_MAX_ATTEMPTS}" ]; then
-      fail "realm-management client not visible after ${KEYCLOAK_READY_MAX_ATTEMPTS} attempts — realm import may have failed or stalled (last: GET ${url} -> ${outcome})"
-    fi
-    log "realm-management not yet visible (attempt ${attempt}/${KEYCLOAK_READY_MAX_ATTEMPTS}, GET ${url} -> ${outcome}) — retrying in ${KEYCLOAK_READY_SLEEP_SECONDS}s"
+    log "realm-management not yet visible (attempt ${attempt}, GET ${url} -> ${outcome}) — retrying in ${KEYCLOAK_READY_SLEEP_SECONDS}s"
     attempt=$((attempt + 1))
     sleep "${KEYCLOAK_READY_SLEEP_SECONDS}"
   done
@@ -1683,7 +1677,6 @@ main() {
   KEYCLOAK_URL="${KEYCLOAK_URL%/}"
 
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
-  : "${KEYCLOAK_READY_MAX_ATTEMPTS:=60}"
 
   start_job_session
   print_config_banner

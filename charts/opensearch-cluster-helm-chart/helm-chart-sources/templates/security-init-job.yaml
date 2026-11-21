@@ -52,8 +52,6 @@ spec:
                           (include "opensearch-wrapper.namespace" .) }}
             - name: OPENSEARCH_HTTP_PORT
               value: {{ .Values.opensearch.httpPort | quote }}
-            - name: RETRIES
-              value: {{ .Values.securityInit.retries | quote }}
             - name: RETRY_INTERVAL
               value: {{ .Values.securityInit.retryIntervalSeconds | quote }}
           resources:

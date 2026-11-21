@@ -319,7 +319,7 @@ auth:
 limits:
   maxFileSize: 104857600
   maxNumPages: 1000
-  maxDocumentTimeout: 3600
+  maxDocumentTimeout: 2147483647
   maxSourcesPerRequest: 3
   maxImagesScale: 2
 runtimeStorage:
