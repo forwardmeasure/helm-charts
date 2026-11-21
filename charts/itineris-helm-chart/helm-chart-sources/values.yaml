@@ -113,7 +113,6 @@ itineris:
   javaOptions: "-XX:MaxRAMPercentage=75"
   graphCacheMaximumSize: 64
   graphCacheIdleTimeout: 30M
-  gremlinTimeout: 30S
   gremlinThreads: 16
   terminationGracePeriodSeconds: 60
 

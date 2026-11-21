@@ -163,8 +163,6 @@ spec:
               value: {{ .Values.itineris.graphCacheMaximumSize | quote }}
             - name: ITINERIS_GRAPH_CACHE_IDLE_TIMEOUT
               value: {{ .Values.itineris.graphCacheIdleTimeout | quote }}
-            - name: ITINERIS_GREMLIN_TIMEOUT
-              value: {{ .Values.itineris.gremlinTimeout | quote }}
             - name: ITINERIS_GREMLIN_THREADS
               value: {{ .Values.itineris.gremlinThreads | quote }}
             {{- with .Values.extraEnv }}
