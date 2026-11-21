@@ -208,7 +208,6 @@ analytics:
   rbac:
     create: true
   master: local[2]
-  deadline: 2H
   # Completed Pods are removed after this age; suspended Job identities remain dispatch fences.
   podRetention: 24H
   retentionInterval: 1m

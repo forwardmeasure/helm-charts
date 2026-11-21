@@ -68,8 +68,6 @@ spec:
               value: {{ include "itineris.analyticsImage" . | quote }}
             - name: ITINERIS_ANALYTICS_SERVICE_ACCOUNT
               value: {{ include "itineris.analyticsServiceAccountName" . | quote }}
-            - name: ITINERIS_ANALYTICS_DEADLINE
-              value: {{ .Values.analytics.deadline | quote }}
             - name: ITINERIS_ANALYTICS_POD_RETENTION
               value: {{ .Values.analytics.podRetention | quote }}
             - name: ITINERIS_ANALYTICS_RETENTION_INTERVAL
