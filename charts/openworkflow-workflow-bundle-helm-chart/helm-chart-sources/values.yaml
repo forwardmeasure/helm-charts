@@ -120,10 +120,11 @@ credentialRulesetBundles: {}
 # Publishes the tenant's credentials/sandbox ruleset instead of a bundle's (OpenWorkflow's
 # openworkflow-credential-rulesets release).
 sandboxRuleset: false
-# The credential approver's identity, its own Secret: only it may write a credentials/ ruleset, and
-# the workflow publisher's identity never holds it.
+# The credential approver's identity, its own Secret (forwardmeasure-platform's platform-secrets
+# writes it): only it may write a credentials/ ruleset, and the workflow publisher's identity never
+# holds it.
 credentialRulesetApprover:
-  secretName: ""
+  secretName: openworkflow-credential-approver
   clientIdKey: OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_ID
   clientSecretKey: OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_SECRET
 # The decision engine's gRPC target (platform.endpoints.decisionEngine: dns:///host:port).

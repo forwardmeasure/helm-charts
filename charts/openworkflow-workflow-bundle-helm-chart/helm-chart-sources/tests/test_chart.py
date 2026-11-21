@@ -507,6 +507,14 @@ class CredentialRulesets(unittest.TestCase):
         self.assertNotIn("activeDeadlineSeconds", rulesets["spec"])
         maps = [doc for doc in docs if doc["kind"] == "ConfigMap" and doc["metadata"]["name"].endswith("-credential-rulesets")]
         self.assertEqual(["resolution-application.drl"], list(maps[0]["data"]))
+        # Kept for tenant administration (no hook), and never read as a workflow ConfigMap.
+        labels = maps[0]["metadata"]["labels"]
+        self.assertNotIn("helm.sh/hook", maps[0]["metadata"].get("annotations", {}))
+        self.assertNotIn("openworkflow.forwardmeasure.com/workflow-bundle", labels)
+        self.assertEqual("true", labels["openworkflow.forwardmeasure.com/credential-rulesets"])
+        self.assertEqual({"entity-intelligence": "entity-intelligence", "selfsame": "selfsame"},
+                         json.loads(maps[0]["metadata"]["annotations"][
+                             "openworkflow.forwardmeasure.com/credential-ruleset-bundles"]))
 
     def test_the_publishers_own_secret_is_refused_for_the_approver(self):
         error = render(values(self.RULESETS, credentialRulesetApprover={"secretName": "openworkflow-platform-clients",
