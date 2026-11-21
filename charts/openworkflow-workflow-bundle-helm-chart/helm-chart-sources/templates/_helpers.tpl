@@ -106,7 +106,7 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 {{- fail "apiDocuments is renamed contracts (chart 0.3.0): move the files there" -}}
 {{- end -}}
 {{- if or (hasKey .Values "reviewedCredentialCapabilities") (hasKey .Values "credentialApprover") -}}
-{{- fail "reviewedCredentialCapabilities and credentialApprover are retired: definition management derives each revision's credential grant and the credential-use PDP (forwardmeasure-authzen's per-product policies) decides it; remove them" -}}
+{{- fail "reviewedCredentialCapabilities and credentialApprover are retired: definition management derives each revision's credential grant and the decision engine decides it by the workflow's reviewed ruleset (credentialRulesets, published as credentialRulesetApprover); remove them" -}}
 {{- end -}}
 {{- if not (kindIs "map" .Values.contracts) -}}
 {{- fail "contracts must be the bundle's contracts image, {repository, digest, roles}" -}}
@@ -137,8 +137,8 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 {{- fail (printf "contracts.digest is required: the contracts image %s by its sha256 digest (the release's image-versions pin, which the install's digest sync fills); there is no tag fallback" .Values.contracts.repository) -}}
 {{- end -}}
 {{- end -}}
-{{- if not (or .Values.definitions .Values.contracts) -}}
-{{- fail "definitions or contracts must be given: a release publishes workflow documents, uploads its contracts image's files, or both" -}}
+{{- if not (or .Values.definitions .Values.contracts .Values.sandboxRuleset) -}}
+{{- fail "definitions or contracts must be given: a release publishes workflow documents, uploads its contracts image's files, or both (or, sandboxRuleset, the tenant's credentials/sandbox ruleset)" -}}
 {{- end -}}
 {{- range $file, $_ := .Values.definitions -}}
 {{- if not (regexMatch "^[^./][^/]*\\.ya?ml$" $file) -}}

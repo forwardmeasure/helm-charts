@@ -109,6 +109,27 @@ identity:
   clientIdKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_ID
   clientSecretKey: OPENWORKFLOW_WORKFLOW_PUBLISHER_CLIENT_SECRET
 
+# The bundle's reviewed credential rulesets (forwardmeasure-platform
+# docs/credential-checks-on-fde-design-2026-11-21.md 5.5): each workflow's <workflow>.drl as its
+# product commits it beside the workflow, by file name. A credential-rulesets Job publishes them
+# into the decision engine, as the credential approver, before the publish Job publishes the
+# workflows: definition management decides each publication's credential grant by them.
+credentialRulesets: {}
+# alias -> workflow namespace of every bundle the rulesets name (@BUNDLE:<alias>@), this one's too.
+credentialRulesetBundles: {}
+# Publishes the tenant's credentials/sandbox ruleset instead of a bundle's (OpenWorkflow's
+# openworkflow-credential-rulesets release).
+sandboxRuleset: false
+# The credential approver's identity, its own Secret: only it may write a credentials/ ruleset, and
+# the workflow publisher's identity never holds it.
+credentialRulesetApprover:
+  secretName: ""
+  clientIdKey: OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_ID
+  clientSecretKey: OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_SECRET
+# The decision engine's gRPC target (platform.endpoints.decisionEngine: dns:///host:port).
+decisionEngine:
+  target: ""
+
 # forwardmeasure-openworkflow's publisher image. Pull it by digest (the platform's
 # imageVersions.openworkflowWorkflowPublisher); the tag is used only while digest is empty.
 image:
@@ -147,4 +168,4 @@ serviceAccount:
 # Credential grants are not configured here: definition management derives each revision's grant
 # from its calls and pinned contracts, and the credential-use PDP (forwardmeasure-authzen's
 # per-product policies) decides it at publication. The chart refuses the retired
-# reviewedCredentialCapabilities and credentialApprover values.
+# reviewedCredentialCapabilities and credentialRulesetApprover values.
