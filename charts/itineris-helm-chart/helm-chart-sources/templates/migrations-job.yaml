@@ -26,8 +26,9 @@ metadata:
     helm.sh/hook-weight: "-10"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
-  backoffLimit: 0
-  activeDeadlineSeconds: {{ .Values.controlPlane.migrations.activeDeadlineSeconds }}
+  {{- /* The largest Kubernetes allows (no unlimited value): retried until it succeeds or a person
+  deletes it; no deadline (the owner's rule of 2026-11-18). */}}
+  backoffLimit: 2147483647
   template:
     spec:
       restartPolicy: Never

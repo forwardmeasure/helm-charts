@@ -242,7 +242,13 @@ for model in models:
         self.assertTrue(job["spec"]["tolerations"])
         init = resource(docs, "Deployment")["spec"]["template"]["spec"]["initContainers"][0]
         self.assertEqual(init["args"][0], "verify")
-        self.assertIn("--wait-timeout", init["args"])
+        # No clock gives up on the models (the owner's rule of 2026-11-18): the server waits for the
+        # bundle until it is complete, and the preparation Job is retried until it succeeds.
+        self.assertIn("--wait", init["args"])
+        self.assertNotIn("--wait-timeout", init["args"])
+        spec = resource(docs, "Job")["spec"]
+        self.assertEqual(spec["backoffLimit"], 2147483647)
+        self.assertNotIn("activeDeadlineSeconds", spec)
 
     def test_configuration_change_forces_rollout_and_bundle_change(self):
         first = render({"modelDownload": {"enabled": True}})
@@ -331,11 +337,11 @@ def competing_preparer(cache, bundled, staging, counter):
         with counter.get_lock():
             counter.value += 1
         make_model(target)
-    MODELS.prepare(Path(cache), Path(bundled), Path(staging), config, identity, 10, fetch)
+    MODELS.prepare(Path(cache), Path(bundled), Path(staging), config, identity, fetch)
 
 
 def hold_lock(cache, acquired):
-    with MODELS.bundle_lock(Path(cache), 10):
+    with MODELS.bundle_lock(Path(cache)):
         acquired.set()
         multiprocessing.Event().wait(30)
 
@@ -363,25 +369,25 @@ class ModelPublication(unittest.TestCase):
         def unexpected_fetch(*args):
             self.fail("Warm/bundled preparation unexpectedly fetched a model")
         first = MODELS.prepare(self.cache, self.bundled, self.staging,
-                               self.config, self.identity, 1, unexpected_fetch)
+                               self.config, self.identity, unexpected_fetch)
         second = MODELS.prepare(self.cache, self.bundled, self.staging,
-                                self.config, self.identity, 1, unexpected_fetch)
+                                self.config, self.identity, unexpected_fetch)
         self.assertEqual(first, second)
         self.assertTrue(MODELS.verify_bundle(first, self.config, self.identity))
 
     def test_corrupt_published_bundle_fails_without_overwriting_evidence(self):
         make_model(self.bundled / "fixture--model")
-        final = MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity, 1)
+        final = MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity)
         damaged = final / "fixture--model/model.safetensors"
         damaged.write_bytes(b"corrupt")
         self.assertFalse(MODELS.verify_bundle(final, self.config, self.identity))
         with self.assertRaises(MODELS.InvalidModel):
-            MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity, 1)
+            MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity)
         self.assertEqual(damaged.read_bytes(), b"corrupt")
 
     def test_failed_download_cannot_publish_or_damage_previous_bundle(self):
         make_model(self.bundled / "fixture--model")
-        final = MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity, 1)
+        final = MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity)
         second = json.loads(json.dumps(self.config))
         second["repositories"].append({"repo": "fixture/missing", "revision": "c" * 40,
                                        "requiredFiles": ["config.json", "model.safetensors"]})
@@ -390,7 +396,7 @@ class ModelPublication(unittest.TestCase):
             (target / "config.json").write_text("{}")
             raise OSError("Interrupted fixture download")
         with self.assertRaises(OSError):
-            MODELS.prepare(self.cache, self.bundled, self.staging, second, "d" * 64, 1, fail_download)
+            MODELS.prepare(self.cache, self.bundled, self.staging, second, "d" * 64, fail_download)
         self.assertFalse((self.cache / ".bundles" / ("d" * 64)).exists())
         self.assertTrue(MODELS.verify_bundle(final, self.config, self.identity))
 
@@ -399,7 +405,7 @@ class ModelPublication(unittest.TestCase):
         partial.mkdir(parents=True)
         (partial / "partial").write_text("unfinished")
         make_model(self.bundled / "fixture--model")
-        final = MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity, 1)
+        final = MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity)
         self.assertTrue(MODELS.verify_bundle(final, self.config, self.identity))
         self.assertEqual(len(list((self.cache / ".incomplete").iterdir())), 1)
 
@@ -413,7 +419,7 @@ class ModelPublication(unittest.TestCase):
 
     def test_extra_files_and_symlinks_invalidate_published_inventory(self):
         make_model(self.bundled / "fixture--model")
-        final = MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity, 1)
+        final = MODELS.prepare(self.cache, self.bundled, self.staging, self.config, self.identity)
         extra = final / "fixture--model/untracked.json"
         extra.write_text("{}")
         self.assertFalse(MODELS.verify_bundle(final, self.config, self.identity))
@@ -458,7 +464,8 @@ class ModelPublication(unittest.TestCase):
                     process.terminate()
                     process.join()
 
-    def test_lock_owner_death_releases_lock_without_deleting_it(self):
+    def test_a_waiter_waits_for_the_lock_until_its_owner_dies_without_deleting_it(self):
+        import threading
         context = multiprocessing.get_context("fork")
         acquired = context.Event()
         owner = context.Process(target=hold_lock, args=(str(self.cache), acquired))
@@ -467,17 +474,37 @@ class ModelPublication(unittest.TestCase):
             self.assertTrue(acquired.wait(10))
             lock = self.cache / ".model-preparation.lock"
             inode = lock.stat().st_ino
-            with self.assertRaises(MODELS.InvalidModel):
-                with MODELS.bundle_lock(self.cache, 0.1):
-                    self.fail("Acquired a lock still held by another process")
+            entered = threading.Event()
+
+            def waiter():
+                with MODELS.bundle_lock(self.cache):
+                    self.assertEqual(lock.stat().st_ino, inode)
+                    entered.set()
+
+            thread = threading.Thread(target=waiter, daemon=True)
+            thread.start()
+            # Still waiting while another process holds the lock: no clock gives up on it.
+            self.assertFalse(entered.wait(1.5))
             owner.terminate()
             owner.join(10)
-            with MODELS.bundle_lock(self.cache, 1):
-                self.assertEqual(lock.stat().st_ino, inode)
+            self.assertTrue(entered.wait(10))
         finally:
             if owner.is_alive():
                 owner.terminate()
                 owner.join()
+
+    def test_verification_waits_until_the_bundle_is_complete(self):
+        root = self.cache / ".bundles" / self.identity
+        root.mkdir(parents=True)
+        waits = []
+
+        def sleep(seconds):
+            waits.append(seconds)
+            if len(waits) == 3:
+                (root / ".complete.json").write_text("{}")
+
+        MODELS.await_complete(root, sleep=sleep)
+        self.assertEqual(3, len(waits))
 
 
 if __name__ == "__main__":

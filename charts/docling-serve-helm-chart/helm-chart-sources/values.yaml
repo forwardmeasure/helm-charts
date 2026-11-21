@@ -114,13 +114,10 @@ modelDownload:
   preparation: init
   useCpuImage: true
   stagingSizeLimit: 16Gi
-  lockTimeoutSeconds: 600
   revisions:
     vlm-small: 982fe3b40f2fa73c365bdb1bcacf6c81b7184bfe
     vlm-large: ec894191f2e9e9be3d90eab9ac6949583c46f03b
   job:
-    backoffLimit: 2
-    activeDeadlineSeconds: 3600
     ttlSecondsAfterFinished: 86400
     nodeSelector: {}
     affinity: {}

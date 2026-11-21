@@ -512,10 +512,12 @@ kafka:
 #                hooks set). Cloud SQL proxy (if enabled) renders as a native
 #                sidecar (like scaledJob), not a persistent sidecar, so the
 #                Job can actually reach completion.
-#                job.parallelism/.completions/.backoffLimit/
-#                .activeDeadlineSeconds/.ttlSecondsAfterFinished/
+#                job.parallelism/.completions/.ttlSecondsAfterFinished/
 #                .restartPolicy — same meaning as scaledJob's job.* fields
-#                below (job.restartPolicy defaults to "Never").
+#                below (job.restartPolicy defaults to "Never"). Its
+#                backoffLimit is always 2147483647 (Kubernetes has no
+#                unlimited value): retried until it succeeds or a person
+#                deletes it. No Job has a deadline.
 #   cronJob    — batch/v1 CronJob for scheduled, recurring finite work (e.g.
 #                a periodic reconciliation). Every run is exactly the Job
 #                deploymentMode: job renders - same pod, env, secrets,
@@ -529,7 +531,6 @@ kafka:
 #                  schedule:                   required, standard cron syntax
 #                  timeZone:                   optional IANA zone name
 #                  concurrencyPolicy:          Allow | Forbid (default) | Replace
-#                  startingDeadlineSeconds:    optional
 #                  successfulJobsHistoryLimit: default 3
 #                  failedJobsHistoryLimit:     default 1
 #                  suspend:                    default false
@@ -538,10 +539,6 @@ kafka:
 #       deploymentMode: cronJob
 #       cronJob:
 #         schedule: "*/5 * * * *"
-#         startingDeadlineSeconds: 240
-#       job:
-#         backoffLimit: 2
-#         activeDeadlineSeconds: 240
 #
 # probes.enabled: whether the main container gets liveness/readiness/startup
 # HTTP probes at all (see probes.liveness/.readiness/.startup path overrides
@@ -606,7 +603,6 @@ kafka:
 #     job.backoffLimit:            Kubernetes Job retry count. Default: 0,
 #                                  because durable task retry is owned by
 #                                  the application task state machine.
-#     job.activeDeadlineSeconds:   Optional wall-clock limit for one Job.
 #     job.ttlSecondsAfterFinished: Optional cleanup TTL for finished Jobs.
 #
 # Spark executor pod template:

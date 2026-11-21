@@ -93,7 +93,6 @@ securityConfig:
 # run again unless you explicitly re-trigger it.
 # ------------------------------------------------------------------------------
 securityInit:
-  backoffLimit: 5
   retries: 20
   retryIntervalSeconds: 15
   image:

@@ -219,6 +219,17 @@ helm template cronjob-test "${chart_dir}" \
 scheduled() { awk '/^# CronJob: reconcile-scheduled-fixture$/,/^---$/' "${cronjob_render}"; }
 options() { awk '/^# CronJob: cronjob-options-fixture$/,/^---$/' "${cronjob_render}"; }
 
+# No clock or count gives up on a run (the owner's rule of 2026-11-18): a Job's backoffLimit is
+# Kubernetes's largest, and no Job or CronJob has a deadline, even when a values file names one.
+if ! scheduled | grep -q '^      backoffLimit: 2147483647$'; then
+  echo "cronJob: a run's Job must be retried until it succeeds (backoffLimit 2147483647)" >&2
+  exit 1
+fi
+if grep -q 'activeDeadlineSeconds:\|startingDeadlineSeconds:' "${cronjob_render}"; then
+  echo "no Job or CronJob may render a deadline" >&2
+  exit 1
+fi
+
 # Defaults: Forbid, history limits 3/1, not suspended, no timeZone/deadline.
 for expected in '^kind: CronJob$' '^  schedule: "\*/5 \* \* \* \*"$' '^  concurrencyPolicy: Forbid$' \
   '^  successfulJobsHistoryLimit: 3$' '^  failedJobsHistoryLimit: 1$' '^  suspend: false$'; do
@@ -233,7 +244,7 @@ if scheduled | grep -q 'timeZone:\|startingDeadlineSeconds:'; then
 fi
 # Every optional field, including a zero history limit, renders as set.
 for expected in '^  schedule: "0 3 \* \* \*"$' '^  timeZone: "Etc/UTC"$' '^  concurrencyPolicy: Replace$' \
-  '^  startingDeadlineSeconds: 120$' '^  successfulJobsHistoryLimit: 0$' \
+  '^  successfulJobsHistoryLimit: 0$' \
   '^  failedJobsHistoryLimit: 5$' '^  suspend: true$'; do
   if ! options | grep -q "${expected}"; then
     echo "cronJob options: expected ${expected} on the CronJob" >&2

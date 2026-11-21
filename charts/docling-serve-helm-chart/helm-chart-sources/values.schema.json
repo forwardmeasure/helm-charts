@@ -819,10 +819,6 @@
             }
           ]
         },
-        "lockTimeoutSeconds": {
-          "type": "integer",
-          "minimum": 1
-        },
         "ensembleModels": {
           "type": "array",
           "uniqueItems": true,
@@ -929,22 +925,12 @@
         "job": {
           "type": "object",
           "required": [
-            "backoffLimit",
-            "activeDeadlineSeconds",
             "ttlSecondsAfterFinished",
             "nodeSelector",
             "affinity",
             "tolerations"
           ],
           "properties": {
-            "backoffLimit": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "activeDeadlineSeconds": {
-              "type": "integer",
-              "minimum": 1
-            },
             "ttlSecondsAfterFinished": {
               "type": "integer",
               "minimum": 1

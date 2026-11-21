@@ -196,7 +196,6 @@ controlPlane:
       name: itineris-migrations-db
       usernameKey: username
       passwordKey: password
-    activeDeadlineSeconds: 300
     resources:
       requests: {cpu: 100m, memory: 256Mi}
       limits: {cpu: 1000m, memory: 1Gi}
@@ -238,7 +237,6 @@ analyticsJob:
   parametersProperties: ""
   sparkConfigurationProperties: ""
   graphConfigurationProperties: ""
-  backoffLimit: 0
   ttlSecondsAfterFinished: 3600
   resources:
     requests:

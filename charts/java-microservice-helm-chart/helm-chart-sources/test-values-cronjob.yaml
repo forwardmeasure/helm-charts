@@ -31,8 +31,6 @@ services:
       events: ["post-install", "post-upgrade"]
       deletePolicy: "before-hook-creation"
     job:
-      backoffLimit: 2
-      activeDeadlineSeconds: 240
       restartPolicy: OnFailure
     env:
       RECONCILIATION_SCOPE: tenant-access
@@ -73,7 +71,6 @@ services:
       schedule: "0 3 * * *"
       timeZone: Etc/UTC
       concurrencyPolicy: Replace
-      startingDeadlineSeconds: 120
       successfulJobsHistoryLimit: 0
       failedJobsHistoryLimit: 5
       suspend: true

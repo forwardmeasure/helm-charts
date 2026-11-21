@@ -146,22 +146,20 @@ def verify_bundle(root, config, identity):
 
 
 @contextlib.contextmanager
-def bundle_lock(cache, timeout):
+def bundle_lock(cache):
     cache.mkdir(parents=True, exist_ok=True)
     lock_path = cache / ".model-preparation.lock"
     if lock_path.is_symlink():
         raise InvalidModel("The model preparation lock is a symbolic link")
-    # Advisory OS locking is released on process death. Never unlink another owner's lock.
+    # Advisory OS locking is released on process death. Never unlink another owner's lock. The
+    # active preparer is waited for until it finishes or dies: no clock gives up on it (the
+    # owner's rule of 2026-11-18).
     with lock_path.open("a+b") as lock:
-        deadline = time.monotonic() + timeout
-        while True:
-            try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    raise InvalidModel("Timed out waiting for the active model preparer")
-                time.sleep(min(1, max(0, deadline - time.monotonic())))
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print("Waiting for the active model preparer to finish.", flush=True)
+            fcntl.flock(lock, fcntl.LOCK_EX)
         try:
             yield
         finally:
@@ -189,11 +187,22 @@ def fetch_model(spec, target):
     )
 
 
-def prepare(cache, bundled, staging, config, identity, timeout, fetcher=fetch_model):
+def await_complete(root, sleep=time.sleep):
+    """Waits until the prepared bundle at root is complete; no clock gives up on it (the owner's
+    rule of 2026-11-18): a person stops the pod if preparation never finishes."""
+    waited = 0
+    while not (root / ".complete.json").is_file():
+        if waited % 60 == 0:
+            print(f"Waiting for the prepared model bundle {root.name} ({waited} s so far).", flush=True)
+        sleep(5)
+        waited += 5
+
+
+def prepare(cache, bundled, staging, config, identity, fetcher=fetch_model):
     cache = cache.resolve()
     staging.mkdir(parents=True, exist_ok=True)
     bundles = cache / ".bundles"
-    with bundle_lock(cache, timeout):
+    with bundle_lock(cache):
         bundles.mkdir(exist_ok=True)
         if bundles.is_symlink():
             raise InvalidModel("Bundle storage is a symbolic link")
@@ -281,22 +290,21 @@ def main():
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--bundled", type=Path)
     parser.add_argument("--staging", type=Path)
-    parser.add_argument("--lock-timeout", type=float, default=600)
-    parser.add_argument("--wait-timeout", type=float, default=0)
+    parser.add_argument("--wait", action="store_true",
+                        help="wait until the preparation Job has published the bundle")
     parser.add_argument("--legacy", action="store_true")
     args = parser.parse_args()
     config, identity = load_config(args.config)
     if args.action == "prepare":
         if not args.bundled or not args.staging:
             parser.error("prepare requires --bundled and --staging")
-        prepare(args.cache, args.bundled, args.staging, config, identity, args.lock_timeout)
+        prepare(args.cache, args.bundled, args.staging, config, identity)
     elif args.legacy:
         verify_legacy(args.cache, config)
     else:
         root = args.cache / ".bundles" / identity
-        deadline = time.monotonic() + args.wait_timeout
-        while not (root / ".complete.json").is_file() and time.monotonic() < deadline:
-            time.sleep(min(5, max(0, deadline - time.monotonic())))
+        if args.wait:
+            await_complete(root)
         if not verify_bundle(root, config, identity):
             raise InvalidModel("Required complete model bundle is absent or corrupt: " + identity)
         print("Verified prepared model bundle.", flush=True)

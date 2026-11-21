@@ -277,7 +277,6 @@ kafka:
 #     job.backoffLimit:            Kubernetes Job retry count. Default: 0,
 #                                  because durable task retry is owned by
 #                                  the application task state machine.
-#     job.activeDeadlineSeconds:   Optional wall-clock limit for one Job.
 #     job.ttlSecondsAfterFinished: Optional cleanup TTL for finished Jobs.
 #
 # Spark executor pod template:

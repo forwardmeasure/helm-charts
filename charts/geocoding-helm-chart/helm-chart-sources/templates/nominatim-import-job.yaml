@@ -13,12 +13,11 @@ metadata:
     app.kubernetes.io/component: nominatim
     app.kubernetes.io/part-of: import
 spec:
-  backoffLimit: {{ .Values.nominatim.import.backoffLimit }}
+  {{- /* The largest Kubernetes allows (no unlimited value): retried until it succeeds or a person
+  deletes it; no deadline (the owner's rule of 2026-11-18). */}}
+  backoffLimit: 2147483647
   {{- if gt (int .Values.nominatim.import.ttlSecondsAfterFinished) 0 }}
   ttlSecondsAfterFinished: {{ .Values.nominatim.import.ttlSecondsAfterFinished }}
-  {{- end }}
-  {{- if gt (int .Values.nominatim.import.activeDeadlineSeconds) 0 }}
-  activeDeadlineSeconds: {{ .Values.nominatim.import.activeDeadlineSeconds }}
   {{- end }}
   template:
     metadata:

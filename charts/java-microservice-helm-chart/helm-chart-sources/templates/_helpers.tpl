@@ -1102,12 +1102,11 @@ Usage: include "java-microservice.jobSpec" (dict "service" . "root" $)
 {{- $svc := .service -}}
 {{- $root := .root -}}
 {{- $job := $svc.job | default (dict) -}}
-backoffLimit: {{ $job.backoffLimit | default 0 }}
+{{- /* Kubernetes has no unlimited backoffLimit (int32; omitted means 6): the largest, so a Job is
+retried until it succeeds or a person deletes it. No deadline: no clock gives up on a Job. */ -}}
+backoffLimit: 2147483647
 completions: {{ $job.completions | default 1 }}
 parallelism: {{ $job.parallelism | default 1 }}
-{{- if hasKey $job "activeDeadlineSeconds" }}
-activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
-{{- end }}
 {{- if hasKey $job "ttlSecondsAfterFinished" }}
 ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
 {{- end }}

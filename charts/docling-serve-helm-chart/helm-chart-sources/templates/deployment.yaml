@@ -117,8 +117,7 @@ spec:
             - --cache
             - {{ .Values.paths.models | quote }}
             {{- if .Values.modelDownload.enabled }}
-            - --wait-timeout
-            - {{ .Values.modelDownload.job.activeDeadlineSeconds | quote }}
+            - --wait
             {{- else }}
             - --legacy
             {{- end }}

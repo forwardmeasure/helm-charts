@@ -33,9 +33,6 @@ spec:
   timeZone: {{ . | quote }}
   {{- end }}
   concurrencyPolicy: {{ $cronJob.concurrencyPolicy | default "Forbid" }}
-  {{- if hasKey $cronJob "startingDeadlineSeconds" }}
-  startingDeadlineSeconds: {{ $cronJob.startingDeadlineSeconds }}
-  {{- end }}
   successfulJobsHistoryLimit: {{ $successfulJobsHistoryLimit }}
   failedJobsHistoryLimit: {{ $failedJobsHistoryLimit }}
   suspend: {{ $cronJob.suspend | default false }}

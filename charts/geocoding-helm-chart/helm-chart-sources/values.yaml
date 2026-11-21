@@ -321,10 +321,8 @@ nominatim:
         limits:
           cpu: 2000m
           memory: 2Gi
-    backoffLimit: 0
     restartPolicy: Never
     ttlSecondsAfterFinished: 86400
-    activeDeadlineSeconds: 0
     podAnnotations: {}
     resources:
       requests:

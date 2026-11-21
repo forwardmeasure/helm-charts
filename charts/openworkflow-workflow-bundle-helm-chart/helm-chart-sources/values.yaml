@@ -122,8 +122,6 @@ image:
 imagePullSecrets:
   - name: docker-io-credentials
 
-backoffLimit: 6
-activeDeadlineSeconds: 600
 ttlSecondsAfterFinished: 86400
 
 podSecurityContext:

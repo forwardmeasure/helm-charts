@@ -46,9 +46,6 @@ spec:
     parallelism: {{ $job.parallelism | default 1 }}
     completions: {{ $job.completions | default 1 }}
     backoffLimit: {{ $job.backoffLimit | default 0 }}
-    {{- if hasKey $job "activeDeadlineSeconds" }}
-    activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
-    {{- end }}
     {{- if hasKey $job "ttlSecondsAfterFinished" }}
     ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
     {{- end }}
