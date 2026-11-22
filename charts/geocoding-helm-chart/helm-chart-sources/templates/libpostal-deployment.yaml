@@ -46,7 +46,7 @@ spec:
       {{- end }}
       containers:
         - name: libpostal
-          image: "{{ .Values.libpostal.image.repository }}:{{ .Values.libpostal.image.tag }}"
+          image: {{ include "geocoding.image" .Values.libpostal.image | quote }}
           imagePullPolicy: {{ .Values.libpostal.image.pullPolicy }}
           {{- with .Values.libpostal.containerSecurityContext }}
           securityContext:

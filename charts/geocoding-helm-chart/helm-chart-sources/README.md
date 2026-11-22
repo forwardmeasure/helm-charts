@@ -197,6 +197,18 @@ libpostal:
     tag: "0.0.1"
 ```
 
+Every image (`nominatim`, `libpostal`, `cloudSqlProxy`, `postgres`) also takes a
+`digest`. With one, the chart deploys `repository@digest`; without one,
+`repository:tag`. Deploy by digest: a tag can be re-pushed, a digest cannot.
+
+```yaml
+nominatim:
+  image:
+    repository: docker.io/forwardmeasure/nominatim
+    tag: "0.0.1"
+    digest: sha256:405984e0e323047df3cdabfa35b13632ee3ab1f018e9eb9f3c0710d811eda819
+```
+
 ## Disable Components
 
 ```yaml
@@ -331,7 +343,12 @@ failed import keeps one failed pod with useful logs. Avoid automatic retries for
 imports: a failed run may leave partial database objects behind and should be
 cleaned up before rerunning.
 
-The API Deployment waits for the import Job to finish before starting. The
-waiter checks `nominatim_properties.database_version`, which Nominatim writes at
-the end of import. Earlier tables such as `placex` appear before tokenizer setup
-has completed and are not a safe readiness marker.
+The API Deployment waits for the import to finish before starting, however it
+is done (this chart's import Job or a database seeded outside the chart). Its
+`wait-for-database` init container waits for the database server, then checks
+`nominatim_properties.database_version`, which Nominatim writes at the end of
+import. Earlier tables such as `placex` appear before tokenizer setup has
+completed and are not a safe readiness marker. It waits as long as the import
+takes, with no timeout (`nominatim.api.waitTimeoutSeconds` is refused), and logs
+each change of what it sees with the server's own message. The wait is the
+chart's script, not the image's, so it behaves the same with every image build.

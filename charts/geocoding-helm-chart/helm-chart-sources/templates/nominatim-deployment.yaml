@@ -48,7 +48,7 @@ spec:
       initContainers:
         {{- include "geocoding.cloudSqlProxyContainer" . | nindent 8 }}
         - name: wait-for-database
-          image: "{{ .Values.nominatim.image.repository }}:{{ .Values.nominatim.image.tag }}"
+          image: {{ include "geocoding.image" .Values.nominatim.image | quote }}
           imagePullPolicy: {{ .Values.nominatim.image.pullPolicy }}
           envFrom:
             - secretRef:
@@ -56,15 +56,17 @@ spec:
           env:
             - name: WAIT_FOR_IMPORT
               value: {{ .Values.nominatim.api.waitForImport | quote }}
-            - name: WAIT_FOR_IMPORT_TIMEOUT_SECONDS
-              value: {{ .Values.nominatim.api.waitTimeoutSeconds | quote }}
+          # The chart's own wait (see geocoding.waitForImportScript), so it does not depend on which
+          # image build is deployed.
           command:
-            - /usr/local/bin/forwardmeasure-wait-for-postgres
+            - /bin/bash
+            - -c
+            - {{ include "geocoding.waitForImportScript" . | quote }}
           resources:
             {{- toYaml .Values.nominatim.api.resources | nindent 12 }}
       containers:
         - name: nominatim
-          image: "{{ .Values.nominatim.image.repository }}:{{ .Values.nominatim.image.tag }}"
+          image: {{ include "geocoding.image" .Values.nominatim.image | quote }}
           imagePullPolicy: {{ .Values.nominatim.image.pullPolicy }}
           {{- with .Values.nominatim.containerSecurityContext }}
           securityContext:

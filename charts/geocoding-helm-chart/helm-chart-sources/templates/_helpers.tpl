@@ -112,6 +112,65 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s:%s" $repository $tag -}}
 {{- end -}}
 
+{{/*
+An image reference: repository@digest when a digest is given (what a deployment should run),
+otherwise repository:tag. Usage: include "geocoding.image" .Values.nominatim.image
+*/}}
+{{- define "geocoding.image" -}}
+{{- if .digest -}}
+{{- printf "%s@%s" .repository .digest -}}
+{{- else -}}
+{{- printf "%s:%s" .repository .tag -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The Nominatim API's wait, run by its wait-for-database init container: first for the database
+server to accept connections, then (WAIT_FOR_IMPORT=true) for Nominatim's import-completion marker,
+nominatim_properties.database_version, which Nominatim writes at the very end of an import. It waits
+as long as that takes - a planet import or restore runs for days - and never gives up on a clock.
+Each state it sees is reported when it changes, with the server's own words, not on every attempt.
+Only psql's standard output is taken for the marker, so a notice on standard error never passes for
+one.
+*/}}
+{{- define "geocoding.waitForImportScript" -}}
+set -euo pipefail
+: "${PGHOST:?PGHOST is required}"
+: "${PGPORT:?PGPORT is required}"
+: "${PGDATABASE:?PGDATABASE is required}"
+: "${PGUSER:?PGUSER is required}"
+reported=""
+report() {
+  if [ "$1" != "${reported}" ]; then
+    echo "$1"
+    reported="$1"
+  fi
+}
+until status="$(pg_isready -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" 2>&1)"; do
+  report "Waiting for PostgreSQL at ${PGHOST}:${PGPORT}: ${status}"
+  sleep 5
+done
+echo "PostgreSQL at ${PGHOST}:${PGPORT} accepts connections"
+if [ "${WAIT_FOR_IMPORT:-false}" != "true" ]; then
+  exit 0
+fi
+errors="$(mktemp)"
+trap 'rm -f "${errors}"' EXIT
+while true; do
+  if version="$(psql -X -q -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -v ON_ERROR_STOP=1 -tA \
+      -c "select value from nominatim_properties where property = 'database_version'" 2>"${errors}")"; then
+    if [ -n "${version}" ]; then
+      echo "Nominatim's import into ${PGDATABASE} is complete (database version ${version})"
+      exit 0
+    fi
+    report "Waiting for Nominatim's import into ${PGDATABASE}: it has not recorded its database version yet"
+  else
+    report "Waiting for Nominatim's import into ${PGDATABASE}: $(cat "${errors}")"
+  fi
+  sleep 10
+done
+{{- end -}}
+
 {{- define "geocoding.databaseHost" -}}
 {{- if .Values.database.host -}}
 {{- .Values.database.host -}}
@@ -134,7 +193,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if .Values.cloudSqlProxy.enabled }}
 - name: cloud-sql-proxy
   restartPolicy: Always
-  image: "{{ .Values.cloudSqlProxy.image.repository }}:{{ .Values.cloudSqlProxy.image.tag }}"
+  image: {{ include "geocoding.image" .Values.cloudSqlProxy.image | quote }}
   imagePullPolicy: {{ .Values.cloudSqlProxy.image.pullPolicy }}
   args:
     {{- if .Values.cloudSqlProxy.privateIp }}
@@ -201,6 +260,9 @@ export NOMINATIM_DATABASE_WEBUSER="${NOMINATIM_DATABASE_WEBUSER:-{{ .Values.nomi
 {{- end -}}
 
 {{- define "geocoding.validate" -}}
+{{- if hasKey .Values.nominatim.api "waitTimeoutSeconds" -}}
+{{- fail "nominatim.api.waitTimeoutSeconds is not supported: the API waits for the database and for Nominatim's import for as long as they take; remove it" -}}
+{{- end -}}
 {{- if and .Values.nominatim.enabled (not .Values.database.createSecret) (not .Values.database.credentialsSecret) -}}
 {{- fail "database.credentialsSecret must be set when nominatim.enabled=true and database.createSecret=false" -}}
 {{- end -}}
