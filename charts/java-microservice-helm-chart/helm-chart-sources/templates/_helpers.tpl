@@ -975,6 +975,15 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
       value: {{ $value | toString | quote }}
     {{- end }}
     {{- end }}
+    {{- $asyncTaskRetry := ($root.Values.asyncTaskRetry | default (dict)) }}
+    {{- range $key, $variable := dict "initialBackoff" "FORWARDMEASURE_ASYNC_TASK_RETRY_INITIAL_BACKOFF" "maximumBackoff" "FORWARDMEASURE_ASYNC_TASK_RETRY_MAXIMUM_BACKOFF" "multiplier" "FORWARDMEASURE_ASYNC_TASK_RETRY_MULTIPLIER" "jitter" "FORWARDMEASURE_ASYNC_TASK_RETRY_JITTER" }}
+    {{- $value := index $asyncTaskRetry $key }}
+    {{- if and (or $value (eq (toString $value) "0")) (not (hasKey ($svc.env | default (dict)) $variable)) }}
+    # The asynchronous tasks' back-off between attempts (AsyncTaskRetryPolicy), for every service of the release.
+    - name: {{ $variable }}
+      value: {{ $value | toString | quote }}
+    {{- end }}
+    {{- end }}
     {{- range $key, $val := $svc.env }}
     - name: {{ $key }}
       value: {{ $val | quote }}

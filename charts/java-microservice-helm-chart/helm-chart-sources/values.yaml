@@ -69,6 +69,23 @@ dependencyRetry:
   jitter: ""
   connectTimeout: ""
 
+# How far apart a service's asynchronous task (forwardmeasure-jpa-async-task) is
+# attempted again after an attempt failed on a dependency: initialBackoff
+# FORWARDMEASURE_ASYNC_TASK_RETRY_INITIAL_BACKOFF and maximumBackoff
+# FORWARDMEASURE_ASYNC_TASK_RETRY_MAXIMUM_BACKOFF (ISO-8601 durations), multiplier
+# FORWARDMEASURE_ASYNC_TASK_RETRY_MULTIPLIER (at least 1), jitter
+# FORWARDMEASURE_ASYNC_TASK_RETRY_JITTER (0 to 1), on every service of the release
+# (a service's own env entry wins). The number of attempts is
+# dependencyRetry.attempts; after the last the task ends failed as
+# dependency-unavailable and a person resumes it. Unset: PT30S, PT1H, 4 and 0. A
+# value a service cannot use stops it at start, naming the variable. A release
+# passes the platform's shared platform.asyncTaskRetry here.
+asyncTaskRetry:
+  initialBackoff: ""
+  maximumBackoff: ""
+  multiplier: ""
+  jitter: ""
+
 # ------------------------------------------------------------------------------
 # Image pull secrets
 # ------------------------------------------------------------------------------
