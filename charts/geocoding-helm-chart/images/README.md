@@ -107,4 +107,4 @@ The Nominatim import entrypoint understands the chart's optional PBF cache. When
 merged file as `merged.osm.pbf`, and preserves those files for retry Jobs. Rebuild
 and push the Nominatim image whenever the import scripts change.
 
-The Libpostal build is intentionally heavy because it compiles `openvenues/libpostal`, downloads/installs Libpostal model data into the image, then builds `go-whosonfirst-libpostal`. For reproducible production builds, pin `LIBPOSTAL_REF`, `WOF_LIBPOSTAL_REF`, and the Ubuntu base image to tags or digests.
+The Libpostal build is intentionally heavy because it compiles `openvenues/libpostal`, downloads/installs Libpostal model data into the image, then builds `go-whosonfirst-libpostal`. `LIBPOSTAL_REF` and `WOF_LIBPOSTAL_REF` are pinned to exact commits in the Dockerfile; for reproducible production builds, pin the Ubuntu base image by digest too.

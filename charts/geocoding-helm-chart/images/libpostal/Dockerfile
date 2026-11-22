@@ -5,11 +5,16 @@ FROM ubuntu:${UBUNTU_VERSION} AS builder
 
 ARG GO_VERSION=1.21.0
 ARG LIBPOSTAL_REPO=https://github.com/openvenues/libpostal.git
-ARG LIBPOSTAL_REF=master
+# Both sources are pinned to exact commits (the heads of their default branches on 21 November
+# 2026, resolved with git ls-remote), so every build compiles the same code. Move a pin only on
+# purpose, to a commit read and tested; the deployed image is pinned by digest regardless.
+ARG LIBPOSTAL_REF=25099c506612b34b23b1bfe286ca6321fcf06f35
 ARG LIBPOSTAL_DATADIR=/usr/local/share/libpostal
 ARG LIBPOSTAL_MODEL=default
 ARG WOF_LIBPOSTAL_REPO=https://github.com/whosonfirst/go-whosonfirst-libpostal.git
-ARG WOF_LIBPOSTAL_REF=master
+# The HTTP server (wof-libpostal-server: GET /parse, /expand and /ping) whose /parse
+# forwardmeasure-platform-geocoding-api's libpostal contract is written against.
+ARG WOF_LIBPOSTAL_REF=2113ee5c78f98374b3b4cd7a5ecb2150a3b6fd2c
 
 ARG TARGETARCH=amd64
 
