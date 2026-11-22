@@ -954,6 +954,12 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
           key: {{ $database.jdbcUrlKey | default "db-jdbc-url" }}
     {{- end }}
     {{- end }}
+    {{- $maxRequestBody := (($root.Values.http | default (dict)).maxRequestBodyBytes) }}
+    {{- if and $maxRequestBody (not (hasKey ($svc.env | default (dict)) "FORWARDMEASURE_HTTP_MAX_REQUEST_BODY_BYTES")) }}
+    # The platform's one request-body limit (RequestBodyLimit), for every service of the release.
+    - name: FORWARDMEASURE_HTTP_MAX_REQUEST_BODY_BYTES
+      value: {{ $maxRequestBody | toString | quote }}
+    {{- end }}
     {{- range $key, $val := $svc.env }}
     - name: {{ $key }}
       value: {{ $val | quote }}

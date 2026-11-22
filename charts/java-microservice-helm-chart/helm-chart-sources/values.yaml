@@ -22,6 +22,16 @@ telemetry:
   injectJava: false
 
 # ------------------------------------------------------------------------------
+# HTTP
+# ------------------------------------------------------------------------------
+# maxRequestBodyBytes: the platform's one request-body limit, in bytes, for every
+# service of the release (FORWARDMEASURE_HTTP_MAX_REQUEST_BODY_BYTES; a service's
+# own env entry wins). Unset: the services' default, 2147483647 bytes, the same
+# on Quarkus, Spring and Micronaut. A larger body is refused with a typed 413.
+http:
+  maxRequestBodyBytes: ""
+
+# ------------------------------------------------------------------------------
 # Image pull secrets
 # ------------------------------------------------------------------------------
 imagePullSecrets:
