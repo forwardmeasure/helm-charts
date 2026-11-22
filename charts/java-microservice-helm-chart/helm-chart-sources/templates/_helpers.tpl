@@ -960,6 +960,12 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
     - name: FORWARDMEASURE_HTTP_MAX_REQUEST_BODY_BYTES
       value: {{ $maxRequestBody | toString | quote }}
     {{- end }}
+    {{- $bodyIdleTimeout := (($root.Values.http | default (dict)).bodyIdleTimeout) }}
+    {{- if and $bodyIdleTimeout (not (hasKey ($svc.env | default (dict)) "FORWARDMEASURE_HTTP_BODY_IDLE_TIMEOUT")) }}
+    # The platform's one wait for the next piece of a request body (BodyIdleTimeout), for every service of the release.
+    - name: FORWARDMEASURE_HTTP_BODY_IDLE_TIMEOUT
+      value: {{ $bodyIdleTimeout | toString | quote }}
+    {{- end }}
     {{- range $key, $val := $svc.env }}
     - name: {{ $key }}
       value: {{ $val | quote }}

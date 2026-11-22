@@ -28,8 +28,16 @@ telemetry:
 # service of the release (FORWARDMEASURE_HTTP_MAX_REQUEST_BODY_BYTES; a service's
 # own env entry wins). Unset: the services' default, 2147483647 bytes, the same
 # on Quarkus, Spring and Micronaut. A larger body is refused with a typed 413.
+# bodyIdleTimeout: the platform's one wait for the next piece of a request body,
+# an ISO-8601 duration, for every service of the release
+# (FORWARDMEASURE_HTTP_BODY_IDLE_TIMEOUT; a service's own env entry wins). Unset:
+# the services' default, PT8M, the same on Quarkus, Spring and Micronaut. It is
+# an idle wait renewed by every piece that arrives, never a total: a client that
+# sends nothing for longer is cut off. A value that is not a positive duration
+# stops the service at start.
 http:
   maxRequestBodyBytes: ""
+  bodyIdleTimeout: ""
 
 # ------------------------------------------------------------------------------
 # Image pull secrets
