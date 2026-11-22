@@ -50,7 +50,7 @@ spec:
       {{- end }}
       containers:
         - name: postgres
-          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          image: {{ include "geocoding.image" .Values.postgres.image | quote }}
           imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
           {{- with .Values.postgres.containerSecurityContext }}
           securityContext:

@@ -122,7 +122,7 @@ spec:
       {{- end }}
       containers:
         - name: import
-          image: "{{ .Values.nominatim.image.repository }}:{{ .Values.nominatim.image.tag }}"
+          image: {{ include "geocoding.image" .Values.nominatim.image | quote }}
           imagePullPolicy: {{ .Values.nominatim.image.pullPolicy }}
           {{- with .Values.nominatim.containerSecurityContext }}
           securityContext:
