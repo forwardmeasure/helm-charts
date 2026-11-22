@@ -119,7 +119,8 @@ for model in models:
                 env = main["env"]
                 self.assertEqual(len(env), len({entry["name"] for entry in env}))
                 values = {entry["name"]: entry.get("value") for entry in env}
-                self.assertEqual(int(values["DOCLING_SERVE_MAX_FILE_SIZE"]), 104857600)
+                # No size or page limit unless one is set: docling-serve's own defaults are none.
+                self.assertNotIn("DOCLING_SERVE_MAX_FILE_SIZE", values)
                 # No page limit unless one is set: docling-serve's own default is sys.maxsize.
                 self.assertNotIn("DOCLING_SERVE_MAX_NUM_PAGES", values)
                 self.assertIn("/.bundles/", values["DOCLING_SERVE_ARTIFACTS_PATH"])

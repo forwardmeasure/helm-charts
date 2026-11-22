@@ -317,7 +317,9 @@ auth:
   existingSecret: ''
   secretKey: api-key
 limits:
-  maxFileSize: 104857600
+  # maxFileSize: unset, so docling-serve applies its own default, no size limit. Document
+  # Intelligence hands Docling a signed link to the stored document rather than its bytes. Set it
+  # only to refuse larger documents on purpose.
   # maxNumPages: unset, so docling-serve applies its own default, no page limit (sys.maxsize,
   # docling_serve/settings.py in v1.37.0). Set it only to refuse longer documents on purpose.
   maxDocumentTimeout: 2147483647

@@ -272,7 +272,6 @@
     "limits": {
       "type": "object",
       "required": [
-        "maxFileSize",
         "maxDocumentTimeout",
         "maxSourcesPerRequest",
         "maxImagesScale"
