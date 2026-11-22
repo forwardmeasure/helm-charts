@@ -273,7 +273,6 @@
       "type": "object",
       "required": [
         "maxFileSize",
-        "maxNumPages",
         "maxDocumentTimeout",
         "maxSourcesPerRequest",
         "maxImagesScale"

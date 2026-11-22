@@ -146,7 +146,9 @@ spec:
             - {name: DOCLING_SERVE_SCRATCH_PATH, value: {{ .Values.paths.scratch | quote }}}
             - {name: DOCLING_SERVE_ENG_KIND, value: {{ .Values.engine.kind | quote }}}
             - {name: DOCLING_SERVE_MAX_FILE_SIZE, value: {{ printf "%d" (int64 .Values.limits.maxFileSize) | quote }}}
-            - {name: DOCLING_SERVE_MAX_NUM_PAGES, value: {{ printf "%d" (int64 .Values.limits.maxNumPages) | quote }}}
+            {{- with .Values.limits.maxNumPages }}
+            - {name: DOCLING_SERVE_MAX_NUM_PAGES, value: {{ printf "%d" (int64 .) | quote }}}
+            {{- end }}
             - {name: DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT, value: {{ .Values.limits.maxDocumentTimeout | quote }}}
             - {name: DOCLING_SERVE_MAX_SOURCES_PER_REQUEST, value: {{ printf "%d" (int64 .Values.limits.maxSourcesPerRequest) | quote }}}
             - {name: DOCLING_SERVE_MAX_IMAGES_SCALE, value: {{ .Values.limits.maxImagesScale | quote }}}

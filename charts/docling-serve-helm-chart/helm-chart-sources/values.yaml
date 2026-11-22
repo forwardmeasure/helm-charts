@@ -318,7 +318,8 @@ auth:
   secretKey: api-key
 limits:
   maxFileSize: 104857600
-  maxNumPages: 1000
+  # maxNumPages: unset, so docling-serve applies its own default, no page limit (sys.maxsize,
+  # docling_serve/settings.py in v1.37.0). Set it only to refuse longer documents on purpose.
   maxDocumentTimeout: 2147483647
   maxSourcesPerRequest: 3
   maxImagesScale: 2
