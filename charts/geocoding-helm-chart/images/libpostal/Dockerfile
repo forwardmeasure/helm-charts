@@ -13,7 +13,7 @@ ARG LIBPOSTAL_DATADIR=/usr/local/share/libpostal
 ARG LIBPOSTAL_MODEL=default
 ARG WOF_LIBPOSTAL_REPO=https://github.com/whosonfirst/go-whosonfirst-libpostal.git
 # The HTTP server (wof-libpostal-server: GET /parse, /expand and /ping) whose /parse
-# forwardmeasure-platform-geocoding-api's libpostal contract is written against.
+# forwardmeasure-platform-api-contracts' libpostal-v1.json is written against.
 ARG WOF_LIBPOSTAL_REF=2113ee5c78f98374b3b4cd7a5ecb2150a3b6fd2c
 
 ARG TARGETARCH=amd64
