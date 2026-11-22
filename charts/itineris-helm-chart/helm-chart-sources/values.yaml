@@ -114,6 +114,10 @@ itineris:
   graphCacheMaximumSize: 64
   graphCacheIdleTimeout: 30M
   gremlinThreads: 16
+  # -- How long a storage write, and a lock check, is retried before its transaction fails
+  # (storage.write-time, e.g. 100S). Kept on purpose: lock expiry and the maximum commit time are
+  # derived from it until locks carry a fencing token. Empty: the engine's default (100 s).
+  storageWriteTime: ""
   terminationGracePeriodSeconds: 60
 
 # -- Cassandra defaults shared by tenant graphs; tenant keyspaces come from the catalog

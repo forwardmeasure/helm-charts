@@ -163,6 +163,8 @@ spec:
               value: {{ .Values.itineris.graphCacheIdleTimeout | quote }}
             - name: ITINERIS_GREMLIN_THREADS
               value: {{ .Values.itineris.gremlinThreads | quote }}
+            - name: ITINERIS_STORAGE_WRITE_TIME
+              value: {{ .Values.itineris.storageWriteTime | quote }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
