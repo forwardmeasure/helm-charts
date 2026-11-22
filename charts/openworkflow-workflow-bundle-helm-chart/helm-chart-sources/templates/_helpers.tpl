@@ -206,3 +206,17 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 {{- end -}}
 {{- $_ := include "openworkflow-workflow-bundle.contractDigests" . -}}
 {{- end -}}
+
+{{/*
+The platform's dependency-retry setting (FORWARDMEASURE_DEPENDENCY_RETRY_*) for a Job of this chart,
+from .Values.dependencyRetry: only the keys set (a 0 renders), empty = the documented defaults.
+*/}}
+{{- define "openworkflow-workflow-bundle.dependencyRetryEnv" -}}
+{{- $retry := (.Values.dependencyRetry | default (dict)) }}
+{{- range $key, $variable := dict "attempts" "FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS" "initialBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF" "maximumBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF" "multiplier" "FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER" "jitter" "FORWARDMEASURE_DEPENDENCY_RETRY_JITTER" "connectTimeout" "FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT" }}
+{{- $value := index $retry $key }}
+{{- if or $value (eq (toString $value) "0") }}
+- {name: {{ $variable }}, value: {{ $value | toString | quote }}}
+{{- end }}
+{{- end }}
+{{- end -}}

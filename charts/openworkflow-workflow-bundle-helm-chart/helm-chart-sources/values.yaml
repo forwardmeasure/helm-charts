@@ -124,6 +124,9 @@ sandboxRuleset: false
 # writes it): only it may write a credentials/ ruleset, and the workflow publisher's identity never
 # holds it.
 credentialRulesetApprover:
+  # How long one approver token request may take (OPENWORKFLOW_CREDENTIAL_RULESET_TOKEN_TIMEOUT,
+  # ISO-8601); empty: PT30S.
+  tokenTimeout: ""
   secretName: openworkflow-credential-approver
   clientIdKey: OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_ID
   clientSecretKey: OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_SECRET
@@ -170,3 +173,8 @@ serviceAccount:
 # from its calls and pinned contracts, and the credential-use PDP (forwardmeasure-authzen's
 # per-product policies) decides it at publication. The chart refuses the retired
 # reviewedCredentialCapabilities and credentialRulesetApprover values.
+
+# The platform's dependency-retry setting for this chart's Jobs (FORWARDMEASURE_DEPENDENCY_RETRY_*:
+# attempts, initialBackoff, maximumBackoff, multiplier, jitter, connectTimeout); the release passes
+# the shared platform.dependencyRetry. Empty: the documented defaults.
+dependencyRetry: {}
