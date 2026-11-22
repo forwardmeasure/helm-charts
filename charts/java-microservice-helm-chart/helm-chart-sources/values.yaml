@@ -40,6 +40,36 @@ http:
   bodyIdleTimeout: ""
 
 # ------------------------------------------------------------------------------
+# Dependency retry
+# ------------------------------------------------------------------------------
+# The platform's one setting for a dependency that fails or cannot be reached (a
+# peer service down or answering 5xx, a refused connection, storage, a search
+# index): forwardmeasure-platform-dependency-retry's DependencyRetry. A call safe
+# to repeat is tried up to attempts times, waiting initialBackoff after the first
+# failure, each wait multiplier times the one before, at most maximumBackoff, each
+# up to jitter of it shorter at random; after the last attempt the work fails by
+# type naming the dependency and can be retried by a person. Each key sets its
+# variable on every service of the release (a service's own env entry wins):
+# attempts FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS (a whole number, at least 1),
+# initialBackoff FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF and maximumBackoff
+# FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF (ISO-8601 durations),
+# multiplier FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER (at least 1), jitter
+# FORWARDMEASURE_DEPENDENCY_RETRY_JITTER (0 to 1), connectTimeout
+# FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT (an ISO-8601 duration longer than
+# zero: opening one connection; nothing else of an attempt has a clock). Unset: the
+# services' defaults, 10, PT1S, PT1M, 2, 0.2 and PT30S, the same on Quarkus, Spring
+# and Micronaut. A value a
+# service cannot use stops it at start, naming the variable. A release passes
+# the platform's shared platform.dependencyRetry here, with its own overrides.
+dependencyRetry:
+  attempts: ""
+  initialBackoff: ""
+  maximumBackoff: ""
+  multiplier: ""
+  jitter: ""
+  connectTimeout: ""
+
+# ------------------------------------------------------------------------------
 # Image pull secrets
 # ------------------------------------------------------------------------------
 imagePullSecrets:

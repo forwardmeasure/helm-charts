@@ -966,6 +966,15 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
     - name: FORWARDMEASURE_HTTP_BODY_IDLE_TIMEOUT
       value: {{ $bodyIdleTimeout | toString | quote }}
     {{- end }}
+    {{- $dependencyRetry := ($root.Values.dependencyRetry | default (dict)) }}
+    {{- range $key, $variable := dict "attempts" "FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS" "initialBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF" "maximumBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF" "multiplier" "FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER" "jitter" "FORWARDMEASURE_DEPENDENCY_RETRY_JITTER" "connectTimeout" "FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT" }}
+    {{- $value := index $dependencyRetry $key }}
+    {{- if and (or $value (eq (toString $value) "0")) (not (hasKey ($svc.env | default (dict)) $variable)) }}
+    # The platform's one dependency retry setting (DependencyRetry), for every service of the release.
+    - name: {{ $variable }}
+      value: {{ $value | toString | quote }}
+    {{- end }}
+    {{- end }}
     {{- range $key, $val := $svc.env }}
     - name: {{ $key }}
       value: {{ $val | quote }}
