@@ -56,6 +56,9 @@ spec:
           env:
             - name: WAIT_FOR_IMPORT
               value: {{ .Values.nominatim.api.waitForImport | quote }}
+            - name: IMPORT_WAIT_POLL_INTERVAL_SECONDS
+              value: {{ .Values.nominatim.api.importWait.pollIntervalSeconds | int | toString | quote }}
+            {{- include "geocoding.databaseWaitEnv" . | nindent 12 }}
           # The chart's own wait (see geocoding.waitForImportScript), so it does not depend on which
           # image build is deployed.
           command:

@@ -132,6 +132,19 @@ spec:
             - secretRef:
                 name: {{ include "geocoding.databaseSecretName" . }}
           env:
+            {{- include "geocoding.databaseWaitEnv" . | nindent 12 }}
+            {{- with .Values.nominatim.import.download }}
+            - name: DOWNLOAD_ATTEMPTS
+              value: {{ .attempts | int | toString | quote }}
+            - name: DOWNLOAD_CONNECT_TIMEOUT_SECONDS
+              value: {{ .connectTimeoutSeconds | int | toString | quote }}
+            - name: DOWNLOAD_INITIAL_BACKOFF_SECONDS
+              value: {{ .initialBackoffSeconds | int | toString | quote }}
+            - name: DOWNLOAD_MAXIMUM_BACKOFF_SECONDS
+              value: {{ .maximumBackoffSeconds | int | toString | quote }}
+            - name: DOWNLOAD_BACKOFF_MULTIPLIER
+              value: {{ .backoffMultiplier | int | toString | quote }}
+            {{- end }}
             - name: PROJECT_DIR
               value: {{ .Values.nominatim.projectDir | quote }}
             - name: PBF_URLS

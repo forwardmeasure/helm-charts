@@ -125,13 +125,22 @@ otherwise repository:tag. Usage: include "geocoding.image" .Values.nominatim.ima
 {{- end -}}
 
 {{/*
-The Nominatim API's wait, run by its wait-for-database init container: first for the database
-server to accept connections, then (WAIT_FOR_IMPORT=true) for Nominatim's import-completion marker,
-nominatim_properties.database_version, which Nominatim writes at the very end of an import. It waits
-as long as that takes - a planet import or restore runs for days - and never gives up on a clock.
-Each state it sees is reported when it changes, with the server's own words, not on every attempt.
-Only psql's standard output is taken for the marker, so a notice on standard error never passes for
-one.
+The Nominatim API's wait, run by its wait-for-database init container.
+
+1. The database server is a dependency: pg_isready is tried up to DATABASE_WAIT_ATTEMPTS times, each
+   attempt bounded by DATABASE_WAIT_CONNECT_TIMEOUT_SECONDS, with exponential back-off from
+   DATABASE_WAIT_INITIAL_BACKOFF_SECONDS, multiplied by DATABASE_WAIT_BACKOFF_MULTIPLIER, up to
+   DATABASE_WAIT_MAXIMUM_BACKOFF_SECONDS. When the attempts run out the container fails, naming the
+   database and the server's last answer, so the pod shows the failure and Kubernetes restarts it.
+2. With WAIT_FOR_IMPORT=true, it then waits for Nominatim's import-completion marker,
+   nominatim_properties.database_version, written at the very end of an import. An import is valid
+   work in progress (a planet import or restore runs for days), so that wait has no limit; it checks
+   every IMPORT_WAIT_POLL_INTERVAL_SECONDS. If the server stops answering during it (psql exit 2),
+   step 1's bounded wait applies again.
+
+Every value comes from the chart's values (nominatim.databaseWait, nominatim.api.importWait); the
+script holds none. Each state is reported when it changes, with the server's own words. Only psql's
+standard output is taken for the marker, so a notice on standard error never passes for one.
 */}}
 {{- define "geocoding.waitForImportScript" -}}
 set -euo pipefail
@@ -139,6 +148,12 @@ set -euo pipefail
 : "${PGPORT:?PGPORT is required}"
 : "${PGDATABASE:?PGDATABASE is required}"
 : "${PGUSER:?PGUSER is required}"
+: "${DATABASE_WAIT_ATTEMPTS:?DATABASE_WAIT_ATTEMPTS is required}"
+: "${DATABASE_WAIT_CONNECT_TIMEOUT_SECONDS:?DATABASE_WAIT_CONNECT_TIMEOUT_SECONDS is required}"
+: "${DATABASE_WAIT_INITIAL_BACKOFF_SECONDS:?DATABASE_WAIT_INITIAL_BACKOFF_SECONDS is required}"
+: "${DATABASE_WAIT_MAXIMUM_BACKOFF_SECONDS:?DATABASE_WAIT_MAXIMUM_BACKOFF_SECONDS is required}"
+: "${DATABASE_WAIT_BACKOFF_MULTIPLIER:?DATABASE_WAIT_BACKOFF_MULTIPLIER is required}"
+export PGCONNECT_TIMEOUT="${DATABASE_WAIT_CONNECT_TIMEOUT_SECONDS}"
 reported=""
 report() {
   if [ "$1" != "${reported}" ]; then
@@ -146,29 +161,88 @@ report() {
     reported="$1"
   fi
 }
-until status="$(pg_isready -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" 2>&1)"; do
-  report "Waiting for PostgreSQL at ${PGHOST}:${PGPORT}: ${status}"
-  sleep 5
-done
-echo "PostgreSQL at ${PGHOST}:${PGPORT} accepts connections"
+wait_for_server() {
+  local attempt=1 backoff="${DATABASE_WAIT_INITIAL_BACKOFF_SECONDS}" status
+  until status="$(pg_isready -t "${DATABASE_WAIT_CONNECT_TIMEOUT_SECONDS}" -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" 2>&1)"; do
+    if [ "${attempt}" -ge "${DATABASE_WAIT_ATTEMPTS}" ]; then
+      echo "PostgreSQL at ${PGHOST}:${PGPORT} (database ${PGDATABASE}) did not accept connections after ${attempt} attempts: ${status}" >&2
+      exit 1
+    fi
+    report "Waiting for PostgreSQL at ${PGHOST}:${PGPORT} (attempt ${attempt} of ${DATABASE_WAIT_ATTEMPTS}, next in ${backoff} s): ${status}"
+    sleep "${backoff}"
+    backoff=$(( backoff * DATABASE_WAIT_BACKOFF_MULTIPLIER ))
+    if [ "${backoff}" -gt "${DATABASE_WAIT_MAXIMUM_BACKOFF_SECONDS}" ]; then
+      backoff="${DATABASE_WAIT_MAXIMUM_BACKOFF_SECONDS}"
+    fi
+    attempt=$(( attempt + 1 ))
+  done
+  echo "PostgreSQL at ${PGHOST}:${PGPORT} accepts connections"
+}
+wait_for_server
 if [ "${WAIT_FOR_IMPORT:-false}" != "true" ]; then
   exit 0
 fi
+: "${IMPORT_WAIT_POLL_INTERVAL_SECONDS:?IMPORT_WAIT_POLL_INTERVAL_SECONDS is required}"
 errors="$(mktemp)"
 trap 'rm -f "${errors}"' EXIT
 while true; do
-  if version="$(psql -X -q -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -v ON_ERROR_STOP=1 -tA \
-      -c "select value from nominatim_properties where property = 'database_version'" 2>"${errors}")"; then
+  code=0
+  version="$(psql -X -q -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" -d "${PGDATABASE}" -v ON_ERROR_STOP=1 -tA \
+      -c "select value from nominatim_properties where property = 'database_version'" 2>"${errors}")" || code=$?
+  if [ "${code}" -eq 0 ]; then
     if [ -n "${version}" ]; then
       echo "Nominatim's import into ${PGDATABASE} is complete (database version ${version})"
       exit 0
     fi
     report "Waiting for Nominatim's import into ${PGDATABASE}: it has not recorded its database version yet"
+  elif [ "${code}" -eq 2 ]; then
+    report "Lost PostgreSQL at ${PGHOST}:${PGPORT} while waiting for Nominatim's import: $(cat "${errors}")"
+    wait_for_server
+    continue
   else
     report "Waiting for Nominatim's import into ${PGDATABASE}: $(cat "${errors}")"
   fi
-  sleep 10
+  sleep "${IMPORT_WAIT_POLL_INTERVAL_SECONDS}"
 done
+{{- end -}}
+
+{{/*
+The database wait's settings as container environment, from nominatim.databaseWait; used by the
+API's wait and by the import Job.
+*/}}
+{{- define "geocoding.databaseWaitEnv" -}}
+{{- with .Values.nominatim.databaseWait }}
+- name: DATABASE_WAIT_ATTEMPTS
+  value: {{ .attempts | int | toString | quote }}
+- name: DATABASE_WAIT_CONNECT_TIMEOUT_SECONDS
+  value: {{ .connectTimeoutSeconds | int | toString | quote }}
+- name: DATABASE_WAIT_INITIAL_BACKOFF_SECONDS
+  value: {{ .initialBackoffSeconds | int | toString | quote }}
+- name: DATABASE_WAIT_MAXIMUM_BACKOFF_SECONDS
+  value: {{ .maximumBackoffSeconds | int | toString | quote }}
+- name: DATABASE_WAIT_BACKOFF_MULTIPLIER
+  value: {{ .backoffMultiplier | int | toString | quote }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Fails the render unless every key of a retry block is a whole number of at least 1 and its maximum
+back-off is at least its initial one. Usage: include "geocoding.validateRetry" (list "path" dict).
+*/}}
+{{- define "geocoding.validateRetry" -}}
+{{- $path := index . 0 -}}
+{{- $retry := index . 1 -}}
+{{- range $key := list "attempts" "connectTimeoutSeconds" "initialBackoffSeconds" "maximumBackoffSeconds" "backoffMultiplier" -}}
+{{- if not (hasKey $retry $key) -}}
+{{- fail (printf "%s.%s is required" $path $key) -}}
+{{- end -}}
+{{- if not (regexMatch "^[1-9][0-9]*$" (toString (index $retry $key))) -}}
+{{- fail (printf "%s.%s must be a whole number of at least 1, not %v" $path $key (index $retry $key)) -}}
+{{- end -}}
+{{- end -}}
+{{- if lt (int $retry.maximumBackoffSeconds) (int $retry.initialBackoffSeconds) -}}
+{{- fail (printf "%s.maximumBackoffSeconds must be at least %s.initialBackoffSeconds" $path $path) -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "geocoding.databaseHost" -}}
@@ -260,6 +334,18 @@ export NOMINATIM_DATABASE_WEBUSER="${NOMINATIM_DATABASE_WEBUSER:-{{ .Values.nomi
 {{- end -}}
 
 {{- define "geocoding.validate" -}}
+{{- include "geocoding.validateRetry" (list "nominatim.databaseWait" .Values.nominatim.databaseWait) -}}
+{{- include "geocoding.validateRetry" (list "nominatim.import.download" .Values.nominatim.import.download) -}}
+{{- if not (regexMatch "^[1-9][0-9]*$" (toString .Values.nominatim.api.importWait.pollIntervalSeconds)) -}}
+{{- fail (printf "nominatim.api.importWait.pollIntervalSeconds must be a whole number of at least 1, not %v" .Values.nominatim.api.importWait.pollIntervalSeconds) -}}
+{{- end -}}
+{{- range $probe := list "readinessProbe" "livenessProbe" -}}
+{{- range $key := list "initialDelaySeconds" "periodSeconds" "timeoutSeconds" "failureThreshold" -}}
+{{- if not (regexMatch "^[1-9][0-9]*$" (toString (index (index $.Values.postgres $probe) $key))) -}}
+{{- fail (printf "postgres.%s.%s must be a whole number of at least 1" $probe $key) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- if hasKey .Values.nominatim.api "waitTimeoutSeconds" -}}
 {{- fail "nominatim.api.waitTimeoutSeconds is not supported: the API waits for the database and for Nominatim's import for as long as they take; remove it" -}}
 {{- end -}}
