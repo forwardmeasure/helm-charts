@@ -13,9 +13,10 @@ metadata:
     app.kubernetes.io/component: nominatim
     app.kubernetes.io/part-of: import
 spec:
-  {{- /* The largest Kubernetes allows (no unlimited value): retried until it succeeds or a person
-  deletes it; no deadline (the owner's rule of 2026-11-18). */}}
-  backoffLimit: 2147483647
+  {{- /* nominatim.import.backoffLimit, 0 by default: a failed import may leave partial database
+  objects behind, so a person cleans them up and runs it again (forwardmeasure-platform
+  docs/limits-sweep-2026-11-21.md, decision 4 and Item R). No deadline. */}}
+  backoffLimit: {{ .Values.nominatim.import.backoffLimit }}
   {{- if gt (int .Values.nominatim.import.ttlSecondsAfterFinished) 0 }}
   ttlSecondsAfterFinished: {{ .Values.nominatim.import.ttlSecondsAfterFinished }}
   {{- end }}
