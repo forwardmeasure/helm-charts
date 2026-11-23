@@ -345,10 +345,25 @@ cleaned up before rerunning.
 
 The API Deployment waits for the import to finish before starting, however it
 is done (this chart's import Job or a database seeded outside the chart). Its
-`wait-for-database` init container waits for the database server, then checks
-`nominatim_properties.database_version`, which Nominatim writes at the end of
-import. Earlier tables such as `placex` appear before tokenizer setup has
-completed and are not a safe readiness marker. It waits as long as the import
-takes, with no timeout (`nominatim.api.waitTimeoutSeconds` is refused), and logs
+`wait-for-database` init container first waits for the database server, a
+dependency, with bounded exponential back-off from `nominatim.databaseWait`
+(`attempts`, `connectTimeoutSeconds`, `initialBackoffSeconds`,
+`maximumBackoffSeconds`, `backoffMultiplier`; the defaults wait about 6
+minutes). When the attempts run out it fails, naming the database and the
+server's last answer, so the pod shows the failure and Kubernetes restarts it
+with its own back-off. The import Job waits for the server the same way, and
+retries each extract download by `nominatim.import.download`.
+
+It then checks `nominatim_properties.database_version`, which Nominatim writes
+at the end of import. Earlier tables such as `placex` appear before tokenizer
+setup has completed and are not a safe readiness marker. An import is valid
+work in progress, so that wait has no limit (`nominatim.api.waitTimeoutSeconds`
+is refused); it checks every `nominatim.api.importWait.pollIntervalSeconds`, and
+losing the server during it applies `nominatim.databaseWait` again. It logs
 each change of what it sees with the server's own message. The wait is the
 chart's script, not the image's, so it behaves the same with every image build.
+
+No retry, back-off or probe value is written into a template or script: each
+is a value (the in-chart PostgreSQL's probes are `postgres.readinessProbe` and
+`postgres.livenessProbe`), and a value that is not a whole number of at least 1
+fails the render.

@@ -147,6 +147,18 @@ postgres:
     enabled: false
     scripts: {}
 
+  # The in-chart PostgreSQL's probes (pg_isready). Whole numbers of at least 1.
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 12
+  livenessProbe:
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 6
+
   resources:
     requests:
       cpu: 2000m
@@ -177,6 +189,19 @@ nominatim:
   projectDir: /nominatim
   httpPort: 8080
 
+  # The wait for the database server, a dependency, used by the API's wait-for-database init
+  # container and by the import Job: pg_isready is tried up to `attempts` times, each attempt
+  # bounded by connectTimeoutSeconds, with exponential back-off from initialBackoffSeconds,
+  # multiplied by backoffMultiplier, up to maximumBackoffSeconds. When the attempts run out the
+  # container fails naming the database, so the pod shows it and Kubernetes restarts it with its own
+  # back-off. Whole numbers of at least 1; the defaults wait about 6 minutes.
+  databaseWait:
+    attempts: 10
+    connectTimeoutSeconds: 10
+    initialBackoffSeconds: 1
+    maximumBackoffSeconds: 60
+    backoffMultiplier: 2
+
   database:
     # Use the same database role for import and API by default. This works for
     # external Postgres because the DSN already carries PGUSER/PGPASSWORD.
@@ -204,11 +229,14 @@ nominatim:
     replicaCount: 1
     gunicornWorkers: "2"
     refreshOnStartup: true
-    # The API's wait-for-database init container waits for the database server, and with
-    # waitForImport also for Nominatim's import-completion marker, for as long as that takes (a
-    # planet import runs for days): there is no wait timeout, and setting
-    # nominatim.api.waitTimeoutSeconds fails the render.
+    # With waitForImport, the API's wait-for-database init container, once the database server
+    # answers (nominatim.databaseWait), also waits for Nominatim's import-completion marker. An
+    # import is valid work in progress (a planet import runs for days), so that wait has no limit:
+    # it checks every importWait.pollIntervalSeconds, and setting nominatim.api.waitTimeoutSeconds
+    # fails the render. Losing the server during it applies nominatim.databaseWait again.
     waitForImport: true
+    importWait:
+      pollIntervalSeconds: 10
     podAnnotations: {}
     resources:
       requests:
@@ -266,6 +294,15 @@ nominatim:
     # Local/mounted equivalents of pbfUrls. These are not deleted after import.
     pbfPaths: []
     userAgent: "forwardmeasure-geocoding-helm-chart"
+    # Each extract download (a dependency) is tried up to `attempts` times, each attempt's connection
+    # bounded by connectTimeoutSeconds, resuming where the last attempt stopped, with exponential
+    # back-off as in nominatim.databaseWait; then the Job fails naming the URL.
+    download:
+      attempts: 10
+      connectTimeoutSeconds: 30
+      initialBackoffSeconds: 1
+      maximumBackoffSeconds: 60
+      backoffMultiplier: 2
     threads: "4"
     importStyle: full
     importFlags: ""
@@ -336,6 +373,7 @@ nominatim:
     backoffLimit: 0
     restartPolicy: Never
     ttlSecondsAfterFinished: 86400
+    activeDeadlineSeconds: 0
     podAnnotations: {}
     resources:
       requests:

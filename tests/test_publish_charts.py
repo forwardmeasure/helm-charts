@@ -56,6 +56,25 @@ class PublishChartsTest(unittest.TestCase):
         self.assertIn("Chart source directory not found", result.stdout)
         self.assertEqual(before, self.snapshot())
 
+    def staged_in_dry_run(self, chart):
+        result = subprocess.run([str(ROOT / "publish_charts.sh"), "--chart-name", chart, "--dry-run"],
+                                cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        listed = result.stdout.split("Only files pertaining to the named charts would be staged:", 1)[1]
+        return [line.strip()[2:] for line in listed.splitlines() if line.strip().startswith("- ")]
+
+    def test_a_release_carries_the_charts_own_tests_and_images(self):
+        before = self.snapshot()
+        staged = self.staged_in_dry_run("geocoding-helm-chart")
+        self.assertIn("charts/geocoding-helm-chart/tests", staged)
+        self.assertIn("charts/geocoding-helm-chart/images", staged)
+        self.assertFalse([path for path in staged if path.startswith("tests/") and "moved into" not in path], staged)
+        self.assertEqual(before, self.snapshot())
+
+    def test_a_chart_without_tests_stages_none(self):
+        staged = self.staged_in_dry_run("docling-serve-helm-chart")
+        self.assertFalse([path for path in staged if "tests" in path], staged)
+
 
 if __name__ == "__main__":
     unittest.main()

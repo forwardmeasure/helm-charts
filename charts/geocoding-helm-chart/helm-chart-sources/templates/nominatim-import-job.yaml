@@ -15,10 +15,13 @@ metadata:
 spec:
   {{- /* nominatim.import.backoffLimit, 0 by default: a failed import may leave partial database
   objects behind, so a person cleans them up and runs it again (forwardmeasure-platform
-  docs/limits-sweep-2026-11-21.md, decision 4 and Item R). No deadline. */}}
+  docs/limits-sweep-2026-11-21.md, decision 4 and Item R). */}}
   backoffLimit: {{ .Values.nominatim.import.backoffLimit }}
   {{- if gt (int .Values.nominatim.import.ttlSecondsAfterFinished) 0 }}
   ttlSecondsAfterFinished: {{ .Values.nominatim.import.ttlSecondsAfterFinished }}
+  {{- end }}
+  {{- if gt (int .Values.nominatim.import.activeDeadlineSeconds) 0 }}
+  activeDeadlineSeconds: {{ .Values.nominatim.import.activeDeadlineSeconds }}
   {{- end }}
   template:
     metadata:
@@ -132,6 +135,19 @@ spec:
             - secretRef:
                 name: {{ include "geocoding.databaseSecretName" . }}
           env:
+            {{- include "geocoding.databaseWaitEnv" . | nindent 12 }}
+            {{- with .Values.nominatim.import.download }}
+            - name: DOWNLOAD_ATTEMPTS
+              value: {{ .attempts | int | toString | quote }}
+            - name: DOWNLOAD_CONNECT_TIMEOUT_SECONDS
+              value: {{ .connectTimeoutSeconds | int | toString | quote }}
+            - name: DOWNLOAD_INITIAL_BACKOFF_SECONDS
+              value: {{ .initialBackoffSeconds | int | toString | quote }}
+            - name: DOWNLOAD_MAXIMUM_BACKOFF_SECONDS
+              value: {{ .maximumBackoffSeconds | int | toString | quote }}
+            - name: DOWNLOAD_BACKOFF_MULTIPLIER
+              value: {{ .backoffMultiplier | int | toString | quote }}
+            {{- end }}
             - name: PROJECT_DIR
               value: {{ .Values.nominatim.projectDir | quote }}
             - name: PBF_URLS

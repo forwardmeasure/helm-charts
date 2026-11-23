@@ -100,6 +100,33 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# A test file that moved from the repository's tests/ into charts/<chart>/tests: its old, now
+# deleted, tracked path, so the release removes it in the same commit that adds it to the chart.
+moved_chart_tests() {
+  local chart="$1" path
+  [[ -d "${SCRIPT_DIR}/charts/${chart}/tests" ]] || return 0
+  while IFS= read -r path; do
+    if [[ ! -e "${SCRIPT_DIR}/${path}" && -e "${SCRIPT_DIR}/charts/${chart}/tests/$(basename "$path")" ]]; then
+      printf '%s\n' "$path"
+    fi
+  done < <(cd "$SCRIPT_DIR" && git ls-files --cached -- 'tests/*')
+}
+
+# The chart's images and tests (and any test moved into the chart, as its removal), for the
+# staged-paths list a dry run prints.
+append_chart_extras_to_staged_paths() {
+  local chart="$1" moved
+  if [[ -d "${SCRIPT_DIR}/charts/${chart}/images" ]]; then
+    append_unique_staged_path "charts/${chart}/images"
+  fi
+  if [[ -d "${SCRIPT_DIR}/charts/${chart}/tests" ]]; then
+    append_unique_staged_path "charts/${chart}/tests"
+    while IFS= read -r moved; do
+      append_unique_staged_path "${moved} (removed: moved into charts/${chart}/tests)"
+    done < <(moved_chart_tests "$chart")
+  fi
+}
+
 append_unique_staged_path() {
   local path="$1"
   local existing
@@ -185,6 +212,7 @@ release_chart() {
     append_unique_staged_path "index.yaml"
     append_unique_staged_path "charts/${CHART_NAME}/helm-chart-sources"
     append_unique_staged_path "charts/${CHART_NAME}/*.tgz"
+    append_chart_extras_to_staged_paths "$CHART_NAME"
     RELEASE_TAGS+=("${CHART_NAME}-v${NEW_VERSION}")
     return 0
   fi
@@ -228,6 +256,7 @@ release_chart() {
   append_unique_staged_path "index.yaml"
   append_unique_staged_path "charts/${CHART_NAME}/helm-chart-sources"
   append_unique_staged_path "charts/${CHART_NAME}/*.tgz"
+  append_chart_extras_to_staged_paths "$CHART_NAME"
   RELEASE_TAGS+=("${CHART_NAME}-v${NEW_VERSION}")
 }
 
@@ -242,6 +271,15 @@ stage_release_files() {
 
     if [[ -d "charts/${chart}/images" ]]; then
       git add "charts/${chart}/images"
+    fi
+
+    # The chart's own tests travel with it.
+    if [[ -d "charts/${chart}/tests" ]]; then
+      git add -A -- "charts/${chart}/tests"
+      local moved
+      while IFS= read -r moved; do
+        git rm --cached --quiet -- "$moved"
+      done < <(moved_chart_tests "$chart")
     fi
 
     shopt -s nullglob

@@ -137,6 +137,40 @@ if [ "${PBF_CACHE_ENABLED}" = "true" ] && [ "${#pbf_urls[@]}" -gt 1 ] && [ "${#p
   fi
 fi
 
+# Downloads an extract, a dependency: each attempt resumes where the last stopped, its connection
+# bounded by DOWNLOAD_CONNECT_TIMEOUT_SECONDS; up to DOWNLOAD_ATTEMPTS attempts with exponential
+# back-off from DOWNLOAD_INITIAL_BACKOFF_SECONDS, multiplied by DOWNLOAD_BACKOFF_MULTIPLIER, up to
+# DOWNLOAD_MAXIMUM_BACKOFF_SECONDS; then it fails naming the URL. The values come from the chart
+# (nominatim.import.download); the script holds none.
+download_with_backoff() {
+  local url="$1" file="$2" attempt=1 backoff code
+  : "${DOWNLOAD_ATTEMPTS:?DOWNLOAD_ATTEMPTS is required}"
+  : "${DOWNLOAD_CONNECT_TIMEOUT_SECONDS:?DOWNLOAD_CONNECT_TIMEOUT_SECONDS is required}"
+  : "${DOWNLOAD_INITIAL_BACKOFF_SECONDS:?DOWNLOAD_INITIAL_BACKOFF_SECONDS is required}"
+  : "${DOWNLOAD_MAXIMUM_BACKOFF_SECONDS:?DOWNLOAD_MAXIMUM_BACKOFF_SECONDS is required}"
+  : "${DOWNLOAD_BACKOFF_MULTIPLIER:?DOWNLOAD_BACKOFF_MULTIPLIER is required}"
+  backoff="${DOWNLOAD_INITIAL_BACKOFF_SECONDS}"
+  while true; do
+    code=0
+    curl -L -A "${USER_AGENT}" --fail --connect-timeout "${DOWNLOAD_CONNECT_TIMEOUT_SECONDS}" \
+      --continue-at - --create-dirs -o "${file}" "${url}" || code=$?
+    if [ "${code}" -eq 0 ]; then
+      return 0
+    fi
+    if [ "${attempt}" -ge "${DOWNLOAD_ATTEMPTS}" ]; then
+      echo "Downloading ${url} failed after ${attempt} attempts (curl exit ${code})" >&2
+      return 1
+    fi
+    echo "Downloading ${url} failed (attempt ${attempt} of ${DOWNLOAD_ATTEMPTS}, curl exit ${code}); next in ${backoff} s"
+    sleep "${backoff}"
+    backoff=$(( backoff * DOWNLOAD_BACKOFF_MULTIPLIER ))
+    if [ "${backoff}" -gt "${DOWNLOAD_MAXIMUM_BACKOFF_SECONDS}" ]; then
+      backoff="${DOWNLOAD_MAXIMUM_BACKOFF_SECONDS}"
+    fi
+    attempt=$(( attempt + 1 ))
+  done
+}
+
 if [ "${use_cached_merged}" != "true" ]; then
   for url in "${pbf_urls[@]}"; do
     idx="${#downloaded_files[@]}"
@@ -154,8 +188,7 @@ if [ "${use_cached_merged}" != "true" ]; then
     else
       echo "Downloading OSM extract from ${url}"
       rm -f "${marker}"
-      curl -L -A "${USER_AGENT}" --fail --retry 5 --retry-delay 15 --retry-connrefused \
-        --continue-at - --create-dirs -o "${file}" "${url}"
+      download_with_backoff "${url}" "${file}"
       chmod 0644 "${file}"
       write_cache_marker "${marker}" "${download_signature}"
     fi
