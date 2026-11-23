@@ -96,6 +96,9 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 
 {{/* Fails the render on settings the publisher can't run without. */}}
 {{- define "openworkflow-workflow-bundle.validate" -}}
+{{- if not (regexMatch "^[0-9]+$" (toString .Values.backoffLimit)) -}}
+{{- fail (printf "backoffLimit must be a whole number of at least 0 (how often a failed Job of this release runs again), not '%v'" .Values.backoffLimit) -}}
+{{- end -}}
 {{- if not (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" (.Values.workflowNamespace | default "")) -}}
 {{- fail "workflowNamespace is required: lowercase letters, digits and single hyphens, e.g. entity-intelligence" -}}
 {{- end -}}

@@ -923,12 +923,17 @@
         "job": {
           "type": "object",
           "required": [
+            "backoffLimit",
             "ttlSecondsAfterFinished",
             "nodeSelector",
             "affinity",
             "tolerations"
           ],
           "properties": {
+            "backoffLimit": {
+              "type": "integer",
+              "minimum": 0
+            },
             "ttlSecondsAfterFinished": {
               "type": "integer",
               "minimum": 1

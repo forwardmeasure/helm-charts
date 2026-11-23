@@ -127,7 +127,7 @@ modelDownload:
     ttlSecondsAfterFinished: 86400
 ```
 
-This creates an ordinary Job rather than a Helm hook. The server's verification init container waits until the required bundle is complete, and the Job is retried until it succeeds: no clock gives up on the models (a person stops it). Job names include a digest of values, preparation script and chart version so upgrades create a new Job instead of trying to change an immutable Pod template. Model inventory and script ConfigMaps are also versioned by content.
+This creates an ordinary Job rather than a Helm hook. The server's verification init container waits until the required bundle is complete: no clock gives up on the models. The Job runs again after a failure as often as `modelDownload.job.backoffLimit` (10 by default; the platform release passes its dependency-retry attempts), and a person re-runs the release after that. Job names include a digest of values, preparation script and chart version so upgrades create a new Job instead of trying to change an immutable Pod template. Model inventory and script ConfigMaps are also versioned by content.
 
 For a ReadWriteOnce claim, the Job has required same-node affinity to the server Pod. The server can be scheduled while still waiting in its init container; the Job joins that node and prepares the volume. The node must have room for the server's effective Pod request and the preparation Job. Override Job affinity/selectors only with compatible scheduling constraints. GPU taint tolerations are inherited by the Job, but the CPU preparation container requests no GPU.
 

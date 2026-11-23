@@ -47,8 +47,10 @@ json_escape() {
 # reconciling every service client takes, so no call uses a token it holds
 # from the start: each Admin REST call goes through kc_request, which renews
 # the token before it expires (from the login's own expires_in, with a margin)
-# and, should Keycloak still answer 401, renews once and retries that one call
-# once. A second 401 fails the Job like any other unexpected status.
+# and, should Keycloak still answer 401, renews it and sends that one call
+# again, within the platform's dependency-retry setting (attempts and back-off,
+# below). A 401 on the last attempt fails the Job like any other unexpected
+# status.
 #
 # The token and its renewal time live in files in a private session directory,
 # not in shell variables: most calls run in command substitutions, and a token
@@ -56,6 +58,92 @@ json_escape() {
 # and request bodies never appear on a command line (curl reads them from a
 # file or standard input) and never in the log (response bodies are redacted).
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# The platform's dependency-retry setting
+#
+# The variables every service reads (forwardmeasure-platform DependencyRetry),
+# with the same defaults and rules: FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS
+# (a whole number, at least 1; 10), _INITIAL_BACKOFF and _MAXIMUM_BACKOFF
+# (ISO-8601 durations, at least zero and at least the initial; PT1S, PT1M),
+# _MULTIPLIER (a number, at least 1; 2), _JITTER (0 to 1; 0.2: each wait drawn
+# from (1 - jitter) of it up to it) and _CONNECT_TIMEOUT (an ISO-8601 duration
+# longer than zero; PT30S: opening one connection). The chart renders them from
+# its dependencyRetry value, which the release fills from the shared
+# platform.dependencyRetry. A value the script cannot use stops the Job at
+# start, naming the variable.
+# ---------------------------------------------------------------------------
+
+# kc_duration_seconds NAME VALUE: an ISO-8601 duration (PnDTnHnMn.nS) in seconds.
+kc_duration_seconds() {
+  kc_duration="$(printf '%s' "$2" | jq -Rr '
+    ascii_upcase as $value
+    | "^P(?:(?<d>[0-9]+)D)?(?:T(?=[0-9])(?:(?<h>[0-9]+)H)?(?:(?<m>[0-9]+)M)?(?:(?<s>[0-9]+(?:\\.[0-9]{1,9})?)S)?)?$" as $form
+    | if ($value | test($form)) and ($value | test("[0-9]")) then
+        $value | capture($form)
+        | ((.d // "0" | tonumber) * 86400 + (.h // "0" | tonumber) * 3600
+           + (.m // "0" | tonumber) * 60 + (.s // "0" | tonumber))
+      else error("not an ISO-8601 duration") end' 2>/dev/null)" \
+    || fail "$1 must be an ISO-8601 duration such as PT1S, not '$2'"
+  printf '%s' "$kc_duration"
+}
+
+# kc_compare A OP B: true when the decimal numbers compare so (OP: ge, gt, le).
+kc_compare() {
+  awk -v a="$1" -v b="$3" -v op="$2" 'BEGIN {
+    if (op == "ge") exit !(a + 0 >= b + 0)
+    if (op == "gt") exit !(a + 0 > b + 0)
+    exit !(a + 0 <= b + 0) }'
+}
+
+kc_decimal() {
+  printf '%s' "$1" | grep -Eq '^[0-9]+(\.[0-9]+)?$'
+}
+
+kc_read_retry_setting() {
+  KC_RETRY_ATTEMPTS="${FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS:-10}"
+  case "$KC_RETRY_ATTEMPTS" in
+    '' | *[!0-9]*) fail "FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS must be a whole number of at least 1, not '${KC_RETRY_ATTEMPTS}'" ;;
+  esac
+  [ "$KC_RETRY_ATTEMPTS" -ge 1 ] \
+    || fail "FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS must be a whole number of at least 1, not '${KC_RETRY_ATTEMPTS}'"
+  KC_RETRY_INITIAL_SECONDS="$(kc_duration_seconds FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF \
+    "${FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF:-PT1S}")" || exit 1
+  KC_RETRY_MAXIMUM_SECONDS="$(kc_duration_seconds FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF \
+    "${FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF:-PT1M}")" || exit 1
+  kc_compare "$KC_RETRY_MAXIMUM_SECONDS" ge "$KC_RETRY_INITIAL_SECONDS" \
+    || fail "FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF must be at least the initial back-off (${KC_RETRY_INITIAL_SECONDS}s), not '${FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF:-PT1M}'"
+  KC_RETRY_MULTIPLIER="${FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER:-2}"
+  { kc_decimal "$KC_RETRY_MULTIPLIER" && kc_compare "$KC_RETRY_MULTIPLIER" ge 1; } \
+    || fail "FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER must be a number of at least 1, not '${KC_RETRY_MULTIPLIER}'"
+  KC_RETRY_JITTER="${FORWARDMEASURE_DEPENDENCY_RETRY_JITTER:-0.2}"
+  { kc_decimal "$KC_RETRY_JITTER" && kc_compare "$KC_RETRY_JITTER" le 1; } \
+    || fail "FORWARDMEASURE_DEPENDENCY_RETRY_JITTER must be a fraction from 0 to 1, not '${KC_RETRY_JITTER}'"
+  KC_CONNECT_TIMEOUT_SECONDS="$(kc_duration_seconds FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT \
+    "${FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT:-PT30S}")" || exit 1
+  kc_compare "$KC_CONNECT_TIMEOUT_SECONDS" gt 0 \
+    || fail "FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT must be longer than zero, not '${FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT}'"
+  KC_RETRY_READ=1
+  export KC_RETRY_ATTEMPTS KC_RETRY_INITIAL_SECONDS KC_RETRY_MAXIMUM_SECONDS KC_RETRY_MULTIPLIER \
+    KC_RETRY_JITTER KC_CONNECT_TIMEOUT_SECONDS KC_RETRY_READ
+}
+
+kc_require_retry_setting() {
+  [ -n "${KC_RETRY_READ:-}" ] || kc_read_retry_setting
+}
+
+# kc_retry_wait N: the seconds to wait after failed attempt N (the first is 1)
+# before the next: the initial back-off, multiplied for each attempt after the
+# first, at most the maximum, then up to the jitter of it shorter at random.
+kc_retry_wait() {
+  awk -v n="$1" -v initial="$KC_RETRY_INITIAL_SECONDS" -v maximum="$KC_RETRY_MAXIMUM_SECONDS" \
+    -v multiplier="$KC_RETRY_MULTIPLIER" -v jitter="$KC_RETRY_JITTER" -v seed="$(date -u +%s)$$$1" 'BEGIN {
+      wait = initial
+      for (i = 1; i < n && wait < maximum; i++) wait *= multiplier
+      if (wait > maximum) wait = maximum
+      srand(seed)
+      printf "%.3f", wait - wait * jitter * rand() }'
+}
 
 start_job_session() {
   KC_JOB_PID=$$
@@ -91,7 +179,9 @@ kc_admin_login() {
   kc_login_response="$(mktemp "${KC_SESSION_DIR}/login.XXXXXX")"
   kc_login_requested_at="$(kc_epoch_seconds)"
   kc_login_rc=0
+  kc_require_retry_setting
   kc_login_status="$(printf '%s' "${KEYCLOAK_ADMIN_PASSWORD}" | curl -sS \
+    --connect-timeout "$KC_CONNECT_TIMEOUT_SECONDS" \
     -o "$kc_login_response" -w '%{http_code}' \
     -X POST "$kc_login_url" \
     --data-urlencode "grant_type=password" \
@@ -134,17 +224,20 @@ kc_ensure_admin_token() {
 # kc_send METHOD URL [JSON_BODY]: one HTTP exchange with the current token.
 # Sets KC_STATUS and KC_RESPONSE (a file the caller removes).
 kc_send() {
+  kc_require_retry_setting
   KC_RESPONSE="$(mktemp "${KC_SESSION_DIR}/response.XXXXXX")"
   kc_send_rc=0
   if [ "$#" -ge 3 ]; then
-    KC_STATUS="$(printf '%s' "$3" | curl -sS -o "$KC_RESPONSE" -w '%{http_code}' \
+    KC_STATUS="$(printf '%s' "$3" | curl -sS --connect-timeout "$KC_CONNECT_TIMEOUT_SECONDS" \
+      -o "$KC_RESPONSE" -w '%{http_code}' \
       -X "$1" \
       -H "@${KC_SESSION_DIR}/authorization" \
       -H "Content-Type: application/json" \
       --data-binary @- \
       "$2")" || kc_send_rc=$?
   else
-    KC_STATUS="$(curl -sS -o "$KC_RESPONSE" -w '%{http_code}' \
+    KC_STATUS="$(curl -sS --connect-timeout "$KC_CONNECT_TIMEOUT_SECONDS" \
+      -o "$KC_RESPONSE" -w '%{http_code}' \
       -X "$1" \
       -H "@${KC_SESSION_DIR}/authorization" \
       "$2")" || kc_send_rc=$?
@@ -156,16 +249,42 @@ kc_send() {
 }
 
 # kc_request METHOD URL [JSON_BODY]: kc_send with a token that is renewed
-# before it expires, and renewed once more (one retry of this call) on a 401.
+# before it expires; on a 401 the token is renewed and the call sent again,
+# up to FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS sends in all, with the
+# setting's back-off between them. The last answer is the caller's.
 kc_request() {
+  kc_require_retry_setting
   kc_ensure_admin_token
   kc_send "$@"
-  if [ "$KC_STATUS" = "401" ]; then
-    log "$1 $2 -> HTTP 401: $(kc_redacted_body "$KC_RESPONSE") - renewing the admin token and retrying this call once"
+  kc_request_attempt=1
+  while [ "$KC_STATUS" = "401" ] && [ "$kc_request_attempt" -lt "$KC_RETRY_ATTEMPTS" ]; do
+    kc_request_wait="$(kc_retry_wait "$kc_request_attempt")"
+    log "$1 $2 -> HTTP 401 (attempt ${kc_request_attempt} of ${KC_RETRY_ATTEMPTS}): $(kc_redacted_body "$KC_RESPONSE") - renewing the admin token and sending this call again in ${kc_request_wait}s"
     rm -f "$KC_RESPONSE"
+    sleep "$kc_request_wait"
     kc_admin_login
     kc_send "$@"
-  fi
+    kc_request_attempt=$((kc_request_attempt + 1))
+  done
+}
+
+# kc_await_user_id LOOKUP USERNAME: sets KC_AWAITED_ID to the id of a user just
+# created, looked up with the function LOOKUP, up to
+# FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS lookups with the setting's back-off
+# between them; after the last the Job fails, naming the user.
+kc_await_user_id() {
+  kc_require_retry_setting
+  kc_await_attempt=1
+  while :; do
+    KC_AWAITED_ID="$("$1" "$2" || true)"
+    [ -z "$KC_AWAITED_ID" ] || return 0
+    [ "$kc_await_attempt" -lt "$KC_RETRY_ATTEMPTS" ] \
+      || fail "User POST succeeded but '$2' not found after ${kc_await_attempt} attempts"
+    kc_await_wait="$(kc_retry_wait "$kc_await_attempt")"
+    log "User '$2' not yet queryable (attempt ${kc_await_attempt} of ${KC_RETRY_ATTEMPTS}) — looking again in ${kc_await_wait}s"
+    sleep "$kc_await_wait"
+    kc_await_attempt=$((kc_await_attempt + 1))
+  done
 }
 
 # kc_call "ACCEPTED STATUSES" METHOD URL [JSON_BODY]: any other status ends the
@@ -245,6 +364,7 @@ print_config_banner() {
   log "KEYCLOAK_REALM_MGMT_ROLES               = ${KEYCLOAK_REALM_MGMT_ROLES}"
   log "FORWARDMEASURE_TENANT_GROUP_ROLES           = ${FORWARDMEASURE_TENANT_GROUP_ROLES:-<empty>}"
   log "KEYCLOAK_READY_SLEEP_SECONDS            = ${KEYCLOAK_READY_SLEEP_SECONDS}"
+  log "Dependency retry                        = ${KC_RETRY_ATTEMPTS} attempts, back-off ${KC_RETRY_INITIAL_SECONDS}s x ${KC_RETRY_MULTIPLIER} up to ${KC_RETRY_MAXIMUM_SECONDS}s (jitter ${KC_RETRY_JITTER}), connect timeout ${KC_CONNECT_TIMEOUT_SECONDS}s"
   log_section "Starting bootstrap"
 }
 
@@ -300,8 +420,10 @@ configure_user_profile_unmanaged_attributes() {
 wait_for_keycloak() {
   log "Polling ${KEYCLOAK_URL}/realms/${REALM} ..."
   attempt=1
+  kc_require_retry_setting
   while :; do
-    http_code="$(curl -sS -o /dev/null -w '%{http_code}' "${KEYCLOAK_URL}/realms/${REALM}" 2>/dev/null || true)"
+    http_code="$(curl -sS --connect-timeout "$KC_CONNECT_TIMEOUT_SECONDS" -o /dev/null -w '%{http_code}' \
+      "${KEYCLOAK_URL}/realms/${REALM}" 2>/dev/null || true)"
     if [ "$http_code" = "200" ]; then
       log "Keycloak is ready (HTTP 200)"
       return 0
@@ -437,15 +559,8 @@ EOF
   if [ -z "$user_id" ]; then
     log "Bootstrap user not found — creating: ${ADMIN_USERNAME}"
     kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users" "$user_body"
-    i=0
-    while [ "$i" -lt 10 ]; do
-      user_id="$(get_user_id_by_username "${ADMIN_USERNAME}" || true)"
-      [ -n "$user_id" ] && break
-      log "User not yet queryable — waiting 2s (attempt $((i + 1))/10)"
-      sleep 2
-      i=$((i + 1))
-    done
-    [ -n "$user_id" ] || fail "User POST succeeded but '${ADMIN_USERNAME}' not found after 10 retries"
+    kc_await_user_id get_user_id_by_username "${ADMIN_USERNAME}"
+    user_id="$KC_AWAITED_ID"
     log "Bootstrap user created: ${ADMIN_USERNAME} (id=${user_id})"
   else
     log "Bootstrap user found (id=${user_id}) — updating attributes"
@@ -1534,15 +1649,8 @@ configure_tenant_administrator() {
   user_body="$(printf '%s' "$user_body" | jq --arg password "$(cat "$password_file")" \
     '. + {credentials: [{type: "password", value: $password, temporary: true}]}')"
   kc_post_json "${KEYCLOAK_URL}/admin/realms/${REALM}/users" "$user_body"
-  attempt=0
-  while [ "$attempt" -lt 10 ]; do
-    user_id="$(get_user_id_by_exact_username "$username" || true)"
-    [ -n "$user_id" ] && break
-    log "User not yet queryable — waiting 2s (attempt $((attempt + 1))/10)"
-    sleep 2
-    attempt=$((attempt + 1))
-  done
-  [ -n "$user_id" ] || fail "User POST succeeded but '${username}' not found after 10 retries"
+  kc_await_user_id get_user_id_by_exact_username "$username"
+  user_id="$KC_AWAITED_ID"
   log "Tenant administrator created: ${username} (id=${user_id})"
   assign_tenant_administrator_platform_roles "$user_id" "$administrator"
 }
@@ -1679,6 +1787,7 @@ main() {
   : "${KEYCLOAK_READY_SLEEP_SECONDS:=5}"
 
   start_job_session
+  kc_read_retry_setting
   print_config_banner
   wait_for_keycloak
   kc_admin_login

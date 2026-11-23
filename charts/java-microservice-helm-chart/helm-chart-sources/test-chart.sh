@@ -219,10 +219,32 @@ helm template cronjob-test "${chart_dir}" \
 scheduled() { awk '/^# CronJob: reconcile-scheduled-fixture$/,/^---$/' "${cronjob_render}"; }
 options() { awk '/^# CronJob: cronjob-options-fixture$/,/^---$/' "${cronjob_render}"; }
 
-# No clock or count gives up on a run (the owner's rule of 2026-11-18): a Job's backoffLimit is
-# Kubernetes's largest, and no Job or CronJob has a deadline, even when a values file names one.
-if ! scheduled | grep -q '^      backoffLimit: 2147483647$'; then
-  echo "cronJob: a run's Job must be retried until it succeeds (backoffLimit 2147483647)" >&2
+# A run's Job is run again as often as the platform's dependency-retry attempts (decision (h) of the
+# limits sweep's Item R): job.backoffLimit, else dependencyRetry.attempts, else 10; no Job or
+# CronJob has a deadline, even when a values file names one.
+if ! scheduled | grep -q '^      backoffLimit: 10$'; then
+  echo "cronJob: with neither job.backoffLimit nor dependencyRetry.attempts a run's backoffLimit is 10" >&2
+  exit 1
+fi
+if ! options | grep -q '^      backoffLimit: 3$'; then
+  echo "cronJob: a run's backoffLimit is the service's job.backoffLimit when set" >&2
+  exit 1
+fi
+attempts_render="$(helm template cronjob-test "${chart_dir}" --namespace test \
+  -f "${chart_dir}/test-values-cronjob.yaml" --set dependencyRetry.attempts=4)"
+if ! awk '/^# CronJob: reconcile-scheduled-fixture$/,/^---$/' <<< "${attempts_render}" \
+  | grep -q '^      backoffLimit: 4$'; then
+  echo "cronJob: without job.backoffLimit a run's backoffLimit is dependencyRetry.attempts" >&2
+  exit 1
+fi
+if ! awk '/^# Job: reconcile-once-fixture$/,/^---$/' <<< "${attempts_render}" \
+  | grep -q '^  backoffLimit: 4$'; then
+  echo "job: without job.backoffLimit the Job's backoffLimit is dependencyRetry.attempts" >&2
+  exit 1
+fi
+if ! awk '/^# CronJob: cronjob-options-fixture$/,/^---$/' <<< "${attempts_render}" \
+  | grep -q '^      backoffLimit: 3$'; then
+  echo "cronJob: a service's job.backoffLimit wins over dependencyRetry.attempts" >&2
   exit 1
 fi
 if grep -q 'activeDeadlineSeconds:\|startingDeadlineSeconds:' "${cronjob_render}"; then
@@ -310,5 +332,9 @@ expect_render_failure "has invalid cronJob.concurrencyPolicy 'Sometimes'" \
   --set 'services.cronjob-options-fixture.cronJob.concurrencyPolicy=Sometimes'
 expect_render_failure "has deploymentMode=cronJob and must not set hooks" \
   --set 'services.cronjob-options-fixture.hooks.events={post-install}'
+expect_render_failure "services.cronjob-options-fixture.job.backoffLimit must be a whole number of at least 0 (a Job's backoffLimit), not '-1'" \
+  --set 'services.cronjob-options-fixture.job.backoffLimit=-1'
+expect_render_failure "dependencyRetry.attempts must be a whole number of at least 0 (a Job's backoffLimit), not '2.5'" \
+  --set 'dependencyRetry.attempts=2.5'
 
 echo "java-microservice chart tests passed"

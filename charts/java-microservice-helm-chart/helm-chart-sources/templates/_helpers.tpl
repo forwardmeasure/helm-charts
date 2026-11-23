@@ -1117,6 +1117,31 @@ always use a map because maps support stable environment-specific overlays.
 {{- end }}
 
 {{/*
+The backoffLimit of a deploymentMode: job Job and of every run of a deploymentMode: cronJob
+CronJob (decision (h) of the limits sweep's Item R): the service's job.backoffLimit when set, else
+the release's dependencyRetry.attempts (the platform's dependency-retry attempts), else 10 (that
+setting's documented default). A person re-runs the release after the last. Anything but a whole
+number of at least 0 fails the render, naming the value.
+Usage: include "java-microservice.jobBackoffLimit" (dict "service" . "root" $)
+*/}}
+{{- define "java-microservice.jobBackoffLimit" -}}
+{{- $job := .service.job | default (dict) -}}
+{{- $retry := .root.Values.dependencyRetry | default (dict) -}}
+{{- $name := "dependencyRetry.attempts" -}}
+{{- $value := 10 -}}
+{{- if or $job.backoffLimit (eq (toString $job.backoffLimit) "0") -}}
+{{- $name = printf "services.%s.job.backoffLimit" .service.name -}}
+{{- $value = $job.backoffLimit -}}
+{{- else if or $retry.attempts (eq (toString $retry.attempts) "0") -}}
+{{- $value = $retry.attempts -}}
+{{- end -}}
+{{- if not (regexMatch "^[0-9]+$" (toString $value)) -}}
+{{- fail (printf "service '%s': %s must be a whole number of at least 0 (a Job's backoffLimit), not '%v'" .service.name $name $value) -}}
+{{- end -}}
+{{- toString $value -}}
+{{- end }}
+
+{{/*
 The batch/v1 JobSpec of a finite run: the whole spec of a deploymentMode: job
 Job, and the jobTemplate.spec of every run of a deploymentMode: cronJob
 CronJob - one definition, so a scheduled run gets exactly the pod a one-shot
@@ -1129,9 +1154,9 @@ Usage: include "java-microservice.jobSpec" (dict "service" . "root" $)
 {{- $svc := .service -}}
 {{- $root := .root -}}
 {{- $job := $svc.job | default (dict) -}}
-{{- /* Kubernetes has no unlimited backoffLimit (int32; omitted means 6): the largest, so a Job is
-retried until it succeeds or a person deletes it. No deadline: no clock gives up on a Job. */ -}}
-backoffLimit: 2147483647
+{{- /* How often Kubernetes runs the Job's pod again after it fails (a dependency failing or
+unreachable): java-microservice.jobBackoffLimit. No deadline: no clock gives up on a Job. */ -}}
+backoffLimit: {{ include "java-microservice.jobBackoffLimit" (dict "service" $svc "root" $root) }}
 completions: {{ $job.completions | default 1 }}
 parallelism: {{ $job.parallelism | default 1 }}
 {{- if hasKey $job "ttlSecondsAfterFinished" }}

@@ -118,6 +118,11 @@ modelDownload:
     vlm-small: 982fe3b40f2fa73c365bdb1bcacf6c81b7184bfe
     vlm-large: ec894191f2e9e9be3d90eab9ac6949583c46f03b
   job:
+    # How often the model-preparation Job runs again after it fails (a model download or the
+    # cache volume failing), a whole number of at least 0. The release passes the platform's
+    # dependency-retry attempts (platform.dependencyRetry.attempts, 10 when unset, its documented
+    # default); a person re-runs the release after the last.
+    backoffLimit: 10
     ttlSecondsAfterFinished: 86400
     nodeSelector: {}
     affinity: {}

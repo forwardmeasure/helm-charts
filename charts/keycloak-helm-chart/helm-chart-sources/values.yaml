@@ -264,6 +264,31 @@ bootstrapAdminUser:
   # -----------------------------------------------------------------------
   keycloakReadySleepSeconds: 5
 
+  # How often the bootstrap Job runs again after it fails (Keycloak failing
+  # or unreachable), a whole number of at least 0. The release passes the
+  # platform's dependency-retry attempts (platform.dependencyRetry.attempts,
+  # 10 when unset, its documented default); a person re-runs the release
+  # after the last.
+  backoffLimit: 10
+
+# ---------------------------------------------------------------------------
+# The platform's dependency-retry setting for the bootstrap Job
+# (FORWARDMEASURE_DEPENDENCY_RETRY_*, read by bootstrap-admin.sh at start as
+# every service reads it): an Admin REST call Keycloak answers 401 although
+# the token was just renewed is sent again with a renewed token, and a user
+# just created that Keycloak does not yet return is looked up again, up to
+# attempts times in all (a whole number, at least 1), waiting initialBackoff
+# after the first, each wait multiplier times the one before (at least 1), at
+# most maximumBackoff (ISO-8601 durations), each up to jitter of it shorter at
+# random (0 to 1); then the Job fails naming the call. connectTimeout (an
+# ISO-8601 duration longer than zero) bounds opening each connection. Each key
+# renders its variable only when set (a 0 renders). Empty: the documented
+# defaults, 10, PT1S, PT1M, 2, 0.2 and PT30S. A value the script cannot use
+# stops the Job at start, naming the variable. The release passes the shared
+# platform.dependencyRetry.
+# ---------------------------------------------------------------------------
+dependencyRetry: {}
+
 # ---------------------------------------------------------------------------
 # Tenant administrators: people who administer one tenant only. Each is created
 # once with a temporary password (passwordSecret's passwordKey entry) they must

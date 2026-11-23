@@ -61,6 +61,8 @@ http:
 # and Micronaut. A value a
 # service cannot use stops it at start, naming the variable. A release passes
 # the platform's shared platform.dependencyRetry here, with its own overrides.
+# attempts is also the backoffLimit of every deploymentMode: job and cronJob Job
+# whose service sets no job.backoffLimit (10 when unset).
 dependencyRetry:
   attempts: ""
   initialBackoff: ""
@@ -578,10 +580,15 @@ kafka:
 #                Job can actually reach completion.
 #                job.parallelism/.completions/.ttlSecondsAfterFinished/
 #                .restartPolicy — same meaning as scaledJob's job.* fields
-#                below (job.restartPolicy defaults to "Never"). Its
-#                backoffLimit is always 2147483647 (Kubernetes has no
-#                unlimited value): retried until it succeeds or a person
-#                deletes it. No Job has a deadline.
+#                below (job.restartPolicy defaults to "Never").
+#                job.backoffLimit: how often Kubernetes runs the pod again
+#                after it fails (a dependency failing or unreachable), a
+#                whole number of at least 0. Unset: the release's
+#                dependencyRetry.attempts (the platform's dependency-retry
+#                attempts, which a release passes), else 10 (that
+#                setting's documented default); a person re-runs the
+#                release after the last. Anything else fails the render.
+#                No Job has a deadline.
 #   cronJob    — batch/v1 CronJob for scheduled, recurring finite work (e.g.
 #                a periodic reconciliation). Every run is exactly the Job
 #                deploymentMode: job renders - same pod, env, secrets,
@@ -591,6 +598,7 @@ kafka:
 #                rendering (a hook resource is not managed by its release, so
 #                the schedule would outlive upgrades and uninstall). Run
 #                hook-time work as a sibling deploymentMode: job service.
+#                Each run's backoffLimit is job.backoffLimit's, as for job.
 #                cronJob fields:
 #                  schedule:                   required, standard cron syntax
 #                  timeZone:                   optional IANA zone name
@@ -666,7 +674,9 @@ kafka:
 #     job.completions:             Kubernetes Job completions. Default: 1.
 #     job.backoffLimit:            Kubernetes Job retry count. Default: 0,
 #                                  because durable task retry is owned by
-#                                  the application task state machine.
+#                                  the application task state machine
+#                                  (deploymentMode: job and cronJob take
+#                                  dependencyRetry.attempts instead).
 #     job.ttlSecondsAfterFinished: Optional cleanup TTL for finished Jobs.
 #
 # Spark executor pod template:

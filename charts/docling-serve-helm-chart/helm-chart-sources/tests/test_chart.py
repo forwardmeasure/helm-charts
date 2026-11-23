@@ -246,11 +246,12 @@ for model in models:
         init = resource(docs, "Deployment")["spec"]["template"]["spec"]["initContainers"][0]
         self.assertEqual(init["args"][0], "verify")
         # No clock gives up on the models (the owner's rule of 2026-11-18): the server waits for the
-        # bundle until it is complete, and the preparation Job is retried until it succeeds.
+        # bundle until it is complete; the preparation Job runs again as often as
+        # modelDownload.job.backoffLimit (decision (h) of the limits sweep's Item R, 10 by default).
         self.assertIn("--wait", init["args"])
         self.assertNotIn("--wait-timeout", init["args"])
         spec = resource(docs, "Job")["spec"]
-        self.assertEqual(spec["backoffLimit"], 2147483647)
+        self.assertEqual(spec["backoffLimit"], 10)
         self.assertNotIn("activeDeadlineSeconds", spec)
 
     def test_configuration_change_forces_rollout_and_bundle_change(self):

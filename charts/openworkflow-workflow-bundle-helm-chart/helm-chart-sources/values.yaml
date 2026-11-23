@@ -178,3 +178,10 @@ serviceAccount:
 # attempts, initialBackoff, maximumBackoff, multiplier, jitter, connectTimeout); the release passes
 # the shared platform.dependencyRetry. Empty: the documented defaults.
 dependencyRetry: {}
+
+# How often each of this chart's Jobs (publish, upload, credential rulesets) runs again after it
+# fails (a dependency failing or unreachable), a whole number of at least 0; anything else fails
+# the render. The release passes the platform's dependency-retry attempts
+# (platform.dependencyRetry.attempts, 10 when unset, its documented default); a person re-runs the
+# release after the last.
+backoffLimit: 10

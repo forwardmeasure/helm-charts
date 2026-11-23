@@ -503,7 +503,8 @@ class CredentialRulesets(unittest.TestCase):
         self.assertEqual("credential-rulesets", variables["OPENWORKFLOW_PUBLISHER_RUN"]["value"])
         self.assertEqual("openworkflow-credential-approver",
                          variables["OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_SECRET"]["valueFrom"]["secretKeyRef"]["name"])
-        self.assertEqual(2147483647, rulesets["spec"]["backoffLimit"])
+        # Decision (h) of the limits sweep's Item R: the chart value, 10 unless the release sets it.
+        self.assertEqual(10, rulesets["spec"]["backoffLimit"])
         self.assertNotIn("activeDeadlineSeconds", rulesets["spec"])
         maps = [doc for doc in docs if doc["kind"] == "ConfigMap" and doc["metadata"]["name"].endswith("-credential-rulesets")]
         self.assertEqual(["resolution-application.drl"], list(maps[0]["data"]))

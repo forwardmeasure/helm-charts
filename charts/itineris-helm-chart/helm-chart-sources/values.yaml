@@ -199,6 +199,11 @@ controlPlane:
       name: itineris-migrations-db
       usernameKey: username
       passwordKey: password
+    # How often the migrations Job runs again after it fails (the database failing or unreachable),
+    # a whole number of at least 0. The release passes the platform's dependency-retry attempts
+    # (platform.dependencyRetry.attempts, 10 when unset, its documented default); a person re-runs
+    # the release after the last.
+    backoffLimit: 10
     resources:
       requests: {cpu: 100m, memory: 256Mi}
       limits: {cpu: 1000m, memory: 1Gi}
@@ -239,6 +244,10 @@ analyticsJob:
   parametersProperties: ""
   sparkConfigurationProperties: ""
   graphConfigurationProperties: ""
+  # How often the run's Job runs again after it fails (its storage failing or unreachable), a whole
+  # number of at least 0. The release passes the platform's dependency-retry attempts
+  # (platform.dependencyRetry.attempts, 10 when unset, its documented default).
+  backoffLimit: 10
   ttlSecondsAfterFinished: 3600
   resources:
     requests:

@@ -94,6 +94,11 @@ securityConfig:
 # ------------------------------------------------------------------------------
 securityInit:
   retryIntervalSeconds: 15
+  # How often the security init Job runs again after it fails (OpenSearch failing or unreachable),
+  # a whole number of at least 0. The release passes the platform's dependency-retry attempts
+  # (platform.dependencyRetry.attempts, 10 when unset, its documented default); a person re-runs
+  # the release after the last.
+  backoffLimit: 10
   image:
     # Stock opensearchproject/opensearch: this Job only runs securityadmin and
     # needs no plugins. The cluster nodes themselves run docker.io/forwardmeasure/opensearch

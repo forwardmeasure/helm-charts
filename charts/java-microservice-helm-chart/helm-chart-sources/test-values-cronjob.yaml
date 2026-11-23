@@ -74,6 +74,8 @@ services:
       successfulJobsHistoryLimit: 0
       failedJobsHistoryLimit: 5
       suspend: true
+    job:
+      backoffLimit: 3
     resources:
       requests:
         cpu: 50m

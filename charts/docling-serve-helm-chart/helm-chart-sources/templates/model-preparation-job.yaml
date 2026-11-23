@@ -6,9 +6,10 @@ metadata:
   labels:
     {{- include "docling-serve.labels" . | nindent 4 }}
 spec:
-  {{- /* The largest Kubernetes allows (no unlimited value): retried until it succeeds or a person
-  deletes it; no deadline (the owner's rule of 2026-11-18). */}}
-  backoffLimit: 2147483647
+  {{- /* How often the Job runs again after it fails: modelDownload.job.backoffLimit, which the
+  release fills from the platform's dependency-retry attempts (decision (h) of the limits sweep's
+  Item R; values.schema.json refuses anything but a whole number of at least 0); no deadline. */}}
+  backoffLimit: {{ .Values.modelDownload.job.backoffLimit | int }}
   ttlSecondsAfterFinished: {{ .Values.modelDownload.job.ttlSecondsAfterFinished }}
   template:
     metadata:
