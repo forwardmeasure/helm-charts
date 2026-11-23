@@ -805,6 +805,10 @@
             }
           }
         },
+        "waitPauseSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "stagingSizeLimit": {
           "oneOf": [
             {

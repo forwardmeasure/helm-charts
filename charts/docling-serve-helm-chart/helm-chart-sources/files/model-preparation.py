@@ -187,15 +187,22 @@ def fetch_model(spec, target):
     )
 
 
-def await_complete(root, sleep=time.sleep):
-    """Waits until the prepared bundle at root is complete; no clock gives up on it (the owner's
-    rule of 2026-11-18): a person stops the pod if preparation never finishes."""
+def await_complete(root, pause, sleep=time.sleep):
+    """Waits until the prepared bundle at root is complete, checking again after each pause of
+    `pause` seconds (the chart's modelDownload.waitPauseSeconds); no count or clock gives up on it
+    (the owner's rules of 2026-11-18 and 2026-11-22, decision (g)): a person stops the pod if
+    preparation never finishes."""
+    if not pause > 0:
+        raise ValueError(f"The wait's pause must be a positive number of seconds, not {pause}")
     waited = 0
+    reported = None
     while not (root / ".complete.json").is_file():
-        if waited % 60 == 0:
-            print(f"Waiting for the prepared model bundle {root.name} ({waited} s so far).", flush=True)
-        sleep(5)
-        waited += 5
+        minute = int(waited // 60)
+        if minute != reported:
+            print(f"Waiting for the prepared model bundle {root.name} ({waited:g} s so far).", flush=True)
+            reported = minute
+        sleep(pause)
+        waited += pause
 
 
 def prepare(cache, bundled, staging, config, identity, fetcher=fetch_model):
@@ -292,6 +299,8 @@ def main():
     parser.add_argument("--staging", type=Path)
     parser.add_argument("--wait", action="store_true",
                         help="wait until the preparation Job has published the bundle")
+    parser.add_argument("--wait-pause", type=float, default=5,
+                        help="seconds between the wait's checks (the chart's waitPauseSeconds)")
     parser.add_argument("--legacy", action="store_true")
     args = parser.parse_args()
     config, identity = load_config(args.config)
@@ -304,7 +313,7 @@ def main():
     else:
         root = args.cache / ".bundles" / identity
         if args.wait:
-            await_complete(root)
+            await_complete(root, args.wait_pause)
         if not verify_bundle(root, config, identity):
             raise InvalidModel("Required complete model bundle is absent or corrupt: " + identity)
         print("Verified prepared model bundle.", flush=True)

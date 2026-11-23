@@ -114,6 +114,10 @@ modelDownload:
   preparation: init
   useCpuImage: true
   stagingSizeLimit: 16Gi
+  # The pause, in seconds, between the server's checks that the prepared model bundle is complete:
+  # it waits with no count or clock while the preparation Job progresses (limits sweep s.9, Item R
+  # decision (g)).
+  waitPauseSeconds: 5
   revisions:
     vlm-small: 982fe3b40f2fa73c365bdb1bcacf6c81b7184bfe
     vlm-large: ec894191f2e9e9be3d90eab9ac6949583c46f03b

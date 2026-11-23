@@ -118,6 +118,8 @@ spec:
             - {{ .Values.paths.models | quote }}
             {{- if .Values.modelDownload.enabled }}
             - --wait
+            - --wait-pause
+            - {{ required "modelDownload.waitPauseSeconds is required" .Values.modelDownload.waitPauseSeconds | quote }}
             {{- else }}
             - --legacy
             {{- end }}

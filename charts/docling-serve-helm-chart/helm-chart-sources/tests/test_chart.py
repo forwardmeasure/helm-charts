@@ -250,6 +250,8 @@ for model in models:
         # modelDownload.job.backoffLimit (decision (h) of the limits sweep's Item R, 10 by default).
         self.assertIn("--wait", init["args"])
         self.assertNotIn("--wait-timeout", init["args"])
+        # No count or clock; the pause between checks is a value (decision (g)), 5 s by default.
+        self.assertEqual("5", init["args"][init["args"].index("--wait-pause") + 1])
         spec = resource(docs, "Job")["spec"]
         self.assertEqual(spec["backoffLimit"], 10)
         self.assertNotIn("activeDeadlineSeconds", spec)
@@ -507,8 +509,14 @@ class ModelPublication(unittest.TestCase):
             if len(waits) == 3:
                 (root / ".complete.json").write_text("{}")
 
-        MODELS.await_complete(root, sleep=sleep)
-        self.assertEqual(3, len(waits))
+        # The pause between checks is the chart's value (modelDownload.waitPauseSeconds).
+        MODELS.await_complete(root, 2.5, sleep=sleep)
+        self.assertEqual([2.5, 2.5, 2.5], waits)
+
+    def test_the_wait_refuses_a_pause_that_is_not_positive(self):
+        root = self.cache / ".bundles" / self.identity
+        with self.assertRaises(ValueError):
+            MODELS.await_complete(root, 0, sleep=lambda seconds: None)
 
 
 if __name__ == "__main__":
