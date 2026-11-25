@@ -27,7 +27,14 @@ metadata:
     {{- include "itineris.labels" . | nindent 4 }}
     app.kubernetes.io/component: analytics-runner
 spec:
-  backoffLimit: {{ .Values.analyticsJob.backoffLimit }}
+  {{- /* How often the Job runs again after it fails (a dependency failing or unreachable):
+  analyticsJob.backoffLimit, which the release fills from the platform's dependency-retry attempts
+  (decision (h) of the limits sweep's Item R); a person re-runs the release after that. No
+  deadline. */}}
+  {{- if not (regexMatch "^[0-9]+$" (toString .Values.analyticsJob.backoffLimit)) }}
+  {{- fail (printf "analyticsJob.backoffLimit must be a whole number of at least 0, not '%v'" .Values.analyticsJob.backoffLimit) }}
+  {{- end }}
+  backoffLimit: {{ .Values.analyticsJob.backoffLimit | int }}
   ttlSecondsAfterFinished: {{ .Values.analyticsJob.ttlSecondsAfterFinished }}
   template:
     metadata:

@@ -26,8 +26,14 @@ metadata:
     helm.sh/hook-weight: "-10"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
-  backoffLimit: 0
-  activeDeadlineSeconds: {{ .Values.controlPlane.migrations.activeDeadlineSeconds }}
+  {{- /* How often the Job runs again after it fails (a dependency failing or unreachable):
+  controlPlane.migrations.backoffLimit, which the release fills from the platform's
+  dependency-retry attempts (decision (h) of the limits sweep's Item R); a person re-runs the
+  release after that. No deadline. */}}
+  {{- if not (regexMatch "^[0-9]+$" (toString .Values.controlPlane.migrations.backoffLimit)) }}
+  {{- fail (printf "controlPlane.migrations.backoffLimit must be a whole number of at least 0, not '%v'" .Values.controlPlane.migrations.backoffLimit) }}
+  {{- end }}
+  backoffLimit: {{ .Values.controlPlane.migrations.backoffLimit | int }}
   template:
     spec:
       restartPolicy: Never

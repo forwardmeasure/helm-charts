@@ -10,7 +10,14 @@ metadata:
     "helm.sh/hook-weight": "0"
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
-  backoffLimit: {{ .Values.securityInit.backoffLimit }}
+  {{- /* How often the Job runs again after it fails (OpenSearch failing or unreachable):
+  securityInit.backoffLimit, which the release fills from the platform's dependency-retry attempts
+  (decision (h) of the limits sweep's Item R); a person re-runs the release after that. No
+  deadline. */}}
+  {{- if not (regexMatch "^[0-9]+$" (toString .Values.securityInit.backoffLimit)) }}
+  {{- fail (printf "securityInit.backoffLimit must be a whole number of at least 0, not '%v'" .Values.securityInit.backoffLimit) }}
+  {{- end }}
+  backoffLimit: {{ .Values.securityInit.backoffLimit | int }}
   template:
     metadata:
       labels:
@@ -50,8 +57,6 @@ spec:
                           (include "opensearch-wrapper.namespace" .) }}
             - name: OPENSEARCH_HTTP_PORT
               value: {{ .Values.opensearch.httpPort | quote }}
-            - name: RETRIES
-              value: {{ .Values.securityInit.retries | quote }}
             - name: RETRY_INTERVAL
               value: {{ .Values.securityInit.retryIntervalSeconds | quote }}
           resources:

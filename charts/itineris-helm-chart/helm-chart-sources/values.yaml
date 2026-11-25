@@ -113,8 +113,11 @@ itineris:
   javaOptions: "-XX:MaxRAMPercentage=75"
   graphCacheMaximumSize: 64
   graphCacheIdleTimeout: 30M
-  gremlinTimeout: 30S
   gremlinThreads: 16
+  # -- How long a storage write, and a lock check, is retried before its transaction fails
+  # (storage.write-time, e.g. 100S). Kept on purpose: lock expiry and the maximum commit time are
+  # derived from it until locks carry a fencing token. Empty: the engine's default (100 s).
+  storageWriteTime: ""
   terminationGracePeriodSeconds: 60
 
 # -- Cassandra defaults shared by tenant graphs; tenant keyspaces come from the catalog
@@ -196,7 +199,11 @@ controlPlane:
       name: itineris-migrations-db
       usernameKey: username
       passwordKey: password
-    activeDeadlineSeconds: 300
+    # How often the migrations Job runs again after it fails (the database failing or unreachable),
+    # a whole number of at least 0. The release passes the platform's dependency-retry attempts
+    # (platform.dependencyRetry.attempts, 10 when unset, its documented default); a person re-runs
+    # the release after the last.
+    backoffLimit: 10
     resources:
       requests: {cpu: 100m, memory: 256Mi}
       limits: {cpu: 1000m, memory: 1Gi}
@@ -210,7 +217,6 @@ analytics:
   rbac:
     create: true
   master: local[2]
-  deadline: 2H
   # Completed Pods are removed after this age; suspended Job identities remain dispatch fences.
   podRetention: 24H
   retentionInterval: 1m
@@ -238,7 +244,10 @@ analyticsJob:
   parametersProperties: ""
   sparkConfigurationProperties: ""
   graphConfigurationProperties: ""
-  backoffLimit: 0
+  # How often the run's Job runs again after it fails (its storage failing or unreachable), a whole
+  # number of at least 0. The release passes the platform's dependency-retry attempts
+  # (platform.dependencyRetry.attempts, 10 when unset, its documented default).
+  backoffLimit: 10
   ttlSecondsAfterFinished: 3600
   resources:
     requests:

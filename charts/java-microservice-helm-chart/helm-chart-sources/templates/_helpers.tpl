@@ -644,8 +644,6 @@ initContainers:
     env:
       - name: LIQUIBASE_SERVICE_URL
         value: {{ include "java-microservice.liquibaseServiceUrl" $root | quote }}
-      - name: MAX_ATTEMPTS
-        value: {{ $lw.maxAttempts | default 30 | quote }}
       - name: SLEEP_SECONDS
         value: {{ $lw.sleepSeconds | default 10 | quote }}
     command:
@@ -653,11 +651,12 @@ initContainers:
       - -c
       - |
         echo "Waiting for public schema migrations to complete"
+        # No attempt count: polled until the migrations are done; Kubernetes or a person stops it.
         ATTEMPTS=0
         STATUS_URL="${LIQUIBASE_SERVICE_URL}/migration/schemas/public/ready"
-        until [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; do
+        while true; do
           ATTEMPTS=$((ATTEMPTS + 1))
-          echo "Attempt ${ATTEMPTS}/${MAX_ATTEMPTS}: polling ${STATUS_URL}"
+          echo "Attempt ${ATTEMPTS}: polling ${STATUS_URL}"
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${STATUS_URL}")
           if [ "${HTTP_CODE}" = "200" ]; then
             echo "Public schema migrations complete"
@@ -666,8 +665,6 @@ initContainers:
           echo "Schema not ready (HTTP ${HTTP_CODE}) — waiting ${SLEEP_SECONDS}s"
           sleep ${SLEEP_SECONDS}
         done
-        echo "Timed out waiting for public schema migrations after $((MAX_ATTEMPTS * SLEEP_SECONDS))s"
-        exit 1
     resources:
       requests:
         cpu: {{ $lw.resources.requests.cpu | default "50m" | quote }}
@@ -957,6 +954,36 @@ Usage: include "java-microservice.mainContainer" (dict "service" . "root" $)
           key: {{ $database.jdbcUrlKey | default "db-jdbc-url" }}
     {{- end }}
     {{- end }}
+    {{- $maxRequestBody := (($root.Values.http | default (dict)).maxRequestBodyBytes) }}
+    {{- if and $maxRequestBody (not (hasKey ($svc.env | default (dict)) "FORWARDMEASURE_HTTP_MAX_REQUEST_BODY_BYTES")) }}
+    # The platform's one request-body limit (RequestBodyLimit), for every service of the release.
+    - name: FORWARDMEASURE_HTTP_MAX_REQUEST_BODY_BYTES
+      value: {{ $maxRequestBody | toString | quote }}
+    {{- end }}
+    {{- $bodyIdleTimeout := (($root.Values.http | default (dict)).bodyIdleTimeout) }}
+    {{- if and $bodyIdleTimeout (not (hasKey ($svc.env | default (dict)) "FORWARDMEASURE_HTTP_BODY_IDLE_TIMEOUT")) }}
+    # The platform's one wait for the next piece of a request body (BodyIdleTimeout), for every service of the release.
+    - name: FORWARDMEASURE_HTTP_BODY_IDLE_TIMEOUT
+      value: {{ $bodyIdleTimeout | toString | quote }}
+    {{- end }}
+    {{- $dependencyRetry := ($root.Values.dependencyRetry | default (dict)) }}
+    {{- range $key, $variable := dict "attempts" "FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS" "initialBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF" "maximumBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF" "multiplier" "FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER" "jitter" "FORWARDMEASURE_DEPENDENCY_RETRY_JITTER" "connectTimeout" "FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT" }}
+    {{- $value := index $dependencyRetry $key }}
+    {{- if and (or $value (eq (toString $value) "0")) (not (hasKey ($svc.env | default (dict)) $variable)) }}
+    # The platform's one dependency retry setting (DependencyRetry), for every service of the release.
+    - name: {{ $variable }}
+      value: {{ $value | toString | quote }}
+    {{- end }}
+    {{- end }}
+    {{- $asyncTaskRetry := ($root.Values.asyncTaskRetry | default (dict)) }}
+    {{- range $key, $variable := dict "initialBackoff" "FORWARDMEASURE_ASYNC_TASK_RETRY_INITIAL_BACKOFF" "maximumBackoff" "FORWARDMEASURE_ASYNC_TASK_RETRY_MAXIMUM_BACKOFF" "multiplier" "FORWARDMEASURE_ASYNC_TASK_RETRY_MULTIPLIER" "jitter" "FORWARDMEASURE_ASYNC_TASK_RETRY_JITTER" }}
+    {{- $value := index $asyncTaskRetry $key }}
+    {{- if and (or $value (eq (toString $value) "0")) (not (hasKey ($svc.env | default (dict)) $variable)) }}
+    # The asynchronous tasks' back-off between attempts (AsyncTaskRetryPolicy), for every service of the release.
+    - name: {{ $variable }}
+      value: {{ $value | toString | quote }}
+    {{- end }}
+    {{- end }}
     {{- range $key, $val := $svc.env }}
     - name: {{ $key }}
       value: {{ $val | quote }}
@@ -1090,6 +1117,31 @@ always use a map because maps support stable environment-specific overlays.
 {{- end }}
 
 {{/*
+The backoffLimit of a deploymentMode: job Job and of every run of a deploymentMode: cronJob
+CronJob (decision (h) of the limits sweep's Item R): the service's job.backoffLimit when set, else
+the release's dependencyRetry.attempts (the platform's dependency-retry attempts), else 10 (that
+setting's documented default). A person re-runs the release after the last. Anything but a whole
+number of at least 0 fails the render, naming the value.
+Usage: include "java-microservice.jobBackoffLimit" (dict "service" . "root" $)
+*/}}
+{{- define "java-microservice.jobBackoffLimit" -}}
+{{- $job := .service.job | default (dict) -}}
+{{- $retry := .root.Values.dependencyRetry | default (dict) -}}
+{{- $name := "dependencyRetry.attempts" -}}
+{{- $value := 10 -}}
+{{- if or $job.backoffLimit (eq (toString $job.backoffLimit) "0") -}}
+{{- $name = printf "services.%s.job.backoffLimit" .service.name -}}
+{{- $value = $job.backoffLimit -}}
+{{- else if or $retry.attempts (eq (toString $retry.attempts) "0") -}}
+{{- $value = $retry.attempts -}}
+{{- end -}}
+{{- if not (regexMatch "^[0-9]+$" (toString $value)) -}}
+{{- fail (printf "service '%s': %s must be a whole number of at least 0 (a Job's backoffLimit), not '%v'" .service.name $name $value) -}}
+{{- end -}}
+{{- toString $value -}}
+{{- end }}
+
+{{/*
 The batch/v1 JobSpec of a finite run: the whole spec of a deploymentMode: job
 Job, and the jobTemplate.spec of every run of a deploymentMode: cronJob
 CronJob - one definition, so a scheduled run gets exactly the pod a one-shot
@@ -1102,12 +1154,11 @@ Usage: include "java-microservice.jobSpec" (dict "service" . "root" $)
 {{- $svc := .service -}}
 {{- $root := .root -}}
 {{- $job := $svc.job | default (dict) -}}
-backoffLimit: {{ $job.backoffLimit | default 0 }}
+{{- /* How often Kubernetes runs the Job's pod again after it fails (a dependency failing or
+unreachable): java-microservice.jobBackoffLimit. No deadline: no clock gives up on a Job. */ -}}
+backoffLimit: {{ include "java-microservice.jobBackoffLimit" (dict "service" $svc "root" $root) }}
 completions: {{ $job.completions | default 1 }}
 parallelism: {{ $job.parallelism | default 1 }}
-{{- if hasKey $job "activeDeadlineSeconds" }}
-activeDeadlineSeconds: {{ $job.activeDeadlineSeconds }}
-{{- end }}
 {{- if hasKey $job "ttlSecondsAfterFinished" }}
 ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
 {{- end }}

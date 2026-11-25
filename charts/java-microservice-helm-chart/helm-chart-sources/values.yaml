@@ -22,6 +22,73 @@ telemetry:
   injectJava: false
 
 # ------------------------------------------------------------------------------
+# HTTP
+# ------------------------------------------------------------------------------
+# maxRequestBodyBytes: the platform's one request-body limit, in bytes, for every
+# service of the release (FORWARDMEASURE_HTTP_MAX_REQUEST_BODY_BYTES; a service's
+# own env entry wins). Unset: the services' default, 2147483647 bytes, the same
+# on Quarkus, Spring and Micronaut. A larger body is refused with a typed 413.
+# bodyIdleTimeout: the platform's one wait for the next piece of a request body,
+# an ISO-8601 duration, for every service of the release
+# (FORWARDMEASURE_HTTP_BODY_IDLE_TIMEOUT; a service's own env entry wins). Unset:
+# the services' default, PT8M, the same on Quarkus, Spring and Micronaut. It is
+# an idle wait renewed by every piece that arrives, never a total: a client that
+# sends nothing for longer is cut off. A value that is not a positive duration
+# stops the service at start.
+http:
+  maxRequestBodyBytes: ""
+  bodyIdleTimeout: ""
+
+# ------------------------------------------------------------------------------
+# Dependency retry
+# ------------------------------------------------------------------------------
+# The platform's one setting for a dependency that fails or cannot be reached (a
+# peer service down or answering 5xx, a refused connection, storage, a search
+# index): forwardmeasure-platform-dependency-retry's DependencyRetry. A call safe
+# to repeat is tried up to attempts times, waiting initialBackoff after the first
+# failure, each wait multiplier times the one before, at most maximumBackoff, each
+# up to jitter of it shorter at random; after the last attempt the work fails by
+# type naming the dependency and can be retried by a person. Each key sets its
+# variable on every service of the release (a service's own env entry wins):
+# attempts FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS (a whole number, at least 1),
+# initialBackoff FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF and maximumBackoff
+# FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF (ISO-8601 durations),
+# multiplier FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER (at least 1), jitter
+# FORWARDMEASURE_DEPENDENCY_RETRY_JITTER (0 to 1), connectTimeout
+# FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT (an ISO-8601 duration longer than
+# zero: opening one connection; nothing else of an attempt has a clock). Unset: the
+# services' defaults, 10, PT1S, PT1M, 2, 0.2 and PT30S, the same on Quarkus, Spring
+# and Micronaut. A value a
+# service cannot use stops it at start, naming the variable. A release passes
+# the platform's shared platform.dependencyRetry here, with its own overrides.
+# attempts is also the backoffLimit of every deploymentMode: job and cronJob Job
+# whose service sets no job.backoffLimit (10 when unset).
+dependencyRetry:
+  attempts: ""
+  initialBackoff: ""
+  maximumBackoff: ""
+  multiplier: ""
+  jitter: ""
+  connectTimeout: ""
+
+# How far apart a service's asynchronous task (forwardmeasure-jpa-async-task) is
+# attempted again after an attempt failed on a dependency: initialBackoff
+# FORWARDMEASURE_ASYNC_TASK_RETRY_INITIAL_BACKOFF and maximumBackoff
+# FORWARDMEASURE_ASYNC_TASK_RETRY_MAXIMUM_BACKOFF (ISO-8601 durations), multiplier
+# FORWARDMEASURE_ASYNC_TASK_RETRY_MULTIPLIER (at least 1), jitter
+# FORWARDMEASURE_ASYNC_TASK_RETRY_JITTER (0 to 1), on every service of the release
+# (a service's own env entry wins). The number of attempts is
+# dependencyRetry.attempts; after the last the task ends failed as
+# dependency-unavailable and a person resumes it. Unset: PT30S, PT1H, 4 and 0. A
+# value a service cannot use stops it at start, naming the variable. A release
+# passes the platform's shared platform.asyncTaskRetry here.
+asyncTaskRetry:
+  initialBackoff: ""
+  maximumBackoff: ""
+  multiplier: ""
+  jitter: ""
+
+# ------------------------------------------------------------------------------
 # Image pull secrets
 # ------------------------------------------------------------------------------
 imagePullSecrets:
@@ -251,7 +318,6 @@ liquibaseWait:
   imagePullPolicy: IfNotPresent
   serviceName: liquibase-migration
   serviceNamespace: data-fabric
-  maxAttempts: 30
   sleepSeconds: 10
   resources:
     requests:
@@ -512,10 +578,17 @@ kafka:
 #                hooks set). Cloud SQL proxy (if enabled) renders as a native
 #                sidecar (like scaledJob), not a persistent sidecar, so the
 #                Job can actually reach completion.
-#                job.parallelism/.completions/.backoffLimit/
-#                .activeDeadlineSeconds/.ttlSecondsAfterFinished/
+#                job.parallelism/.completions/.ttlSecondsAfterFinished/
 #                .restartPolicy — same meaning as scaledJob's job.* fields
 #                below (job.restartPolicy defaults to "Never").
+#                job.backoffLimit: how often Kubernetes runs the pod again
+#                after it fails (a dependency failing or unreachable), a
+#                whole number of at least 0. Unset: the release's
+#                dependencyRetry.attempts (the platform's dependency-retry
+#                attempts, which a release passes), else 10 (that
+#                setting's documented default); a person re-runs the
+#                release after the last. Anything else fails the render.
+#                No Job has a deadline.
 #   cronJob    — batch/v1 CronJob for scheduled, recurring finite work (e.g.
 #                a periodic reconciliation). Every run is exactly the Job
 #                deploymentMode: job renders - same pod, env, secrets,
@@ -525,11 +598,11 @@ kafka:
 #                rendering (a hook resource is not managed by its release, so
 #                the schedule would outlive upgrades and uninstall). Run
 #                hook-time work as a sibling deploymentMode: job service.
+#                Each run's backoffLimit is job.backoffLimit's, as for job.
 #                cronJob fields:
 #                  schedule:                   required, standard cron syntax
 #                  timeZone:                   optional IANA zone name
 #                  concurrencyPolicy:          Allow | Forbid (default) | Replace
-#                  startingDeadlineSeconds:    optional
 #                  successfulJobsHistoryLimit: default 3
 #                  failedJobsHistoryLimit:     default 1
 #                  suspend:                    default false
@@ -538,10 +611,6 @@ kafka:
 #       deploymentMode: cronJob
 #       cronJob:
 #         schedule: "*/5 * * * *"
-#         startingDeadlineSeconds: 240
-#       job:
-#         backoffLimit: 2
-#         activeDeadlineSeconds: 240
 #
 # probes.enabled: whether the main container gets liveness/readiness/startup
 # HTTP probes at all (see probes.liveness/.readiness/.startup path overrides
@@ -605,8 +674,9 @@ kafka:
 #     job.completions:             Kubernetes Job completions. Default: 1.
 #     job.backoffLimit:            Kubernetes Job retry count. Default: 0,
 #                                  because durable task retry is owned by
-#                                  the application task state machine.
-#     job.activeDeadlineSeconds:   Optional wall-clock limit for one Job.
+#                                  the application task state machine
+#                                  (deploymentMode: job and cronJob take
+#                                  dependencyRetry.attempts instead).
 #     job.ttlSecondsAfterFinished: Optional cleanup TTL for finished Jobs.
 #
 # Spark executor pod template:

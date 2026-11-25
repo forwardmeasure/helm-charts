@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The real Admin REST session (login, renewal, one retry on a 401) against a local stand-in Keycloak.
+"""The real Admin REST session (login, renewal, a 401 sent again within the platform's dependency-retry
+setting) against a local stand-in Keycloak.
 
 The stand-in listens on 127.0.0.1 only and keeps a clock the test advances: tokens it issues expire by
 that clock, as Keycloak's do by its own, so a call made with an expired token gets the 401 a real
@@ -29,7 +30,7 @@ import threading
 import unittest
 from urllib.parse import parse_qs, urlsplit
 
-SCRIPT = Path(__file__).parents[1] / "files/bootstrap-admin.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "helm-chart-sources/files/bootstrap-admin.sh"
 ADMIN = "fixture-admin"
 # Form-encoding characters on purpose: the login must send it exactly.
 ADMIN_PASSWORD = "fixture only & not = a + credential %41"
@@ -140,7 +141,7 @@ class AdminSessionTest(unittest.TestCase):
         self.keycloak = StandInKeycloak(self.clock)
         self.addCleanup(self.keycloak.close)
 
-    def run_job(self, driver, body=""):
+    def run_job(self, driver, body="", **setting):
         # The functions of the real script, its entry point cut off; only the clock is the test's.
         script = SCRIPT.read_text().rsplit('main "$@"', 1)[0] + r'''
 kc_epoch_seconds() { cat "$CLOCK"; }
@@ -150,7 +151,8 @@ start_job_session
 ''' + driver
         env = dict(os.environ, KEYCLOAK_URL=self.keycloak.url, REALM="test", KEYCLOAK_ADMIN=ADMIN,
                    KEYCLOAK_ADMIN_PASSWORD=ADMIN_PASSWORD, CLOCK=str(self.clock),
-                   MARKER=str(self.root / "continued"), BODY=body)
+                   MARKER=str(self.root / "continued"), BODY=body, SLEEPS=str(self.root / "sleeps"),
+                   **setting)
         result = subprocess.run(["sh", "-c", script], env=env, capture_output=True, text=True, timeout=60)
         output = result.stdout + result.stderr
         for secret in [ADMIN_PASSWORD, CLIENT_SECRET, *self.keycloak.tokens,
@@ -189,7 +191,11 @@ kc_put_json "${KEYCLOAK_URL}/admin/realms/test/clients/${uuid}" '{"name":"first"
         self.assertEqual(2, len(self.keycloak.logins))
         self.assertEqual(["issued-access-token-2", "issued-access-token-2"], self.tokens_used())
 
-    def test_a_401_renews_the_token_once_and_retries_that_call_once(self):
+    def sleeps(self):
+        path = self.root / "sleeps"
+        return path.read_text().split() if path.exists() else []
+
+    def test_a_401_renews_the_token_and_sends_that_call_again(self):
         self.keycloak.expires_in = 300
         self.keycloak.revoke_after_first_use = True
         body = json.dumps({"clientId": "first", "secret": CLIENT_SECRET})
@@ -203,21 +209,44 @@ kc_put_json "${KEYCLOAK_URL}/admin/realms/test/clients/uuid-of-first" "$BODY"
                           ("PUT", 204, "issued-access-token-2")],
                          [(c["method"], c["status"], c["token"]) for c in self.keycloak.calls])
         self.assertEqual([body, body], [c["body"] for c in self.keycloak.calls[1:]])
-        self.assertIn("-> HTTP 401", result.stderr)
-        self.assertIn("retrying this call once", result.stderr)
+        self.assertIn("-> HTTP 401 (attempt 1 of 10)", result.stderr)
+        self.assertIn("renewing the admin token and sending this call again", result.stderr)
 
-    def test_a_second_401_ends_the_job_with_the_call_status_and_body_even_inside_a_pipeline(self):
+    def test_a_401_on_the_last_attempt_ends_the_job_with_the_call_status_and_body_even_inside_a_pipeline(self):
         self.keycloak.reject_every_token = True
         result = self.run_job(r'''
 uuid="$(kc_get "$(clients_url first)" | jq -r '.[0].id // empty')"
 printf '%s' "continued with '${uuid}'" > "$MARKER"
-''')
+''', FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS="3", FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF="PT0S",
+            FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF="PT0S")
         self.assertNotEqual(0, result.returncode)
         self.assertFalse((self.root / "continued").exists(), "the job carried on after the failed call")
-        self.assertEqual(2, len(self.keycloak.logins))
-        self.assertEqual([401, 401], [call["status"] for call in self.keycloak.calls])
+        self.assertEqual(3, len(self.keycloak.logins))
+        self.assertEqual([401, 401, 401], [call["status"] for call in self.keycloak.calls])
         self.assertIn(f"ERROR GET {self.keycloak.url}/admin/realms/test/clients?clientId=first -> HTTP 401: "
                       '{"error":"HTTP 401 Unauthorized"}', result.stderr)
+
+    def test_a_401_is_sent_again_as_often_as_the_platform_attempts_with_its_back_off(self):
+        self.keycloak.reject_every_token = True
+        result = self.run_job(r'''
+sleep() { printf '%s\n' "$1" >> "$SLEEPS"; }
+kc_get "$(clients_url first)" >/dev/null
+''', FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS="5", FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF="PT1S",
+            FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF="PT5S", FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER="3",
+            FORWARDMEASURE_DEPENDENCY_RETRY_JITTER="0")
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual([401] * 5, [call["status"] for call in self.keycloak.calls])
+        self.assertEqual(5, len(self.keycloak.logins))
+        self.assertEqual(["1.000", "3.000", "5.000", "5.000"], self.sleeps())
+        self.assertIn("-> HTTP 401 (attempt 4 of 5)", result.stderr)
+
+    def test_one_attempt_sends_a_call_answered_401_once(self):
+        self.keycloak.reject_every_token = True
+        result = self.run_job(r'''
+kc_get "$(clients_url first)" >/dev/null
+''', FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS="1")
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual([401], [call["status"] for call in self.keycloak.calls])
 
     def test_a_rejected_login_ends_the_job_with_the_call_status_and_body(self):
         self.keycloak.reject_logins = True

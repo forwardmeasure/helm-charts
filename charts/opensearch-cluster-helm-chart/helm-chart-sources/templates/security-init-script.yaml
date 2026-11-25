@@ -19,7 +19,6 @@ data:
 
     OPENSEARCH_HOST="${OPENSEARCH_HOST:-localhost}"
     OPENSEARCH_HTTP_PORT="${OPENSEARCH_HTTP_PORT:-9200}"
-    RETRIES="${RETRIES:-20}"
     RETRY_INTERVAL="${RETRY_INTERVAL:-15}"
 
     SECURITYADMIN=/usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh
@@ -39,12 +38,9 @@ data:
     attempt=0
     until [[ "$(curl --silent --insecure --max-time 5 -o /dev/null -w "${HTTP_CODE_FMT}" \
       "https://${OPENSEARCH_HOST}:${OPENSEARCH_HTTP_PORT}")" != "000" ]]; do
+      # No attempt count: waited for until OpenSearch answers; Kubernetes or a person stops it.
       attempt=$(( attempt + 1 ))
-      if [[ "${attempt}" -ge "${RETRIES}" ]]; then
-        echo "[ERROR] OpenSearch did not become ready after ${RETRIES} attempts. Giving up."
-        exit 1
-      fi
-      echo "[INFO] Attempt ${attempt}/${RETRIES} — not ready yet, retrying in ${RETRY_INTERVAL}s ..."
+      echo "[INFO] Attempt ${attempt} — not ready yet, retrying in ${RETRY_INTERVAL}s ..."
       sleep "${RETRY_INTERVAL}"
     done
 

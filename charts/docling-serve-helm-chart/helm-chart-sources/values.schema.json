@@ -272,8 +272,6 @@
     "limits": {
       "type": "object",
       "required": [
-        "maxFileSize",
-        "maxNumPages",
         "maxDocumentTimeout",
         "maxSourcesPerRequest",
         "maxImagesScale"
@@ -807,6 +805,10 @@
             }
           }
         },
+        "waitPauseSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "stagingSizeLimit": {
           "oneOf": [
             {
@@ -818,10 +820,6 @@
               "exclusiveMinimum": 0
             }
           ]
-        },
-        "lockTimeoutSeconds": {
-          "type": "integer",
-          "minimum": 1
         },
         "ensembleModels": {
           "type": "array",
@@ -930,7 +928,6 @@
           "type": "object",
           "required": [
             "backoffLimit",
-            "activeDeadlineSeconds",
             "ttlSecondsAfterFinished",
             "nodeSelector",
             "affinity",
@@ -940,10 +937,6 @@
             "backoffLimit": {
               "type": "integer",
               "minimum": 0
-            },
-            "activeDeadlineSeconds": {
-              "type": "integer",
-              "minimum": 1
             },
             "ttlSecondsAfterFinished": {
               "type": "integer",

@@ -117,8 +117,9 @@ spec:
             - --cache
             - {{ .Values.paths.models | quote }}
             {{- if .Values.modelDownload.enabled }}
-            - --wait-timeout
-            - {{ .Values.modelDownload.job.activeDeadlineSeconds | quote }}
+            - --wait
+            - --wait-pause
+            - {{ required "modelDownload.waitPauseSeconds is required" .Values.modelDownload.waitPauseSeconds | quote }}
             {{- else }}
             - --legacy
             {{- end }}
@@ -146,8 +147,12 @@ spec:
             - {name: HF_HUB_CACHE, value: {{ printf "%s/huggingface/hub" .Values.paths.cache | quote }}}
             - {name: DOCLING_SERVE_SCRATCH_PATH, value: {{ .Values.paths.scratch | quote }}}
             - {name: DOCLING_SERVE_ENG_KIND, value: {{ .Values.engine.kind | quote }}}
-            - {name: DOCLING_SERVE_MAX_FILE_SIZE, value: {{ printf "%d" (int64 .Values.limits.maxFileSize) | quote }}}
-            - {name: DOCLING_SERVE_MAX_NUM_PAGES, value: {{ printf "%d" (int64 .Values.limits.maxNumPages) | quote }}}
+            {{- with .Values.limits.maxFileSize }}
+            - {name: DOCLING_SERVE_MAX_FILE_SIZE, value: {{ printf "%d" (int64 .) | quote }}}
+            {{- end }}
+            {{- with .Values.limits.maxNumPages }}
+            - {name: DOCLING_SERVE_MAX_NUM_PAGES, value: {{ printf "%d" (int64 .) | quote }}}
+            {{- end }}
             - {name: DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT, value: {{ .Values.limits.maxDocumentTimeout | quote }}}
             - {name: DOCLING_SERVE_MAX_SOURCES_PER_REQUEST, value: {{ printf "%d" (int64 .Values.limits.maxSourcesPerRequest) | quote }}}
             - {name: DOCLING_SERVE_MAX_IMAGES_SCALE, value: {{ .Values.limits.maxImagesScale | quote }}}

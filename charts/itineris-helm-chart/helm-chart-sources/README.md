@@ -45,8 +45,8 @@ pod/service/configmap permissions required by distributed Spark. Both Roles are 
 If a deployment centrally manages RBAC, set `analytics.rbac.create=false` and provision the same
 permissions. Set the worker account name through `analytics.serviceAccount.name`.
 
-API-submitted jobs use `analytics.master` (default `local[2]`), `analytics.deadline`,
-`analytics.resources` and `analytics.sparkConfigurationProperties`. Distributed mode uses
+API-submitted jobs use `analytics.master` (default `local[2]`), `analytics.resources` and
+`analytics.sparkConfigurationProperties`, and run until they end (no deadline). Distributed mode uses
 `k8s://https://kubernetes.default.svc`; the driver name/address is projected from the Downward
 API and the same image starts executor pods. Backend passwords are forwarded as Secret references.
 Completed Pods are removed after `analytics.podRetention`, checked at
