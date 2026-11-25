@@ -494,9 +494,8 @@ class CredentialRulesets(unittest.TestCase):
     def test_the_rulesets_job_runs_before_the_publish_job_as_its_own_identity(self):
         docs = render(self.RULESETS)
         found = jobs(docs)
-        rulesets = found["fei-openworkflow-workflow-bundle-credential-rulesets"] if "fei-openworkflow-workflow-bundle-credential-rulesets" in found else next(
-            job for name, job in found.items() if name.endswith("-credential-rulesets"))
-        publish = next(job for name, job in found.items() if not name.endswith("-credential-rulesets"))
+        rulesets = next(job for name, job in found.items() if name.endswith("-rulesets"))
+        publish = next(job for name, job in found.items() if not name.endswith("-rulesets"))
         weight = lambda job: int(job["metadata"]["annotations"]["helm.sh/hook-weight"])
         self.assertLess(weight(rulesets), weight(publish))
         variables = {item["name"]: item for item in rulesets["spec"]["template"]["spec"]["containers"][0]["env"]}
