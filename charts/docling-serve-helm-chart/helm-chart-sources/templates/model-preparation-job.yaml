@@ -6,8 +6,10 @@ metadata:
   labels:
     {{- include "docling-serve.labels" . | nindent 4 }}
 spec:
-  backoffLimit: {{ .Values.modelDownload.job.backoffLimit }}
-  activeDeadlineSeconds: {{ .Values.modelDownload.job.activeDeadlineSeconds }}
+  {{- /* How often the Job runs again after it fails: modelDownload.job.backoffLimit, which the
+  release fills from the platform's dependency-retry attempts (decision (h) of the limits sweep's
+  Item R; values.schema.json refuses anything but a whole number of at least 0); no deadline. */}}
+  backoffLimit: {{ .Values.modelDownload.job.backoffLimit | int }}
   ttlSecondsAfterFinished: {{ .Values.modelDownload.job.ttlSecondsAfterFinished }}
   template:
     metadata:

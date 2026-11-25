@@ -22,7 +22,7 @@ spec:
       {{ .Values.serving.config.domain }}: ""
     {{- end }}
     deployment:
-      progress-deadline: {{ .Values.serving.config.progressDeadline | default "1800s" }}
+      progress-deadline: {{ .Values.serving.config.progressDeadline | default "2147483647s" }}
     features:
       kubernetes.podspec-init-containers: "enabled"
       kubernetes.podspec-persistent-volume-claim: "enabled"

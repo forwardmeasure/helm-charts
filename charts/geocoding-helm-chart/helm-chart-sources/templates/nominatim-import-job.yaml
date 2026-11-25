@@ -13,6 +13,9 @@ metadata:
     app.kubernetes.io/component: nominatim
     app.kubernetes.io/part-of: import
 spec:
+  {{- /* nominatim.import.backoffLimit, 0 by default: a failed import may leave partial database
+  objects behind, so a person cleans them up and runs it again (forwardmeasure-platform
+  docs/limits-sweep-2026-11-21.md, decision 4 and Item R). */}}
   backoffLimit: {{ .Values.nominatim.import.backoffLimit }}
   {{- if gt (int .Values.nominatim.import.ttlSecondsAfterFinished) 0 }}
   ttlSecondsAfterFinished: {{ .Values.nominatim.import.ttlSecondsAfterFinished }}

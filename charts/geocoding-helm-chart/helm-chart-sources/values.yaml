@@ -368,6 +368,8 @@ nominatim:
         limits:
           cpu: 2000m
           memory: 2Gi
+    # Pods Kubernetes starts again after a failed import. 0: a failed import may leave partial
+    # database objects behind, so a person cleans them up and runs it again (see README).
     backoffLimit: 0
     restartPolicy: Never
     ttlSecondsAfterFinished: 86400

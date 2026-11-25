@@ -248,7 +248,26 @@ entries:
   docling-serve:
   - apiVersion: v2
     appVersion: v1.37.0
-    created: "2026-11-05T14:23:28.743932833-05:00"
+    created: "2026-11-24T19:32:46.058998635-05:00"
+    description: Helm chart for deploying Docling Serve with PVC-backed cache and
+      configurable backend models.
+    digest: 1a056cb0ac18238bbcbd69867d9ece50d76b5b2f2927743bc6dba93397a8e84d
+    keywords:
+    - docling
+    - NLP
+    - model-serving
+    - PVC
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: docling-serve
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/docling-serve-helm-chart/docling-serve-0.0.14.tgz
+    version: 0.0.14
+  - apiVersion: v2
+    appVersion: v1.37.0
+    created: "2026-11-24T19:32:46.050739912-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: fbd247aef5bdbfcf45904602d14406a2603d69afe406b0103722091b3e530f18
@@ -267,7 +286,7 @@ entries:
     version: 0.0.13
   - apiVersion: v2
     appVersion: v1.37.0
-    created: "2026-11-05T14:23:28.738546978-05:00"
+    created: "2026-11-24T19:32:46.044032964-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 58e7b85bcd3deac597fb04c694cb46be7676a728d3de343aeac540095f4bfcfd
@@ -286,7 +305,7 @@ entries:
     version: 0.0.12
   - apiVersion: v2
     appVersion: v1.37.0
-    created: "2026-11-05T14:23:28.735364119-05:00"
+    created: "2026-11-24T19:32:46.040195182-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 2b1cd933c4c915bf155391fdf70dc27dff6b6be4d3376186c712951a7d8d376c
@@ -305,7 +324,7 @@ entries:
     version: 0.0.11
   - apiVersion: v2
     appVersion: v1.37.0
-    created: "2026-11-05T14:23:28.732244485-05:00"
+    created: "2026-11-24T19:32:46.035660272-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 90f7af67624083626c5e5e68681e04764bd71f3cf16beabd587320235df39be4
@@ -324,7 +343,7 @@ entries:
     version: 0.0.10
   - apiVersion: v2
     appVersion: latest
-    created: "2026-11-05T14:23:28.750802833-05:00"
+    created: "2026-11-24T19:32:46.067894195-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 18a22db9b91e95095fa3c1a6aa037d8717eb2b9393bc50251ef79d6478ee4362
@@ -343,7 +362,7 @@ entries:
     version: 0.0.9
   - apiVersion: v2
     appVersion: latest
-    created: "2026-11-05T14:23:28.749341-05:00"
+    created: "2026-11-24T19:32:46.066156125-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: b5f9b2b79e324b755ae753b86f85655b6197a54b94e2cd98b35b29b2d906d882
@@ -362,7 +381,7 @@ entries:
     version: 0.0.8
   - apiVersion: v2
     appVersion: latest
-    created: "2026-11-05T14:23:28.747913447-05:00"
+    created: "2026-11-24T19:32:46.06416865-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: dde070a934f88d9954ef2de7cd0915c55e71442f136e61564f72bd3315cc2762
@@ -381,7 +400,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: latest
-    created: "2026-11-05T14:23:28.746156935-05:00"
+    created: "2026-11-24T19:32:46.061690868-05:00"
     description: Helm chart for deploying Docling Serve with PVC-backed cache and
       configurable backend models.
     digest: 5a6bd64e1515a7a18e2a662ec2f04f09ecb2f219cac0bcc9bb2094632881c1e4
@@ -458,7 +477,26 @@ entries:
   geocoding:
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-11-22T11:40:13.045912576-05:00"
+    created: "2026-11-24T19:32:46.86973003-05:00"
+    description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
+    digest: 9961930d721be90e2b6d4659b4cb1a000b9fd5250cbf05ca1ab4c3e7d24bbc20
+    keywords:
+    - geocoding
+    - nominatim
+    - libpostal
+    - postgis
+    - postgres
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: geocoding
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/geocoding-helm-chart/geocoding-0.0.13.tgz
+    version: 0.0.13
+  - apiVersion: v2
+    appVersion: 5.3.2
+    created: "2026-11-24T19:32:46.869045529-05:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: 1f06e9ce089b452146c52a052fa718a771937dd2bc776e156b75d2e94b52f26e
     keywords:
@@ -477,7 +515,7 @@ entries:
     version: 0.0.12
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-11-22T11:40:13.045179986-05:00"
+    created: "2026-11-24T19:32:46.868336884-05:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: 816d8a8fee6151348b6d5a6efa32c86058964ae62e63aff43c5bf03b7e551711
     keywords:
@@ -496,7 +534,7 @@ entries:
     version: 0.0.11
   - apiVersion: v2
     appVersion: 5.3.2
-    created: "2026-11-22T11:40:13.044571038-05:00"
+    created: "2026-11-24T19:32:46.867706495-05:00"
     description: Helm chart for deploying Nominatim, Libpostal, and optional PostGIS.
     digest: cd9f60cf22c6a5984bcba1980686afb028a226a9c328552fa1cbbc7b51202ad2
     keywords:
@@ -692,8 +730,26 @@ entries:
     version: 0.0.1
   itineris:
   - apiVersion: v2
+    appVersion: 2.0.0-SNAPSHOT
+    created: "2026-11-24T19:32:47.628530266-05:00"
+    description: Itineris distributed graph database (JanusGraph fork)
+    digest: 215eff5aa04001dac1879e24f3240fb16d61da56f5a792abd7c3a231a813de14
+    keywords:
+    - graph
+    - database
+    - gremlin
+    - tinkerpop
+    maintainers:
+    - name: ForwardMeasure
+      url: https://github.com/forwardmeasure/itineris
+    name: itineris
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/itineris-helm-chart/itineris-0.1.11.tgz
+    version: 0.1.11
+  - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-03-23T10:06:23.643642082-04:00"
+    created: "2026-11-24T19:32:47.626758707-05:00"
     description: Itineris distributed graph database (JanusGraph fork)
     digest: 562deaf6073b31759c642749f31b216b0a7fdb9fb5931686a77318103af63682
     keywords:
@@ -711,7 +767,7 @@ entries:
     version: 0.1.10
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-03-23T10:06:23.643891949-04:00"
+    created: "2026-11-24T19:32:47.629113459-05:00"
     description: Itineris distributed graph database (JanusGraph fork)
     digest: 3d676c413eff8097c05cb04ae0f61faf782791d1ffb85469754dbf0f0687fa60
     keywords:
@@ -874,7 +930,42 @@ entries:
   java-microservice:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-11-02T18:17:08.702428348-05:00"
+    created: "2026-11-24T19:32:48.480060469-05:00"
+    description: 'Generic Knative Service chart for JVM microservice deployments —
+      Quarkus, Spring Boot, and Micronaut. Deploys one or more services per release,
+      each independently configurable with its own image, resources, secrets, and
+      scaling policy.  Supports both JVM and GraalVM native runtime modes — controlled
+      per service via the image digest/tag. Secrets are injected via External Secrets
+      Operator. Per-service `framework: quarkus | spring | micronaut` (default quarkus)
+      selects the framework-conventional default health-probe paths and, when `database.enabled:
+      true` is used, the framework-conventional datasource environment variable names
+      — both remain fully overridable per service regardless of framework.  Designed
+      to be deployed once per service family (e.g. entity-resolution-serving) with
+      service-specific resource and scaling configuration keyed by stable service
+      name in the services map.  Integrates with Istio for mTLS and traffic management,
+      and with Knative for serverless scaling including scale-to-zero. '
+    digest: fae2a2200c19a08e60a0350ab249d75e12feab3ad4e4d5ff1bcbf1fcc060bc38
+    keywords:
+    - quarkus
+    - spring
+    - micronaut
+    - java
+    - knative
+    - serverless
+    - microservices
+    - entity-resolution
+    - camel
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: java-microservice
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/java-microservice-helm-chart/java-microservice-0.1.7.tgz
+    version: 0.1.7
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-11-24T19:32:48.479299233-05:00"
     description: 'Generic Knative Service chart for JVM microservice deployments —
       Quarkus, Spring Boot, and Micronaut. Deploys one or more services per release,
       each independently configurable with its own image, resources, secrets, and
@@ -909,7 +1000,7 @@ entries:
     version: 0.1.6
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-11-02T18:17:08.701503444-05:00"
+    created: "2026-11-24T19:32:48.478019832-05:00"
     description: 'Generic Knative Service chart for JVM microservice deployments —
       Quarkus, Spring Boot, and Micronaut. Deploys one or more services per release,
       each independently configurable with its own image, resources, secrets, and
@@ -944,7 +1035,7 @@ entries:
     version: 0.1.5
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-11-02T18:17:08.70041317-05:00"
+    created: "2026-11-24T19:32:48.477156783-05:00"
     description: 'Generic Knative Service chart for JVM microservice deployments —
       Quarkus, Spring Boot, and Micronaut. Deploys one or more services per release,
       each independently configurable with its own image, resources, secrets, and
@@ -979,7 +1070,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-11-02T18:17:08.699243311-05:00"
+    created: "2026-11-24T19:32:48.476447534-05:00"
     description: 'Generic Knative Service chart for JVM microservice deployments —
       Quarkus, Spring Boot, and Micronaut. Deploys one or more services per release,
       each independently configurable with its own image, resources, secrets, and
@@ -1014,7 +1105,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-11-02T18:17:08.698565339-05:00"
+    created: "2026-11-24T19:32:48.475050129-05:00"
     description: 'Generic Knative Service chart for JVM microservice deployments —
       Quarkus, Spring Boot, and Micronaut. Deploys one or more services per release,
       each independently configurable with its own image, resources, secrets, and
@@ -1049,7 +1140,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-11-02T18:17:08.697837141-05:00"
+    created: "2026-11-24T19:32:48.473819389-05:00"
     description: 'Generic Knative Service chart for JVM microservice deployments —
       Quarkus, Spring Boot, and Micronaut. Deploys one or more services per release,
       each independently configurable with its own image, resources, secrets, and
@@ -1267,7 +1358,26 @@ entries:
   keycloak:
   - apiVersion: v2
     appVersion: 26.7.4-authz
-    created: "2026-11-02T18:04:11.651502707-05:00"
+    created: "2026-11-24T19:32:49.255639911-05:00"
+    description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
+      database support.
+    digest: 970fa6ff58fc03a2f3186bdb43e74f836eb0ee575d99fa1a50915d1ee8284177
+    keywords:
+    - keycloak
+    - iam
+    - authentication
+    - authorization
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: keycloak
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/keycloak-helm-chart/keycloak-0.0.33.tgz
+    version: 0.0.33
+  - apiVersion: v2
+    appVersion: 26.7.4-authz
+    created: "2026-11-24T19:32:49.252306319-05:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 230091306648a1bc572c6b4fef154990564d042fa58a029f90e64fd68bc50ecf
@@ -1286,7 +1396,7 @@ entries:
     version: 0.0.32
   - apiVersion: v2
     appVersion: 26.7.4-authz
-    created: "2026-11-02T18:04:11.650678242-05:00"
+    created: "2026-11-24T19:32:49.249602695-05:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: d9d91a35906ade60244f49a3f81d6cffb02e3e975fe0a14757eea7d4bb719243
@@ -1305,7 +1415,7 @@ entries:
     version: 0.0.30
   - apiVersion: v2
     appVersion: 26.7.4-authz
-    created: "2026-11-02T18:04:11.64971405-05:00"
+    created: "2026-11-24T19:32:49.248612844-05:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 19496b3aa87658fd798dc80cecbe219681928db66f992a25bd31be9306017ff7
@@ -1324,7 +1434,7 @@ entries:
     version: 0.0.29
   - apiVersion: v2
     appVersion: 26.7.4-authz
-    created: "2026-11-02T18:04:11.647820906-05:00"
+    created: "2026-11-24T19:32:49.24772884-05:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 6ce559850d2fe23977995d2e2065d9dddbff873017a9a430853e56a0da9cc84b
@@ -1343,7 +1453,7 @@ entries:
     version: 0.0.27
   - apiVersion: v2
     appVersion: 26.7.2
-    created: "2026-11-02T18:04:11.645974655-05:00"
+    created: "2026-11-24T19:32:49.246835471-05:00"
     description: Helm chart for deploying Keycloak with StatefulSet, TLS, and external
       database support.
     digest: 20ce4a3c48b7345b36f1cc0dc8df7d9153a768cdd60fa68483af15195a3a7d8c
@@ -1800,7 +1910,20 @@ entries:
   knative-crd:
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-07-14T14:42:34.518849218-04:00"
+    created: "2026-11-24T19:32:50.104204571-05:00"
+    description: 'Deploys KnativeServing and KnativeEventing custom resources via
+      the Knative Operator. Configures net-istio as the Serving network layer and
+      eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
+      Operator to be installed. '
+    digest: ebb02e0b8cdb03f94f01ed05e83c1da1c295da7ead1d2d04ee70264a8f68539e
+    name: knative-crd
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/knative-crd-helm-chart/knative-crd-0.0.19.tgz
+    version: 0.0.19
+  - apiVersion: v2
+    appVersion: 1.21.0
+    created: "2026-11-24T19:32:50.104083914-05:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -1813,7 +1936,7 @@ entries:
     version: 0.0.18
   - apiVersion: v2
     appVersion: 1.21.0
-    created: "2026-07-14T14:42:34.518443402-04:00"
+    created: "2026-11-24T19:32:50.103953179-05:00"
     description: 'Deploys KnativeServing and KnativeEventing custom resources via
       the Knative Operator. Configures net-istio as the Serving network layer and
       eventing-kafka-broker as the Eventing broker implementation. Requires the Knative
@@ -3095,7 +3218,26 @@ entries:
   opensearch-cluster:
   - apiVersion: v2
     appVersion: 3.8.0
-    created: "2026-10-10T20:57:44.333739647-04:00"
+    created: "2026-11-24T19:32:51.004657912-05:00"
+    dependencies:
+    - name: opensearch
+      repository: https://opensearch-project.github.io/helm-charts/
+      version: 3.8.0
+    - name: opensearch-dashboards
+      repository: https://opensearch-project.github.io/helm-charts/
+      version: 3.8.0
+    description: 'Wrapper chart for the opensearch-project/opensearch and opensearch-project/opensearch-dashboards
+      Helm charts. Adds cert-manager Certificate CRs, External Secrets Operator integration,
+      Istio PeerAuthentication, and OpenSearch security plugin configuration. '
+    digest: 49204e22fca756e94810dc04d8a2f6d894537f01d2e14b7ee94e1c4b07b5fa74
+    name: opensearch-cluster
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/opensearch-cluster-helm-chart/opensearch-cluster-0.1.7.tgz
+    version: 0.1.7
+  - apiVersion: v2
+    appVersion: 3.8.0
+    created: "2026-11-24T19:32:50.999264382-05:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -3114,7 +3256,7 @@ entries:
     version: 0.1.6
   - apiVersion: v2
     appVersion: 3.8.0
-    created: "2026-10-10T20:57:44.330919093-04:00"
+    created: "2026-11-24T19:32:50.995516405-05:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -3133,7 +3275,7 @@ entries:
     version: 0.1.5
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-10-10T20:57:44.328230829-04:00"
+    created: "2026-11-24T19:32:50.993172716-05:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -3152,7 +3294,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-10-10T20:57:44.326455522-04:00"
+    created: "2026-11-24T19:32:50.988806171-05:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -3171,7 +3313,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-10-10T20:57:44.323955349-04:00"
+    created: "2026-11-24T19:32:50.982558896-05:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -3190,7 +3332,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 3.5.0
-    created: "2026-10-10T20:57:44.322159493-04:00"
+    created: "2026-11-24T19:32:50.976057953-05:00"
     dependencies:
     - name: opensearch
       repository: https://opensearch-project.github.io/helm-charts/
@@ -3210,7 +3352,37 @@ entries:
   openworkflow-workflow-bundle:
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:23:08.866609822-05:00"
+    created: "2026-11-24T19:32:51.732981067-05:00"
+    description: 'A product''s OpenWorkflow workflow bundle: its contract files and
+      its workflow documents (YAML), in its workflow namespace. A release with contracts
+      renders an upload Job that uploads every contract file to the platform registry,
+      in the group its scope names; a release with definitions renders a publish Job
+      that runs forwardmeasure-openworkflow''s workflow publisher, which renders every
+      bundle reference ("@BUNDLE_DID@/<file>" for this bundle, "@BUNDLE_DID:<alias>@/<file>"
+      for a bundle contractBundles declares) to the DID URL of the registry version
+      it names (did:<didMethod>:bundle:<workflowNamespace>/<file>?version=<n>), never
+      a registry URL, and publishes each document into every listed tenant. Workflows
+      are named <workflowNamespace>-<document.name>; rerunning with an unchanged rendered
+      source publishes nothing. Products add a contracts release and a workflows release
+      of this chart to their own helmfile - no code, image or Keycloak clients of
+      their own (forwardmeasure-platform docs/contract-bundling-design-2026-11-11.md,
+      sections 2.2, 2.3 and 2.15).  Install it in the namespace holding fowf''s publisher
+      identity Secret (identity.secretName). '
+    digest: a17feacc4277885e0262096c5e3710c7eb24e7c6040c26a72d5e16f2bd560bcd
+    keywords:
+    - openworkflow
+    - workflow
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: openworkflow-workflow-bundle
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/openworkflow-workflow-bundle-helm-chart/openworkflow-workflow-bundle-0.3.2.tgz
+    version: 0.3.2
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2026-11-24T19:32:51.732674059-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its contract files and
       its workflow documents (YAML), in its workflow namespace. A release with contracts
       renders an upload Job that uploads every contract file to the platform registry,
@@ -3240,7 +3412,7 @@ entries:
     version: 0.3.1
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:23:08.865955963-05:00"
+    created: "2026-11-24T19:32:51.732428572-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its contract files and
       its workflow documents (YAML), in its workflow namespace. A release with contracts
       renders an upload Job that uploads every contract file to the platform registry,
@@ -3270,7 +3442,7 @@ entries:
     version: 0.3.0
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:23:08.865308248-05:00"
+    created: "2026-11-24T19:32:51.73215142-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its workflow namespace, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3297,7 +3469,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:23:08.864774278-05:00"
+    created: "2026-11-24T19:32:51.731941249-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3324,7 +3496,7 @@ entries:
     version: 0.1.6
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:23:08.864291712-05:00"
+    created: "2026-11-24T19:32:51.731746603-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3351,7 +3523,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:23:08.863803911-05:00"
+    created: "2026-11-24T19:32:51.731574045-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3378,7 +3550,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:23:08.86324992-05:00"
+    created: "2026-11-24T19:32:51.731386805-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3405,7 +3577,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-11-11T23:23:08.862727854-05:00"
+    created: "2026-11-24T19:32:51.731172732-05:00"
     description: 'A product''s OpenWorkflow workflow bundle: its workflow documents
       (YAML) and its domain moniker, published into every listed tenant by forwardmeasure-openworkflow''s
       workflow publisher image. Renders a ConfigMap of the documents and a post-install/post-upgrade
@@ -3713,7 +3885,36 @@ entries:
   quarkus-service:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-27T12:27:51.957799773-04:00"
+    created: "2026-11-24T19:32:52.642744187-05:00"
+    description: 'Generic Knative Service chart for Quarkus microservice deployments.
+      Deploys one or more Quarkus services per release, each independently configurable
+      with its own image, resources, secrets, and scaling policy.  Supports both JVM
+      and GraalVM native runtime modes — controlled per service via the image digest/tag.
+      Secrets are injected via External Secrets Operator. Config properties follow
+      standard Quarkus environment variable override conventions (QUARKUS_ prefix).  Designed
+      to be deployed once per service family (e.g. entity-resolution-serving) with
+      service-specific resource and scaling configuration keyed by stable service
+      name in the services map.  Integrates with Istio for mTLS and traffic management,
+      and with Knative for serverless scaling including scale-to-zero. '
+    digest: 125559f8ef16a4bbbc7d66c1fcde023b0e921febe91480aef7a1c6a31b5d67fa
+    keywords:
+    - quarkus
+    - knative
+    - serverless
+    - microservices
+    - entity-resolution
+    - camel
+    maintainers:
+    - email: pn@forwardmeasure.com
+      name: Prashanth Nandavanam
+    name: quarkus-service
+    type: application
+    urls:
+    - https://forwardmeasure.github.io/helm-charts/charts/quarkus-service-helm-chart/quarkus-service-0.2.6.tgz
+    version: 0.2.6
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-11-24T19:32:52.642149994-05:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -3742,7 +3943,7 @@ entries:
     version: 0.2.5
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-27T12:27:51.95702511-04:00"
+    created: "2026-11-24T19:32:52.641625075-05:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -3771,7 +3972,7 @@ entries:
     version: 0.2.4
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-27T12:27:51.956186056-04:00"
+    created: "2026-11-24T19:32:52.641140133-05:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -3800,7 +4001,7 @@ entries:
     version: 0.2.3
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-27T12:27:51.955314125-04:00"
+    created: "2026-11-24T19:32:52.640670716-05:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -3829,7 +4030,7 @@ entries:
     version: 0.2.2
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-27T12:27:51.954374002-04:00"
+    created: "2026-11-24T19:32:52.640253596-05:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -3858,7 +4059,7 @@ entries:
     version: 0.2.1
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-27T12:27:51.953469355-04:00"
+    created: "2026-11-24T19:32:52.639812448-05:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -3887,7 +4088,7 @@ entries:
     version: 0.1.21
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-07-27T12:27:51.952527075-04:00"
+    created: "2026-11-24T19:32:52.6391336-05:00"
     description: 'Generic Knative Service chart for Quarkus microservice deployments.
       Deploys one or more Quarkus services per release, each independently configurable
       with its own image, resources, secrets, and scaling policy.  Supports both JVM
@@ -4590,4 +4791,4 @@ entries:
     urls:
     - https://forwardmeasure.github.io/helm-charts/charts/zookeeper-cluster-helm-chart/zookeeper-1.0.1.tgz
     version: 1.0.1
-generated: "2026-11-22T11:40:13.043843291-05:00"
+generated: "2026-11-24T19:32:52.637942263-05:00"

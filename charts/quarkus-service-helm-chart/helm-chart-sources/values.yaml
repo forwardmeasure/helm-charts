@@ -96,7 +96,6 @@ liquibaseWait:
   imagePullPolicy: IfNotPresent
   serviceName: liquibase-migration
   serviceNamespace: data-fabric
-  maxAttempts: 30
   sleepSeconds: 10
   resources:
     requests:
@@ -277,7 +276,6 @@ kafka:
 #     job.backoffLimit:            Kubernetes Job retry count. Default: 0,
 #                                  because durable task retry is owned by
 #                                  the application task state machine.
-#     job.activeDeadlineSeconds:   Optional wall-clock limit for one Job.
 #     job.ttlSecondsAfterFinished: Optional cleanup TTL for finished Jobs.
 #
 # Spark executor pod template:

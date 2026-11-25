@@ -18,8 +18,10 @@ metadata:
     helm.sh/hook-weight: "-5"
     helm.sh/hook-delete-policy: before-hook-creation
 spec:
-  backoffLimit: {{ .Values.backoffLimit }}
-  activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+  {{- /* How often the Job runs again after it fails (a dependency failing or unreachable): the
+  release passes the platform's dependency-retry attempts (decision (h) of the limits sweep's
+  Item R); a person re-runs the release after that. No deadline. */}}
+  backoffLimit: {{ .Values.backoffLimit | int }}
   ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
   template:
     metadata:
@@ -64,6 +66,7 @@ spec:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           env:
             - {name: OPENWORKFLOW_PUBLISHER_RUN, value: upload}
+            {{- include "openworkflow-workflow-bundle.dependencyRetryEnv" . | nindent 12 }}
             - {name: OPENWORKFLOW_PUBLISHER_WORKFLOW_NAMESPACE, value: {{ .Values.workflowNamespace | quote }}}
             - {name: OPENWORKFLOW_PUBLISHER_REGISTRY_SCOPE, value: {{ .Values.scope | quote }}}
             - {name: OPENWORKFLOW_PUBLISHER_RESOURCES_DIR, value: /contracts}

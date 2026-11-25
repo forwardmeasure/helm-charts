@@ -12,8 +12,6 @@ args:
   - {{ .Values.paths.imageModels | quote }}
   - --staging
   - /tmp/hf-staging
-  - --lock-timeout
-  - {{ .Values.modelDownload.lockTimeoutSeconds | quote }}
 env:
   - {name: HF_HOME, value: /tmp/hf-staging/hf-home}
   - {name: HF_HUB_CACHE, value: /tmp/hf-staging/hf-home/hub}

@@ -96,6 +96,9 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 
 {{/* Fails the render on settings the publisher can't run without. */}}
 {{- define "openworkflow-workflow-bundle.validate" -}}
+{{- if not (regexMatch "^[0-9]+$" (toString .Values.backoffLimit)) -}}
+{{- fail (printf "backoffLimit must be a whole number of at least 0 (how often a failed Job of this release runs again), not '%v'" .Values.backoffLimit) -}}
+{{- end -}}
 {{- if not (regexMatch "^[a-z][a-z0-9]*(-[a-z0-9]+)*$" (.Values.workflowNamespace | default "")) -}}
 {{- fail "workflowNamespace is required: lowercase letters, digits and single hyphens, e.g. entity-intelligence" -}}
 {{- end -}}
@@ -106,7 +109,7 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 {{- fail "apiDocuments is renamed contracts (chart 0.3.0): move the files there" -}}
 {{- end -}}
 {{- if or (hasKey .Values "reviewedCredentialCapabilities") (hasKey .Values "credentialApprover") -}}
-{{- fail "reviewedCredentialCapabilities and credentialApprover are retired: definition management derives each revision's credential grant and the credential-use PDP (forwardmeasure-authzen's per-product policies) decides it; remove them" -}}
+{{- fail "reviewedCredentialCapabilities and credentialApprover are retired: definition management derives each revision's credential grant and the decision engine decides it by the workflow's reviewed ruleset (credentialRulesets, published as credentialRulesetApprover); remove them" -}}
 {{- end -}}
 {{- if not (kindIs "map" .Values.contracts) -}}
 {{- fail "contracts must be the bundle's contracts image, {repository, digest, roles}" -}}
@@ -137,8 +140,8 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 {{- fail (printf "contracts.digest is required: the contracts image %s by its sha256 digest (the release's image-versions pin, which the install's digest sync fills); there is no tag fallback" .Values.contracts.repository) -}}
 {{- end -}}
 {{- end -}}
-{{- if not (or .Values.definitions .Values.contracts) -}}
-{{- fail "definitions or contracts must be given: a release publishes workflow documents, uploads its contracts image's files, or both" -}}
+{{- if not (or .Values.definitions .Values.contracts .Values.sandboxRuleset) -}}
+{{- fail "definitions or contracts must be given: a release publishes workflow documents, uploads its contracts image's files, or both (or, sandboxRuleset, the tenant's credentials/sandbox ruleset)" -}}
 {{- end -}}
 {{- range $file, $_ := .Values.definitions -}}
 {{- if not (regexMatch "^[^./][^/]*\\.ya?ml$" $file) -}}
@@ -205,4 +208,18 @@ alias can be (an alias starts with a letter or digit and never holds an @). */ -
 {{- fail "contractDigests is required: every workflow namespace's contracts image digest, the shared platform.contractDigests passed whole; there is no default" -}}
 {{- end -}}
 {{- $_ := include "openworkflow-workflow-bundle.contractDigests" . -}}
+{{- end -}}
+
+{{/*
+The platform's dependency-retry setting (FORWARDMEASURE_DEPENDENCY_RETRY_*) for a Job of this chart,
+from .Values.dependencyRetry: only the keys set (a 0 renders), empty = the documented defaults.
+*/}}
+{{- define "openworkflow-workflow-bundle.dependencyRetryEnv" -}}
+{{- $retry := (.Values.dependencyRetry | default (dict)) }}
+{{- range $key, $variable := dict "attempts" "FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS" "initialBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF" "maximumBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF" "multiplier" "FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER" "jitter" "FORWARDMEASURE_DEPENDENCY_RETRY_JITTER" "connectTimeout" "FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT" }}
+{{- $value := index $retry $key }}
+{{- if or $value (eq (toString $value) "0") }}
+- {name: {{ $variable }}, value: {{ $value | toString | quote }}}
+{{- end }}
+{{- end }}
 {{- end -}}

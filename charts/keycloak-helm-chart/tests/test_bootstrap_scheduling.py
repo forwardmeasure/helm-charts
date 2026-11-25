@@ -5,7 +5,7 @@ import unittest
 
 import yaml
 
-CHART = Path(__file__).resolve().parents[1]
+CHART = (Path(__file__).resolve().parents[1] / "helm-chart-sources")
 
 
 def matches(selector, labels):

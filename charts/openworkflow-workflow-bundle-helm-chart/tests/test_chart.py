@@ -25,7 +25,7 @@ import unittest
 
 import yaml
 
-CHART = Path(__file__).resolve().parents[1]
+CHART = (Path(__file__).resolve().parents[1] / "helm-chart-sources")
 
 DEFINITION = """\
 document: {dsl: '1.0.3', namespace: "@WORKFLOW_NAMESPACE@", name: resolution-application, version: '1.3.0'}
@@ -476,6 +476,61 @@ class ContractDigests(unittest.TestCase):
                     self.assertIn("contractDigests is required: every workflow namespace's contracts"
                                   " image digest", error)
 
+
+
+class CredentialRulesets(unittest.TestCase):
+    """The credential approver publishes a bundle's reviewed rulesets before its workflows are
+    published (forwardmeasure-platform docs/credential-checks-on-fde-design-2026-11-21.md 5.5)."""
+
+    RULESETS = values(
+        WORKFLOWS,
+        credentialRulesets={"resolution-application.drl": "// grants\npackage credentials;\n"},
+        credentialRulesetBundles={"entity-intelligence": "entity-intelligence", "selfsame": "selfsame"},
+        credentialRulesetApprover={"secretName": "openworkflow-credential-approver",
+                            "clientIdKey": "OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_ID",
+                            "clientSecretKey": "OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_SECRET"},
+        decisionEngine={"target": "dns:///decision-engine.decision-engine.svc:9000"})
+
+    def test_the_rulesets_job_runs_before_the_publish_job_as_its_own_identity(self):
+        docs = render(self.RULESETS)
+        found = jobs(docs)
+        rulesets = found["fei-openworkflow-workflow-bundle-credential-rulesets"] if "fei-openworkflow-workflow-bundle-credential-rulesets" in found else next(
+            job for name, job in found.items() if name.endswith("-credential-rulesets"))
+        publish = next(job for name, job in found.items() if not name.endswith("-credential-rulesets"))
+        weight = lambda job: int(job["metadata"]["annotations"]["helm.sh/hook-weight"])
+        self.assertLess(weight(rulesets), weight(publish))
+        variables = {item["name"]: item for item in rulesets["spec"]["template"]["spec"]["containers"][0]["env"]}
+        self.assertEqual("credential-rulesets", variables["OPENWORKFLOW_PUBLISHER_RUN"]["value"])
+        self.assertEqual("openworkflow-credential-approver",
+                         variables["OPENWORKFLOW_CREDENTIAL_APPROVER_CLIENT_SECRET"]["valueFrom"]["secretKeyRef"]["name"])
+        # Decision (h) of the limits sweep's Item R: the chart value, 10 unless the release sets it.
+        self.assertEqual(10, rulesets["spec"]["backoffLimit"])
+        self.assertNotIn("activeDeadlineSeconds", rulesets["spec"])
+        maps = [doc for doc in docs if doc["kind"] == "ConfigMap" and doc["metadata"]["name"].endswith("-credential-rulesets")]
+        self.assertEqual(["resolution-application.drl"], list(maps[0]["data"]))
+        # Kept for tenant administration (no hook), and never read as a workflow ConfigMap.
+        labels = maps[0]["metadata"]["labels"]
+        self.assertNotIn("helm.sh/hook", maps[0]["metadata"].get("annotations", {}))
+        self.assertNotIn("openworkflow.forwardmeasure.com/workflow-bundle", labels)
+        self.assertEqual("true", labels["openworkflow.forwardmeasure.com/credential-rulesets"])
+        self.assertEqual({"entity-intelligence": "entity-intelligence", "selfsame": "selfsame"},
+                         json.loads(maps[0]["metadata"]["annotations"][
+                             "openworkflow.forwardmeasure.com/credential-ruleset-bundles"]))
+
+    def test_the_publishers_own_secret_is_refused_for_the_approver(self):
+        error = render(values(self.RULESETS, credentialRulesetApprover={"secretName": "openworkflow-platform-clients",
+                                                                  "clientIdKey": "a", "clientSecretKey": "b"}),
+                       success=False)
+        self.assertIn("a publisher never writes a grant", error)
+
+    def test_a_sandbox_ruleset_release_publishes_only_the_sandbox_ruleset(self):
+        docs = render(values(CONTRACTS, contracts=None, sandboxRuleset=True, tenants=["acme"],
+                             credentialRulesetApprover=self.RULESETS["credentialRulesetApprover"],
+                             decisionEngine=self.RULESETS["decisionEngine"]))
+        found = jobs(docs)
+        self.assertEqual(1, len(found))
+        variables = {item["name"]: item.get("value") for item in next(iter(found.values()))["spec"]["template"]["spec"]["containers"][0]["env"]}
+        self.assertEqual("true", variables["OPENWORKFLOW_CREDENTIAL_RULESETS_SANDBOX"])
 
 if __name__ == "__main__":
     unittest.main()

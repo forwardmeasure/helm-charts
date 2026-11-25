@@ -73,3 +73,18 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- printf "%s:%s" .Values.image.repository $tag -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+The bootstrap Job's FORWARDMEASURE_DEPENDENCY_RETRY_* variables from .Values.dependencyRetry: only
+the keys set (a 0 renders); empty, the script's documented defaults.
+*/}}
+{{- define "keycloak.dependencyRetryEnv" -}}
+{{- $retry := (.Values.dependencyRetry | default (dict)) }}
+{{- range $key, $variable := dict "attempts" "FORWARDMEASURE_DEPENDENCY_RETRY_ATTEMPTS" "initialBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_INITIAL_BACKOFF" "maximumBackoff" "FORWARDMEASURE_DEPENDENCY_RETRY_MAXIMUM_BACKOFF" "multiplier" "FORWARDMEASURE_DEPENDENCY_RETRY_MULTIPLIER" "jitter" "FORWARDMEASURE_DEPENDENCY_RETRY_JITTER" "connectTimeout" "FORWARDMEASURE_DEPENDENCY_RETRY_CONNECT_TIMEOUT" }}
+{{- $value := index $retry $key }}
+{{- if or $value (eq (toString $value) "0") }}
+- name: {{ $variable }}
+  value: {{ $value | toString | quote }}
+{{- end }}
+{{- end }}
+{{- end -}}

@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-SCRIPT = Path(__file__).parents[1] / "files/bootstrap-admin.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "helm-chart-sources/files/bootstrap-admin.sh"
 STUBS = r'''
 get_client_uuid_by_client_id() { printf '%s' fixture-client; }
 get_service_account_user_id() { printf '%s' fixture-user; }

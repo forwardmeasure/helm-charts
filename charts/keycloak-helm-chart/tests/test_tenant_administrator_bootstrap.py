@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-SCRIPT = Path(__file__).parents[1] / "files/bootstrap-admin.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "helm-chart-sources/files/bootstrap-admin.sh"
 STUBS = r'''
 kc_get() {
   case "$1" in
